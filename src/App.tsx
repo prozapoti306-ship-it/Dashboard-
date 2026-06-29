@@ -1,0 +1,6489 @@
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { 
+  INITIAL_PRODUCTS, 
+  INITIAL_ORDERS, 
+  INITIAL_CUSTOMERS, 
+  INITIAL_NOTIFICATIONS, 
+  DEFAULT_STATS, 
+  DEFAULT_SETTINGS 
+} from './data/mockData';
+import { 
+  Product, 
+  Order, 
+  Customer, 
+  Notification, 
+  SystemSettings, 
+  OrderStatus, 
+  OrderItem 
+} from './types';
+import Sidebar from './components/Sidebar';
+import { 
+  TrendingUp, 
+  DollarSign, 
+  ShoppingBag, 
+  Clock, 
+  CheckCircle2, 
+  XCircle, 
+  Search, 
+  Filter, 
+  Plus, 
+  Trash2, 
+  Edit, 
+  Download, 
+  Printer, 
+  User, 
+  Users,
+  Warehouse,
+  Mail, 
+  Phone, 
+  MapPin, 
+  ChevronRight, 
+  Sparkles, 
+  ArrowUpRight, 
+  BadgeAlert, 
+  Send, 
+  Activity, 
+  Briefcase, 
+  FolderHeart, 
+  ShieldAlert, 
+  RefreshCcw,
+  BookOpen,
+  PieChart,
+  HardDrive,
+  Cpu,
+  Layers,
+  Key,
+  Database,
+  Code,
+  Ticket,
+  Gift,
+  Coins,
+  Settings,
+  UserCheck,
+  Undo2,
+  HelpCircle
+} from 'lucide-react';
+
+// Helper to format in Bangladeshi Taka format (e.g. ৳ 1,00,000)
+export const formatCurrency = (amount: number): string => {
+  return `৳ ${Math.floor(amount).toLocaleString('en-IN')}`;
+};
+
+export default function App() {
+  // --- Core State ---
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
+  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+  const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeChartTab, setActiveChartTab] = useState<'sales' | 'profit' | 'customers' | 'status'>('sales');
+
+  // --- Filtering & Search ---
+  const [searchQuery, setSearchQuery] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('All');
+  const [orderPaymentFilter, setOrderPaymentFilter] = useState<string>('All');
+  const [customerSegmentFilter, setCustomerSegmentFilter] = useState<string>('All');
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('All');
+  const [productCollectionFilter, setProductCollectionFilter] = useState<string>('All');
+  const [productSeasonFilter, setProductSeasonFilter] = useState<string>('All');
+  const [productBrandFilter, setProductBrandFilter] = useState<string>('All');
+
+  // --- Dynamic Category, Brand, & Collection Lists ---
+  const [categoriesList, setCategoriesList] = useState<string[]>(['Apparel', 'Leather Goods', 'Footwear', 'Accessories', 'Eyewear']);
+  const [brandsList, setBrandsList] = useState<string[]>(['Aura Lux', 'Monaco Atelier', 'Breeze Couture', 'Vanguard Knit', 'Atelier Luxe', 'Monarque Premium']);
+  const [collectionsList, setCollectionsList] = useState<string[]>(['Eid Collection', 'Winter Collection', 'Summer Collection', 'New Arrival', 'Premium Collection']);
+  const [seasonsList, setSeasonsList] = useState<string[]>(['Eid', 'Winter', 'Summer', 'All Season']);
+
+  const [productSubTab, setProductSubTab] = useState<'catalog' | 'manager' | 'analytics'>('catalog');
+
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newBrandName, setNewBrandName] = useState('');
+  const [newCollectionName, setNewCollectionName] = useState('');
+
+  // --- Selection & Modal States ---
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  
+  // Product Form Modal State
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productForm, setProductForm] = useState({
+    name: '',
+    description: '',
+    category: 'Apparel',
+    price: 0,
+    originalPrice: 0,
+    stock: 10,
+    image: '',
+    sizes: 'S, M, L, XL',
+    colors: 'Charcoal Black, Warm White',
+    fabric: 'Premium Cotton Blend',
+    sku: '',
+    collection: 'New Arrival',
+    season: 'All Season',
+    brand: 'Aura Lux',
+    productCost: 0,
+    deliveryCost: 0,
+    discount: 0,
+    marketingCost: 0
+  });
+
+  // --- Dynamic ERP Feature Lists ---
+  const [collectionsData, setCollectionsData] = useState([
+    { id: 'eid', name: 'Eid Collection', sales: 1250450, profit: 450200, itemsCount: 15, season: 'Eid', status: 'Active' },
+    { id: 'winter', name: 'Winter Collection', sales: 845200, profit: 310500, itemsCount: 22, season: 'Winter', status: 'Draft' },
+    { id: 'summer', name: 'Summer Collection', sales: 945600, profit: 340200, itemsCount: 18, season: 'Summer', status: 'Active' },
+    { id: 'new-arrival', name: 'New Arrival', sales: 1560700, profit: 580400, itemsCount: 10, season: 'All Season', status: 'Active' },
+    { id: 'premium', name: 'Premium Collection', sales: 2450800, profit: 980300, itemsCount: 8, season: 'All Season', status: 'Active' }
+  ]);
+
+  const [returnsData, setReturnsData] = useState([
+    { id: 'RET-001', customerName: 'ইমরান খান', phone: '01712-345678', date: '2026-06-15', productName: 'Aura Silk Trench Coat', refundAmount: 185000, reason: 'Size doesn\'t fit, requesting L instead of M', status: 'Pending Approval' },
+    { id: 'RET-002', customerName: 'আনিকা চৌধুরী', phone: '01819-234567', date: '2026-06-10', productName: 'Luna Silk Wrap Dress', refundAmount: 12500, reason: 'Fabric shade minor variation', status: 'Refunded' },
+    { id: 'RET-003', customerName: 'তামিম ইকবাল', phone: '01911-345678', date: '2026-06-08', productName: 'Vanguard Knit Hoodie', refundAmount: 8500, reason: 'Changed mind', status: 'Rejected' }
+  ]);
+
+  const [staffData, setStaffData] = useState([
+    { name: 'আরিফ রহমান', email: 'arif@auralux.com', role: 'Admin', status: 'Active', permissions: 'Full Access' },
+    { name: 'সাদিয়া ইসলাম', email: 'sadia@auralux.com', role: 'Shop Manager', status: 'Active', permissions: 'Orders & Inventory' },
+    { name: 'কবির আহমেদ', email: 'kabir@auralux.com', role: 'Support Team', status: 'Active', permissions: 'Customer CRM & Ticketing' },
+    { name: 'মেহেদী হাসান', email: 'mehedi@auralux.com', role: 'Inventory Specialist', status: 'Active', permissions: 'Stock Controls only' }
+  ]);
+
+  const [ticketsData, setTicketsData] = useState([
+    { id: 'TCK-4819', subject: 'WooCommerce Order Status Sync Timeout', category: 'Syncing', priority: 'High', status: 'Open', date: '2026-06-25' },
+    { id: 'TCK-4815', subject: 'Printer alignment mismatch for PDF Invoice', category: 'Printing', priority: 'Medium', status: 'In Progress', date: '2026-06-24' },
+    { id: 'TCK-4809', subject: 'bKash IPN callback failure confirmation', category: 'Payment Gateways', priority: 'Critical', status: 'Resolved', date: '2026-06-22' }
+  ]);
+
+  // --- Notification Sidebar ---
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+
+  // --- AI Chat Assistant Drawer State ---
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: 'user' | 'assistant'; text: string; timestamp: string }>>([
+    { 
+      sender: 'assistant', 
+      text: 'হ্যালো! আমি আপনার Aura Lux AI অ্যাসিস্ট্যান্ট। আমি আপনার বেচাবিক্রি, ইনভেন্টরি লেভেল এবং কাস্টমার রিলেশনশিপ ডেটা পর্যালোচনা করতে পারি। আজকের সেলস কেমন হলো জানতে চান নাকি কোনো VIP কাস্টমারের উইন-ব্যাক ক্যাম্পেইন ড্রাফট করতে চান?', 
+      timestamp: new Date().toLocaleTimeString() 
+    }
+  ]);
+  const [userInput, setUserInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // --- Automated Reports (Gemini Powered) ---
+  const [aiAnalysisType, setAiAnalysisType] = useState<'sales' | 'behavior' | 'general'>('sales');
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<string>('');
+  const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false);
+
+  // Bulk selections for orders
+  const [bulkSelectedOrders, setBulkSelectedOrders] = useState<string[]>([]);
+
+  // CRM Customer and Order Notes states
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [customerForm, setCustomerForm] = useState<Partial<Customer>>({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    gender: 'Male',
+    birthday: '',
+    preferredSize: '',
+    favoriteColor: '',
+    favoriteCategory: '',
+    totalSpending: 0,
+    ordersCount: 0,
+    lastPurchaseDate: '',
+    segment: 'New',
+    shirtSize: 'M',
+    pantSize: '32',
+    shoeSize: '41',
+    customerValueScore: 70,
+    buyingPatternAnalysis: '',
+    nextPurchasePrediction: ''
+  });
+  const [tempInternalNotes, setTempInternalNotes] = useState('');
+
+  useEffect(() => {
+    if (selectedOrder) {
+      setTempInternalNotes(selectedOrder.internalNotes || '');
+    } else {
+      setTempInternalNotes('');
+    }
+  }, [selectedOrder?.id]);
+
+  // --- Marketing & Loyalty States ---
+  const [marketingSubTab, setMarketingSubTab] = useState<'campaigns' | 'segments' | 'offers' | 'loyalty'>('campaigns');
+  const [coupons, setCoupons] = useState([
+    { code: 'WELCOME20', discount: 20, type: 'percentage', status: 'active', usageCount: 48 },
+    { code: 'CARTRECOVERY15', discount: 15, type: 'percentage', status: 'active', usageCount: 22 },
+    { code: 'BBDAY30', discount: 30, type: 'percentage', status: 'active', usageCount: 12 },
+    { code: 'VIPCLUB25', discount: 25, type: 'percentage', status: 'active', usageCount: 31 },
+    { code: 'WINBACK10', discount: 10, type: 'percentage', status: 'active', usageCount: 15 }
+  ]);
+  const [campaignsList, setCampaignsList] = useState([
+    { id: 'CAMP-01', name: 'Welcome Message', trigger: 'New Registration', sentCount: 154, openRate: 82, conversionRate: 14.5, status: 'Active' as const },
+    { id: 'CAMP-02', name: 'Abandoned Cart Reminder', trigger: 'Cart Idle 1 hour', sentCount: 89, openRate: 65, conversionRate: 18.2, status: 'Active' as const },
+    { id: 'CAMP-03', name: 'Birthday Offer', trigger: 'Customer Birthday', sentCount: 43, openRate: 91, conversionRate: 28.5, status: 'Active' as const },
+    { id: 'CAMP-04', name: 'Win Back Campaign', trigger: 'Inactive 60 days', sentCount: 78, openRate: 48, conversionRate: 9.1, status: 'Active' as const },
+    { id: 'CAMP-05', name: 'VIP Customer Offer', trigger: 'Value Score > 85', sentCount: 32, openRate: 98, conversionRate: 34.4, status: 'Active' as const }
+  ]);
+  const [couponForm, setCouponForm] = useState({ code: '', discount: 15, type: 'percentage', status: 'active' });
+
+  // --- Inventory History & Profit States ---
+  const [inventorySubTab, setInventorySubTab] = useState<'list' | 'analytics' | 'history'>('list');
+  const [inventoryHistory, setInventoryHistory] = useState([
+    { id: 'INV-H-001', productId: 'PROD-001', productName: 'Aura Silk Trench Coat', size: 'M', color: 'Champagne Gold', type: 'Restock' as const, quantity: 15, timestamp: '2026-06-27 10:15', note: 'সরাসরি ম্যানুফ্যাকচারার স্টক থেকে ইনপুট।' },
+    { id: 'INV-H-002', productId: 'PROD-003', productName: 'Chiffon Summer Breeze Gown', size: 'S', color: 'Pastel Rose', type: 'Sale' as const, quantity: -1, timestamp: '2026-06-26 10:15', note: 'অর্ডার ORD-2026-9042 এর কারণে স্টক হ্রাস।' },
+    { id: 'INV-H-003', productId: 'PROD-005', productName: 'Atelier Champagne Heels', size: '38', color: 'Classic Silver', type: 'Adjustment' as const, quantity: -2, timestamp: '2026-06-25 14:00', note: 'ড্যামেজ চেক এবং ডিসপ্লে রিটার্ন সমন্বয়।' },
+    { id: 'INV-H-004', productId: 'PROD-002', productName: 'Monaco Calfskin Handbag', size: 'One Size', color: 'Soft Beige', type: 'Restock' as const, quantity: 10, timestamp: '2026-06-24 16:30', note: 'লজিস্টিক ইম্পোর্ট লট ৪ রি-স্টক।' }
+  ]);
+
+  // WordPress / WooCommerce Integration states
+  const [wpActiveSubTab, setWpActiveSubTab] = useState<'explorer' | 'terminal' | 'database'>('terminal');
+  const [wpCodeFile, setWpCodeFile] = useState<string>('main');
+  const [syncStatusState, setSyncStatusState] = useState<'idle' | 'running' | 'success' | 'failed'>('idle');
+  const [syncConsoleLogs, setSyncConsoleLogs] = useState<string[]>([
+    "[SYSTEM] AURA-LUX WooCommerce Core initialized successfully.",
+    "[STATUS] Waiting for sync request... Credentials validated successfully.",
+    "[SECURE] REST API Client Nonce verification layer: READY."
+  ]);
+
+  // Scroll chat bottom
+  useEffect(() => {
+    if (chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, aiAssistantOpen]);
+
+  // --- Dynamic Dashboard Stats Calculation ---
+  // Calculates live numbers based on the updated state of orders, products, and customers
+  const liveStats = useMemo(() => {
+    let todaySales = 0;
+    let todayOrdersCount = 0;
+    let monthlySales = 0;
+    let pendingCount = 0;
+    let deliveredCount = 0;
+    let cancelledCount = 0;
+    let shippedCount = 0;
+
+    orders.forEach(order => {
+      // Calculate today's sales and order count
+      if (order.date === '2026-06-27') {
+        todaySales += order.total;
+        todayOrdersCount += 1;
+      }
+      
+      // Monthly sales for current month (June 2026: starts with '2026-06')
+      if (order.date.startsWith('2026-06')) {
+        if (order.status !== 'Cancelled') {
+          monthlySales += order.total;
+        }
+      }
+
+      // Accumulate order statuses
+      if (order.status === 'Pending') pendingCount++;
+      else if (order.status === 'Delivered') deliveredCount++;
+      else if (order.status === 'Cancelled') cancelledCount++;
+      else shippedCount++;
+    });
+
+    // Compute dynamic revenue based on non-cancelled orders
+    const activeOrdersTotal = orders
+      .filter(o => o.status !== 'Cancelled')
+      .reduce((sum, o) => sum + o.total, 0);
+
+    const baseRevenue = 13448000; // Base baseline in BDT (৳ 1,34,48,000)
+    const finalTotalRevenue = baseRevenue + activeOrdersTotal - 1650000; // Calibrated for smooth starting total
+    const finalTotalProfit = finalTotalRevenue * 0.45; // 45% luxury profit margin
+
+    // New customers in June 2026
+    const newCustomersCount = customers.filter(c => c.joinDate.startsWith('2026-06')).length;
+
+    return {
+      todaySales: todaySales || 285000,
+      todayOrdersCount: todayOrdersCount || 3,
+      monthlySales: monthlySales || 3248000,
+      totalRevenue: finalTotalRevenue,
+      totalProfit: finalTotalProfit,
+      newCustomersCount: newCustomersCount || 4,
+      pendingOrders: pendingCount,
+      deliveredOrders: deliveredCount,
+      cancelledOrders: cancelledCount,
+      shippedOrders: shippedCount,
+      totalOrders: orders.length,
+      conversionRate: 3.42
+    };
+  }, [orders, customers]);
+
+  // --- Dynamic Monthly Analytics Calculation ---
+  const monthlyAnalyticsData = useMemo(() => {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+    
+    // Revenue map (Jan to June) in BDT
+    const revenueMap: Record<string, number> = {
+      "Jan": 2800000,
+      "Feb": 3100000,
+      "Mar": 2400000,
+      "Apr": 3800000,
+      "May": 4200000,
+      "Jun": 2850000, // Starting June base
+    };
+
+    // Orders count map
+    const ordersMap: Record<string, number> = {
+      "Jan": 24,
+      "Feb": 28,
+      "Mar": 21,
+      "Apr": 35,
+      "May": 41,
+      "Jun": 18,
+    };
+
+    // Customer Cumulative Map
+    const customerMap: Record<string, number> = {
+      "Jan": 120,
+      "Feb": 155,
+      "Mar": 205,
+      "Apr": 270,
+      "May": 350,
+      "Jun": 420,
+    };
+
+    // Dynamically aggregate from live orders
+    orders.forEach(order => {
+      const dateParts = order.date.split('-');
+      if (dateParts.length >= 2) {
+        const monthNum = dateParts[1];
+        let monthKey = "";
+        if (monthNum === "01") monthKey = "Jan";
+        else if (monthNum === "02") monthKey = "Feb";
+        else if (monthNum === "03") monthKey = "Mar";
+        else if (monthNum === "04") monthKey = "Apr";
+        else if (monthNum === "05") monthKey = "May";
+        else if (monthNum === "06") monthKey = "Jun";
+
+        if (monthKey) {
+          if (order.status !== 'Cancelled') {
+            revenueMap[monthKey] += order.total;
+          }
+          ordersMap[monthKey] += 1;
+        }
+      }
+    });
+
+    // Calculate profit (45%) for each month
+    const profitMap: Record<string, number> = {};
+    months.forEach(m => {
+      profitMap[m] = revenueMap[m] * 0.45;
+    });
+
+    // Calculate dynamic customer cumulative growth
+    const totalCustomers = customers.length;
+    // Base is 420 in June, we add 15 per newly joined customer in state exceeding initial 5
+    const excessCustomersCount = Math.max(0, totalCustomers - 5);
+    customerMap["Jun"] = 420 + (excessCustomersCount * 15);
+
+    // Compute order status distribution dynamically
+    let pending = 0;
+    let shipped = 0;
+    let delivered = 0;
+    let cancelled = 0;
+
+    orders.forEach(o => {
+      if (o.status === 'Pending') pending++;
+      else if (o.status === 'Delivered') delivered++;
+      else if (o.status === 'Cancelled') cancelled++;
+      else shipped++;
+    });
+
+    return {
+      revenue: months.map(m => ({ month: m, val: revenueMap[m], orders: ordersMap[m] })),
+      profit: months.map(m => ({ month: m, val: profitMap[m] })),
+      customerGrowth: months.map(m => ({ month: m, val: customerMap[m] })),
+      orderStatus: [
+        { name: "পেন্ডিং (Pending)", count: pending, color: "bg-amber-500", barColor: "#f59e0b" },
+        { name: "প্রসেসিং/শিপড (Shipped)", count: shipped, color: "bg-sky-500", barColor: "#0ea5e9" },
+        { name: "ডেলিভারড (Delivered)", count: delivered, color: "bg-emerald-500", barColor: "#10b981" },
+        { name: "বাতিলকৃত (Cancelled)", count: cancelled, color: "bg-rose-500", barColor: "#f43f5e" },
+      ]
+    };
+  }, [orders, customers]);
+
+  // Categories list
+  const categories = useMemo(() => {
+    return Array.from(new Set(products.map(p => p.category)));
+  }, [products]);
+
+  // --- Handlers ---
+  
+  // 1. Order Status Transition Handlers
+  const updateOrderStatus = (orderId: string, nextStatus: OrderStatus) => {
+    setOrders(prev => prev.map(order => {
+      if (order.id === orderId) {
+        const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+        return {
+          ...order,
+          status: nextStatus,
+          paymentStatus: nextStatus === 'Delivered' ? 'Paid' : order.paymentStatus,
+          timeline: [
+            ...order.timeline,
+            { 
+              status: nextStatus, 
+              timestamp, 
+              note: `অর্ডার স্ট্যাটাস পরিবর্তন করে '${nextStatus}' করা হয়েছে (Admin Panel দ্বারা)।` 
+            }
+          ]
+        };
+      }
+      return order;
+    }));
+
+    // Add real-time log notification
+    const newNotif: Notification = {
+      id: `NOTIF-${Date.now()}`,
+      title: `Order ${orderId} Updated`,
+      message: `Status is now ${nextStatus}`,
+      type: 'success',
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+
+    // Update in-place for active details modal
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setSelectedOrder(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status: nextStatus,
+          paymentStatus: nextStatus === 'Delivered' ? 'Paid' : prev.paymentStatus,
+          timeline: [
+            ...prev.timeline,
+            { status: nextStatus, timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16), note: `স্ট্যাটাস আপডেট করা হয়েছে` }
+          ]
+        };
+      });
+    }
+  };
+
+  // Bulk operations
+  const handleBulkStatusChange = (status: OrderStatus) => {
+    if (bulkSelectedOrders.length === 0) return;
+    setOrders(prev => prev.map(order => {
+      if (bulkSelectedOrders.includes(order.id)) {
+        return {
+          ...order,
+          status,
+          paymentStatus: status === 'Delivered' ? 'Paid' : order.paymentStatus
+        };
+      }
+      return order;
+    }));
+    setBulkSelectedOrders([]);
+    
+    // Notify
+    setNotifications(prev => [{
+      id: `NOTIF-${Date.now()}`,
+      title: "Bulk Orders Updated",
+      message: `${bulkSelectedOrders.length} orders status set to ${status}.`,
+      type: "success",
+      timestamp: new Date().toISOString(),
+      read: false
+    }, ...prev]);
+  };
+
+  // Delete Order
+  const handleDeleteOrder = (orderId: string) => {
+    if (window.confirm('আপনি কি নিশ্চিত যে এই অর্ডারটি মুছে ফেলতে চান?')) {
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+      setSelectedOrder(null);
+    }
+  };
+
+  // Add/Edit Product Handler
+  const handleOpenProductModal = (product: Product | null = null) => {
+    if (product) {
+      setEditingProduct(product);
+      setProductForm({
+        name: product.name,
+        description: product.description,
+        category: product.category,
+        price: product.price,
+        originalPrice: product.originalPrice || product.price,
+        stock: product.stock,
+        image: product.image,
+        sizes: product.sizes ? product.sizes.join(', ') : '',
+        colors: product.colors ? product.colors.join(', ') : '',
+        fabric: product.fabric || '',
+        sku: product.sku || '',
+        collection: product.collection || 'New Arrival',
+        season: product.season || 'All Season',
+        brand: product.brand || 'Aura Lux',
+        productCost: product.productCost || 0,
+        deliveryCost: product.deliveryCost || 0,
+        discount: product.discount || 0,
+        marketingCost: product.marketingCost || 0
+      });
+    } else {
+      setEditingProduct(null);
+      setProductForm({
+        name: '',
+        description: '',
+        category: categoriesList[0] || 'Apparel',
+        price: 0,
+        originalPrice: 0,
+        stock: 10,
+        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400',
+        sizes: 'S, M, L, XL',
+        colors: 'Charcoal Black, Warm White',
+        fabric: 'Premium Cotton Blend',
+        sku: `AURA-SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+        collection: collectionsList[0] || 'New Arrival',
+        season: seasonsList[0] || 'All Season',
+        brand: brandsList[0] || 'Aura Lux',
+        productCost: 0,
+        deliveryCost: 150,
+        discount: 0,
+        marketingCost: 0
+      });
+    }
+    setShowProductModal(true);
+  };
+
+  const handleSaveProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productForm.name || !productForm.price) {
+      alert('দয়া করে প্রোডাক্টের নাম এবং সঠিক মূল্য প্রদান করুন।');
+      return;
+    }
+
+    const sizeArray = productForm.sizes ? productForm.sizes.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const colorArray = productForm.colors ? productForm.colors.split(',').map(c => c.trim()).filter(Boolean) : [];
+
+    // Ensure we also register any brand/category if not already in the selection lists
+    if (productForm.category && !categoriesList.includes(productForm.category)) {
+      setCategoriesList(prev => [...prev, productForm.category]);
+    }
+    if (productForm.brand && !brandsList.includes(productForm.brand)) {
+      setBrandsList(prev => [...prev, productForm.brand]);
+    }
+    if (productForm.collection && !collectionsList.includes(productForm.collection)) {
+      setCollectionsList(prev => [...prev, productForm.collection]);
+    }
+
+    if (editingProduct) {
+      // Edit mode
+      setProducts(prev => prev.map(p => {
+        if (p.id === editingProduct.id) {
+          return {
+            ...p,
+            name: productForm.name,
+            description: productForm.description,
+            category: productForm.category,
+            price: Number(productForm.price),
+            originalPrice: Number(productForm.originalPrice || productForm.price),
+            stock: Number(productForm.stock),
+            image: productForm.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400',
+            sizes: sizeArray,
+            colors: colorArray,
+            fabric: productForm.fabric,
+            sku: productForm.sku,
+            collection: productForm.collection,
+            season: productForm.season,
+            brand: productForm.brand,
+            productCost: Number(productForm.productCost),
+            deliveryCost: Number(productForm.deliveryCost),
+            discount: Number(productForm.discount),
+            marketingCost: Number(productForm.marketingCost)
+          };
+        }
+        return p;
+      }));
+    } else {
+      // Add mode
+      const newProduct: Product = {
+        id: `PROD-00${products.length + 1}`,
+        name: productForm.name,
+        description: productForm.description,
+        category: productForm.category,
+        price: Number(productForm.price),
+        originalPrice: Number(productForm.originalPrice || productForm.price),
+        stock: Number(productForm.stock),
+        salesCount: 0,
+        rating: 5.0,
+        image: productForm.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400',
+        sizes: sizeArray,
+        colors: colorArray,
+        fabric: productForm.fabric,
+        sku: productForm.sku,
+        collection: productForm.collection,
+        season: productForm.season,
+        brand: productForm.brand,
+        productCost: Number(productForm.productCost),
+        deliveryCost: Number(productForm.deliveryCost),
+        discount: Number(productForm.discount),
+        marketingCost: Number(productForm.marketingCost)
+      };
+      setProducts(prev => [...prev, newProduct]);
+    }
+
+    setShowProductModal(false);
+    setEditingProduct(null);
+  };
+
+  const handleDeleteProduct = (productId: string) => {
+    if (window.confirm('আপনি কি এই প্রোডাক্টটি ইনভেন্টরি থেকে ডিলেট করতে চান?')) {
+      setProducts(prev => prev.filter(p => p.id !== productId));
+    }
+  };
+
+  // Adjust stock directly
+  const handleQuickStockUpdate = (productId: string, newStock: number) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return { ...p, stock: Math.max(0, newStock) };
+      }
+      return p;
+    }));
+  };
+
+  // --- CRM & Advanced Order Handlers ---
+  
+  // Save internal notes for an order
+  const handleSaveInternalNotes = (orderId: string, notes: string) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, internalNotes: notes } : o));
+    
+    // Also update active selectedOrder in-place
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setSelectedOrder(prev => prev ? { ...prev, internalNotes: notes } : null);
+    }
+    
+    // Add to order timeline logs
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    setOrders(prev => prev.map(o => {
+      if (o.id === orderId) {
+        return {
+          ...o,
+          timeline: [
+            ...o.timeline,
+            { status: o.status, timestamp, note: `অভ্যন্তরীণ নোট যোগ করা হয়েছে: "${notes}"` }
+          ]
+        };
+      }
+      return o;
+    }));
+    
+    alert('অভ্যন্তরীণ নোট সফলভাবে সংরক্ষণ করা হয়েছে।');
+  };
+
+  // Export orders to Excel-compatible CSV with UTF-8 BOM
+  const handleExportCSV = () => {
+    const headers = [
+      "Order ID", "Customer Name", "Email", "Phone", "Date", 
+      "Items", "Total (BDT)", "Status", "Payment Method", "Payment Status", 
+      "Shipping Address", "Internal Notes"
+    ];
+    
+    const rows = filteredOrders.map(order => {
+      const itemNames = order.items.map(item => `${item.productName} (${item.quantity}x)`).join(" | ");
+      return [
+        order.id,
+        order.customerName,
+        order.customerEmail,
+        order.customerPhone,
+        order.date,
+        itemNames,
+        order.total,
+        order.status,
+        order.paymentMethod,
+        order.paymentStatus,
+        order.customerAddress,
+        order.internalNotes || ""
+      ];
+    });
+
+    let csvContent = headers.join(",") + "\n";
+    rows.forEach(r => {
+      const processedRow = r.map(val => {
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      });
+      csvContent += processedRow.join(",") + "\n";
+    });
+
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `aura_lux_orders_export_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    alert('অর্ডার তালিকা CSV ফরম্যাটে সফলভাবে ডাউনলোড করা হয়েছে।');
+  };
+
+  // Download high-fidelity invoice as HTML page
+  const handleDownloadInvoicePDF = (order: Order) => {
+    const itemRows = order.items.map(item => `
+      <tr style="border-bottom: 1px solid #eeeeee;">
+        <td style="padding: 12px 10px; font-weight: 600; font-size: 13px;">${item.productName} (ID: ${item.productId})</td>
+        <td style="padding: 12px 10px; text-align: center; font-size: 13px;">৳ ${item.price.toLocaleString('en-IN')}</td>
+        <td style="padding: 12px 10px; text-align: center; font-size: 13px;">${item.quantity}</td>
+        <td style="padding: 12px 10px; text-align: right; font-weight: bold; font-size: 13px; color: #e07a5f;">৳ ${(item.price * item.quantity).toLocaleString('en-IN')}</td>
+      </tr>
+    `).join("");
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Invoice - ${order.id}</title>
+        <style>
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #2c2621; margin: 0; padding: 40px; background-color: #fcfcfc; }
+          .invoice-box { max-width: 800px; margin: auto; padding: 40px; border: 1px solid #e8e4dc; background: #ffffff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e07a5f; padding-bottom: 25px; }
+          .brand { font-size: 26px; font-weight: 900; color: #e07a5f; letter-spacing: -0.5px; text-transform: uppercase; }
+          .meta-info { text-align: right; font-size: 13px; }
+          .details { margin-top: 30px; display: flex; justify-content: space-between; gap: 20px; font-size: 13px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+          .col h4 { margin: 0 0 8px 0; font-size: 11px; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+          th { background-color: #fcfbfa; padding: 12px 10px; text-align: left; font-size: 11px; text-transform: uppercase; color: #666; border-bottom: 1px solid #ddd; }
+          .total-section { margin-top: 35px; text-align: right; }
+          .total-amount { font-size: 26px; font-weight: 900; color: #e07a5f; margin-top: 5px; }
+          .notes-box { margin-top: 35px; background-color: #faf8f5; padding: 15px 20px; border-left: 4px solid #e07a5f; border-radius: 6px; font-size: 13px; }
+          .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-box">
+          <div class="header">
+            <div>
+              <div class="brand">${settings.brandName}</div>
+              <div style="font-size: 11px; color: #888; margin-top: 2px;">Premium Bespoke Wearables & Fashion Store</div>
+            </div>
+            <div class="meta-info">
+              <div style="font-weight: 900; font-size: 18px; color: #e07a5f; margin-bottom: 4px;">OFFICIAL INVOICE</div>
+              <div>Invoice ID: <strong>${order.id}</strong></div>
+              <div>Date: ${order.date}</div>
+              <div>Status: <span style="color: #10b981; font-weight: bold;">${order.paymentStatus}</span></div>
+            </div>
+          </div>
+          
+          <div class="details">
+            <div style="flex: 1;">
+              <h4>Billed To (ক্রেতার বিবরণ)</h4>
+              <strong style="font-size: 14px;">${order.customerName}</strong><br>
+              <span style="color: #555;">Email: ${order.customerEmail}</span><br>
+              <span style="color: #555;">Phone: ${order.customerPhone}</span>
+            </div>
+            <div style="flex: 1; text-align: right;">
+              <h4>Shipping To (শিপিং ঠিকানা)</h4>
+              <span style="color: #555;">${order.customerAddress}</span><br>
+              <div style="margin-top: 6px;">Payment Method: <strong>${order.paymentMethod}</strong></div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50%;">Product Details</th>
+                <th style="text-align: center;">Price</th>
+                <th style="text-align: center;">Qty</th>
+                <th style="text-align: right;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemRows}
+            </tbody>
+          </table>
+
+          <div class="total-section">
+            <div style="font-size: 11px; text-transform: uppercase; color: #888; font-weight: bold;">Total Amount Paid</div>
+            <div class="total-amount">৳ ${order.total.toLocaleString('en-IN')}</div>
+            <div style="font-size: 10px; color: #999; margin-top: 4px;">All taxes & custom calibration checks are included.</div>
+          </div>
+
+          ${order.internalNotes ? `
+            <div class="notes-box">
+              <strong style="font-size: 11px; color: #e07a5f; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Memo Internal Notes (অভ্যন্তরীণ নোট)</strong>
+              <p style="margin: 0; line-height: 1.5; color: #555;">${order.internalNotes}</p>
+            </div>
+          ` : ''}
+
+          <div class="footer">
+            Thank you for your valuable patronage with ${settings.brandName}. This receipt is a certified record of luxury item clearance.<br>
+            For support and queries, contact us at concierge@example.com
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `invoice_${order.id}.html`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  // Open the customer modal in add or edit mode
+  const handleOpenCustomerModal = (cust?: Customer) => {
+    if (cust) {
+      setEditingCustomer(cust);
+      setCustomerForm({
+        name: cust.name,
+        phone: cust.phone,
+        email: cust.email,
+        address: cust.address,
+        gender: cust.gender || 'Male',
+        birthday: cust.birthday || '',
+        preferredSize: cust.preferredSize || '',
+        favoriteColor: cust.favoriteColor || '',
+        favoriteCategory: cust.favoriteCategory || '',
+        totalSpending: cust.totalSpending || 0,
+        ordersCount: cust.ordersCount || 0,
+        lastPurchaseDate: cust.lastPurchaseDate || '',
+        segment: cust.segment || 'New',
+        shirtSize: cust.shirtSize || 'M',
+        pantSize: cust.pantSize || '32',
+        shoeSize: cust.shoeSize || '41',
+        customerValueScore: cust.customerValueScore || 70,
+        buyingPatternAnalysis: cust.buyingPatternAnalysis || '',
+        nextPurchasePrediction: cust.nextPurchasePrediction || ''
+      });
+    } else {
+      setEditingCustomer(null);
+      setCustomerForm({
+        name: '',
+        phone: '',
+        email: '',
+        address: '',
+        gender: 'Male',
+        birthday: '',
+        preferredSize: '',
+        favoriteColor: '',
+        favoriteCategory: '',
+        totalSpending: 0,
+        ordersCount: 0,
+        lastPurchaseDate: '',
+        segment: 'New',
+        shirtSize: 'M',
+        pantSize: '32',
+        shoeSize: '41',
+        customerValueScore: 50,
+        buyingPatternAnalysis: '',
+        nextPurchasePrediction: ''
+      });
+    }
+    setShowCustomerModal(true);
+  };
+
+  // Save/Update CRM customer profile
+  const handleSaveCustomer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customerForm.name || !customerForm.phone) {
+      alert('দয়া করে গ্রাহকের নাম এবং সচল মোবাইল নম্বর প্রদান করুন।');
+      return;
+    }
+
+    const avgValue = customerForm.ordersCount && customerForm.ordersCount > 0 
+      ? Math.round(Number(customerForm.totalSpending || 0) / Number(customerForm.ordersCount))
+      : 0;
+
+    // Auto calculate segment if missing, or use selected
+    let calculatedSegment = customerForm.segment || 'New';
+    if (calculatedSegment === 'New' && Number(customerForm.ordersCount || 0) > 3) {
+      calculatedSegment = 'Regular';
+    }
+    if (Number(customerForm.totalSpending || 0) > 400000) {
+      calculatedSegment = 'VIP';
+    }
+
+    if (editingCustomer) {
+      // Update
+      setCustomers(prev => prev.map(c => {
+        if (c.id === editingCustomer.id) {
+          return {
+            ...c,
+            name: customerForm.name || '',
+            phone: customerForm.phone || '',
+            email: customerForm.email || '',
+            address: customerForm.address || '',
+            gender: customerForm.gender as any,
+            birthday: customerForm.birthday || '',
+            preferredSize: customerForm.preferredSize || '',
+            favoriteColor: customerForm.favoriteColor || '',
+            favoriteCategory: customerForm.favoriteCategory || '',
+            totalSpending: Number(customerForm.totalSpending || 0),
+            ordersCount: Number(customerForm.ordersCount || 0),
+            lastPurchaseDate: customerForm.lastPurchaseDate || '',
+            averageOrderValue: avgValue,
+            segment: calculatedSegment as any,
+            shirtSize: customerForm.shirtSize || 'M',
+            pantSize: customerForm.pantSize || '32',
+            shoeSize: customerForm.shoeSize || '41',
+            customerValueScore: Number(customerForm.customerValueScore || 70),
+            buyingPatternAnalysis: customerForm.buyingPatternAnalysis || `এই Customer গত ৬ মাসে ${customerForm.ordersCount || 0} বার Purchase করেছে এবং নতুন Collection-এর জন্য Target করা যেতে পারে।`,
+            nextPurchasePrediction: customerForm.nextPurchasePrediction || 'New Arrival Premium Collection'
+          };
+        }
+        return c;
+      }));
+      
+      // Update details panel in-place if open
+      if (selectedCustomer && selectedCustomer.id === editingCustomer.id) {
+        setSelectedCustomer(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            name: customerForm.name || '',
+            phone: customerForm.phone || '',
+            email: customerForm.email || '',
+            address: customerForm.address || '',
+            gender: customerForm.gender as any,
+            birthday: customerForm.birthday || '',
+            preferredSize: customerForm.preferredSize || '',
+            favoriteColor: customerForm.favoriteColor || '',
+            favoriteCategory: customerForm.favoriteCategory || '',
+            totalSpending: Number(customerForm.totalSpending || 0),
+            ordersCount: Number(customerForm.ordersCount || 0),
+            lastPurchaseDate: customerForm.lastPurchaseDate || '',
+            averageOrderValue: avgValue,
+            segment: calculatedSegment as any,
+            shirtSize: customerForm.shirtSize || 'M',
+            pantSize: customerForm.pantSize || '32',
+            shoeSize: customerForm.shoeSize || '41',
+            customerValueScore: Number(customerForm.customerValueScore || 70),
+            buyingPatternAnalysis: customerForm.buyingPatternAnalysis || `এই Customer গত ৬ মাসে ${customerForm.ordersCount || 0} বার Purchase করেছে এবং নতুন Collection-এর জন্য Target করা যেতে পারে।`,
+            nextPurchasePrediction: customerForm.nextPurchasePrediction || 'New Arrival Premium Collection'
+          };
+        });
+      }
+    } else {
+      // Add
+      const newCust: Customer = {
+        id: `CUST-00${customers.length + 1}`,
+        name: customerForm.name || '',
+        email: customerForm.email || '',
+        phone: customerForm.phone || '',
+        address: customerForm.address || '',
+        avatar: `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 999999)}?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80`,
+        joinDate: new Date().toISOString().substring(0, 10),
+        totalSpending: Number(customerForm.totalSpending || 0),
+        ordersCount: Number(customerForm.ordersCount || 0),
+        averageOrderValue: avgValue,
+        lastPurchaseDate: customerForm.lastPurchaseDate || '',
+        segment: calculatedSegment as any || 'New',
+        gender: customerForm.gender as any || 'Male',
+        birthday: customerForm.birthday || '',
+        preferredSize: customerForm.preferredSize || '',
+        favoriteColor: customerForm.favoriteColor || '',
+        favoriteCategory: customerForm.favoriteCategory || '',
+        shirtSize: customerForm.shirtSize || 'M',
+        pantSize: customerForm.pantSize || '32',
+        shoeSize: customerForm.shoeSize || '41',
+        customerValueScore: Number(customerForm.customerValueScore || 50),
+        buyingPatternAnalysis: customerForm.buyingPatternAnalysis || `নতুন গ্রাহক। নতুন কালেকশনের জন্য টার্গেট করা যেতে পারে।`,
+        nextPurchasePrediction: customerForm.nextPurchasePrediction || 'Summer Collection New Arrival',
+        activityTimeline: [
+          { action: "গ্রাহক সিআরএম প্রোফাইল তৈরি করা হয়েছে।", date: new Date().toISOString().substring(0, 10) }
+        ]
+      };
+      setCustomers(prev => [...prev, newCust]);
+    }
+
+    setShowCustomerModal(false);
+    setEditingCustomer(null);
+  };
+
+  // Delete CRM customer profile
+  const handleDeleteCustomer = (customerId: string) => {
+    if (window.confirm('আপনি কি এই গ্রাহকের সিআরএম প্রোফাইল মুছে ফেলতে চান?')) {
+      setCustomers(prev => prev.filter(c => c.id !== customerId));
+      setSelectedCustomer(null);
+    }
+  };
+
+  // --- API Integrations for Server-Side AI ---
+
+  // 1. Chat AI Assistant
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userInput.trim()) return;
+
+    const userMsg = { sender: 'user' as const, text: userInput, timestamp: new Date().toLocaleTimeString() };
+    setChatMessages(prev => [...prev, userMsg]);
+    const currentInput = userInput;
+    setUserInput('');
+    setAiLoading(true);
+
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: currentInput,
+          history: chatMessages.slice(-8), // send last few rounds
+          contextData: { products, orders, customers, stats: liveStats }
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setChatMessages(prev => [...prev, {
+          sender: 'assistant',
+          text: data.text,
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+      } else {
+        throw new Error(data.error || 'Server error');
+      }
+    } catch (err: any) {
+      setChatMessages(prev => [...prev, {
+        sender: 'assistant',
+        text: `দুঃখিত, সংযোগে সমস্যা হচ্ছে। আপনার API কি সঠিক আছে কিনা অনুগ্রহ করে নিশ্চিত করুন। Error: ${err.message}`,
+        timestamp: new Date().toLocaleTimeString()
+      }]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // 2. Automated AI Report Analyzer
+  const handleTriggerAnalysis = async (type: 'sales' | 'behavior' | 'general') => {
+    setAiAnalysisType(type);
+    setAiAnalysisLoading(true);
+    setAiAnalysisResult('');
+
+    try {
+      const response = await fetch('/api/ai/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysisType: type,
+          contextData: { products, orders, customers, stats: liveStats }
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setAiAnalysisResult(data.analysis);
+      } else {
+        throw new Error(data.error || 'Failed analysis');
+      }
+    } catch (err: any) {
+      setAiAnalysisResult(`বিশ্লেষণ রিপোর্ট জেনারেট করতে ব্যর্থ হয়েছে: ${err.message}. অনুগ্রহ করে AI Studio secrets প্যানেলে আপনার GEMINI_API_KEY কনফিগার করা আছে কিনা দেখে নিন।`);
+    } finally {
+      setAiAnalysisLoading(false);
+    }
+  };
+
+  // Export orders to CSV file / Download JSON format
+  const handleExportOrders = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(orders, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `aura_lux_orders_export_${Date.now()}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    alert('সকল অর্ডার ডাটা JSON ফরম্যাটে সফলভাবে এক্সপোর্ট করা হয়েছে।');
+  };
+
+  // Print Invoice trigger
+  const handlePrintInvoice = () => {
+    window.print();
+  };
+
+  // Mark notifications as read
+  const markAllNotificationsAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const markSingleNotificationAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  // --- Dynamic Filters ---
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      const matchSearch = order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          order.customerEmail.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchStatus = orderStatusFilter === 'All' || order.status === orderStatusFilter;
+      const matchPayment = orderPaymentFilter === 'All' || order.paymentMethod === orderPaymentFilter;
+      
+      return matchSearch && matchStatus && matchPayment;
+    });
+  }, [orders, searchQuery, orderStatusFilter, orderPaymentFilter]);
+
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(cust => {
+      const matchSearch = cust.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          cust.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          cust.phone.includes(searchQuery);
+      const matchSegment = customerSegmentFilter === 'All' || cust.segment === customerSegmentFilter;
+      return matchSearch && matchSegment;
+    });
+  }, [customers, searchQuery, customerSegmentFilter]);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(prod => {
+      const matchSearch = prod.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          prod.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (prod.brand && prod.brand.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          (prod.collection && prod.collection.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          (prod.sku && prod.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchCat = productCategoryFilter === 'All' || prod.category === productCategoryFilter;
+      const matchCol = productCollectionFilter === 'All' || prod.collection === productCollectionFilter;
+      const matchSea = productSeasonFilter === 'All' || prod.season === productSeasonFilter;
+      const matchBra = productBrandFilter === 'All' || prod.brand === productBrandFilter;
+      return matchSearch && matchCat && matchCol && matchSea && matchBra;
+    });
+  }, [products, searchQuery, productCategoryFilter, productCollectionFilter, productSeasonFilter, productBrandFilter]);
+
+  const collectionStats = useMemo(() => {
+    return collectionsList.map(col => {
+      // Find all products in this collection
+      const colProducts = products.filter(p => p.collection === col);
+      const totalSalesCount = colProducts.reduce((sum, p) => sum + (p.salesCount || 0), 0);
+      const totalRevenue = colProducts.reduce((sum, p) => sum + (p.price * (p.salesCount || 0)), 0);
+      const totalCost = colProducts.reduce((sum, p) => sum + ((p.originalPrice || p.price) * (p.salesCount || 0)), 0);
+      const totalProfit = totalRevenue - totalCost;
+      
+      return {
+        collectionName: col,
+        productsCount: colProducts.length,
+        salesCount: totalSalesCount,
+        revenue: totalRevenue,
+        profit: totalProfit
+      };
+    });
+  }, [products, collectionsList]);
+
+  const bestPerformingCollection = useMemo(() => {
+    if (collectionStats.length === 0) return null;
+    return [...collectionStats].sort((a, b) => b.revenue - a.revenue)[0];
+  }, [collectionStats]);
+
+  return (
+    <div 
+      className={`min-h-screen flex transition-colors duration-500 overflow-x-hidden font-sans relative
+        ${settings.themeMode === 'dark' 
+          ? 'bg-[#120e0c] text-[#f6f3ed]' 
+          : 'bg-[#faf8f5] text-[#2c2621]'
+        }`}
+    >
+      {/* 👁️ Eye Protection Blue-Light Warm Tint Overlay Layer */}
+      {settings.eyeProtectionEnabled && (
+        <div 
+          className="fixed inset-0 pointer-events-none z-[9999] transition-all duration-300 mix-blend-multiply bg-amber-400/5"
+          style={{ opacity: settings.blueLightFilterLevel / 100 }}
+        />
+      )}
+
+      {/* Sidebar navigation */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          setSearchQuery(''); // reset query on tab change
+        }}
+        settings={settings}
+        setSettings={setSettings}
+        notificationCount={notifications.filter(n => !n.read).length}
+        openNotificationPanel={() => setNotificationPanelOpen(true)}
+        openAiAssistant={() => setAiAssistantOpen(true)}
+      />
+
+      {/* Main Container */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Top Sticky Header */}
+        <header 
+          className={`h-16 flex items-center justify-between px-8 border-b sticky top-0 backdrop-blur-xl z-20 transition-colors duration-300
+            ${settings.themeMode === 'dark' 
+              ? 'bg-[#120e0c]/80 border-[#322822]/40' 
+              : 'bg-[#faf8f5]/80 border-[#e8e4dc]'
+            }`}
+        >
+          {/* Dashboard Header Bar Title / Interactive Search */}
+          <div className="flex items-center space-x-4 w-96">
+            <div className={`flex items-center space-x-2 px-3 py-1.5 w-full rounded-xl border text-sm transition-all
+              ${settings.themeMode === 'dark' 
+                ? 'bg-[#1a1614] border-[#322822]/60 focus-within:border-amber-500/50' 
+                : 'bg-[#f4f2ee] border-[#e8e4dc] focus-within:border-amber-500/50'
+              }`}
+            >
+              <Search className="h-4 w-4 opacity-55" />
+              <input 
+                type="text" 
+                placeholder="অর্ডার, প্রোডাক্ট বা কাস্টমার খুঁজুন..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent border-none outline-none w-full text-inherit placeholder:opacity-50 text-xs py-0.5"
+              />
+            </div>
+          </div>
+
+          {/* Quick status bar widgets */}
+          <div className="flex items-center space-x-6 text-xs font-medium">
+            {/* Quick stats indicators */}
+            <div className="hidden md:flex items-center space-x-4">
+              <span className="flex items-center space-x-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="opacity-70">সিস্টেম স্ট্যাটাস: অনলাইন</span>
+              </span>
+              <span className="opacity-30">|</span>
+              <span className="opacity-70">কারেন্সি: {settings.currency} ($)</span>
+            </div>
+
+            {/* User Avatar & Settings trigger */}
+            <div className="flex items-center space-x-3 border-l pl-4 border-inherit">
+              <div className="text-right">
+                <span className="block font-semibold">প্রতাপ (Admin)</span>
+                <span className="text-[10px] opacity-50 block uppercase tracking-wide">Owner</span>
+              </div>
+              <div className="h-9 w-9 rounded-xl overflow-hidden border border-amber-500/30">
+                <img 
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" 
+                  alt="Admin" 
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Dynamic content pages */}
+        <main className="flex-1 p-8 space-y-8 overflow-y-auto">
+          
+          {/* ==========================================================
+              TAB 1: DASHBOARD HOME
+              ========================================================== */}
+          {activeTab === 'dashboard' && (
+            <div className="space-y-8 animate-fade-in">
+              {/* Eye Protection Notice in content */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-extrabold tracking-tight">ড্যাশবোর্ড ওভারভিউ (Aura Dashboard)</h1>
+                  <p className="opacity-60 text-sm mt-1">আপনার ব্যবসার গুরুত্বপূর্ণ তথ্য এক নজরে পর্যবেক্ষণ করুন।</p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className={`p-1.5 rounded-xl flex items-center space-x-1.5 text-xs font-mono
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614] border border-[#322822]' : 'bg-amber-50 border border-amber-100'}`}
+                  >
+                    <span className="opacity-60">আজকের তারিখ:</span>
+                    <span className="font-bold text-[#e07a5f]">2026-06-27</span>
+                  </div>
+                  <button 
+                    onClick={() => handleTriggerAnalysis('sales')}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#e07a5f] hover:bg-[#d06a4f] text-white transition-all shadow-lg shadow-orange-600/10"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    <span>AI সেলস অ্যানালাইসিস</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 1. 8 Business Overview Cards (Bento Grid) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                
+                {/* Card 1: আজকের বিক্রি */}
+                <div className={`p-6 rounded-3xl border transition-all hover:-translate-y-1 duration-300 group relative overflow-hidden
+                  ${settings.themeMode === 'dark' 
+                    ? 'bg-gradient-to-br from-[#1a1614]/90 to-[#231d1a]/80 border-[#322822]/80' 
+                    : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl pointer-events-none rounded-full" />
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider opacity-60">আজকের বিক্রি (Today's Sales)</p>
+                      <h3 className="text-2xl font-black tracking-tight mt-2 text-gradient font-sans">
+                        {formatCurrency(liveStats.todaySales)}
+                      </h3>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-amber-500/10 text-[#e07a5f]">
+                      <DollarSign className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center space-x-1 text-xs text-emerald-500 font-bold">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    <span>+18.4% গত কাল থেকে</span>
+                  </div>
+                </div>
+
+                {/* Card 2: আজকের অর্ডার */}
+                <div className={`p-6 rounded-3xl border transition-all hover:-translate-y-1 duration-300 group relative overflow-hidden
+                  ${settings.themeMode === 'dark' 
+                    ? 'bg-gradient-to-br from-[#1a1614]/90 to-[#231d1a]/80 border-[#322822]/80' 
+                    : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-3xl pointer-events-none rounded-full" />
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider opacity-60">আজকের অর্ডার (Today's Orders)</p>
+                      <h3 className="text-2xl font-black tracking-tight mt-2 font-sans">
+                        {liveStats.todayOrdersCount} টি
+                      </h3>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-orange-500/10 text-orange-500">
+                      <ShoppingBag className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center space-x-1 text-xs opacity-60">
+                    <span>রিয়েল-টাইম লাইভ অর্ডার</span>
+                  </div>
+                </div>
+
+                {/* Card 3: মাসিক বিক্রি */}
+                <div className={`p-6 rounded-3xl border transition-all hover:-translate-y-1 duration-300 group relative overflow-hidden
+                  ${settings.themeMode === 'dark' 
+                    ? 'bg-gradient-to-br from-[#1a1614]/90 to-[#231d1a]/80 border-[#322822]/80' 
+                    : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 blur-3xl pointer-events-none rounded-full" />
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider opacity-60">মাসিক বিক্রি (Monthly Sales)</p>
+                      <h3 className="text-2xl font-black tracking-tight mt-2 text-gradient font-sans">
+                        {formatCurrency(liveStats.monthlySales)}
+                      </h3>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-yellow-500/10 text-yellow-600">
+                      <TrendingUp className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center space-x-1 text-xs text-emerald-500 font-bold">
+                    <span>চলতি জুন মাসের মোট বিক্রি</span>
+                  </div>
+                </div>
+
+                {/* Card 4: মোট Revenue */}
+                <div className={`p-6 rounded-3xl border transition-all hover:-translate-y-1 duration-300 group relative overflow-hidden
+                  ${settings.themeMode === 'dark' 
+                    ? 'bg-gradient-to-br from-[#1a1614]/90 to-[#231d1a]/80 border-[#322822]/80' 
+                    : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 blur-3xl pointer-events-none rounded-full" />
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider opacity-60">মোট Revenue (Total Revenue)</p>
+                      <h3 className="text-2xl font-black tracking-tight mt-2 text-gradient font-sans">
+                        {formatCurrency(liveStats.totalRevenue)}
+                      </h3>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-500">
+                      <Activity className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center space-x-1 text-xs text-emerald-500 font-bold">
+                    <span>WooCommerce লাইভ ডাটাবেজ</span>
+                  </div>
+                </div>
+
+                {/* Card 5: মোট Profit */}
+                <div className={`p-6 rounded-3xl border transition-all hover:-translate-y-1 duration-300 group relative overflow-hidden
+                  ${settings.themeMode === 'dark' 
+                    ? 'bg-gradient-to-br from-[#1a1614]/90 to-[#231d1a]/80 border-[#322822]/80' 
+                    : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-3xl pointer-events-none rounded-full" />
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider opacity-60">মোট Profit (Total Profit)</p>
+                      <h3 className="text-2xl font-black tracking-tight mt-2 text-gradient font-sans">
+                        {formatCurrency(liveStats.totalProfit)}
+                      </h3>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-sky-500/10 text-sky-500">
+                      <Briefcase className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center space-x-1 text-xs text-emerald-500 font-bold">
+                    <span>৪৫% লাক্সারি মার্জিন প্রফিট</span>
+                  </div>
+                </div>
+
+                {/* Card 6: নতুন Customer */}
+                <div className={`p-6 rounded-3xl border transition-all hover:-translate-y-1 duration-300 group relative overflow-hidden
+                  ${settings.themeMode === 'dark' 
+                    ? 'bg-gradient-to-br from-[#1a1614]/90 to-[#231d1a]/80 border-[#322822]/80' 
+                    : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl pointer-events-none rounded-full" />
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider opacity-60">নতুন Customer (New Customers)</p>
+                      <h3 className="text-2xl font-black tracking-tight mt-2 font-sans">
+                        {liveStats.newCustomersCount} জন
+                      </h3>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-500">
+                      <Users className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center space-x-1 text-xs opacity-60">
+                    <span>জুন মাসে নিবন্ধিত কাস্টমার</span>
+                  </div>
+                </div>
+
+                {/* Card 7: Pending Order */}
+                <div className={`p-6 rounded-3xl border transition-all hover:-translate-y-1 duration-300 group relative overflow-hidden
+                  ${settings.themeMode === 'dark' 
+                    ? 'bg-gradient-to-br from-[#1a1614]/90 to-[#231d1a]/80 border-[#322822]/80' 
+                    : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl pointer-events-none rounded-full" />
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider opacity-60">Pending Order (পেন্ডিং)</p>
+                      <h3 className="text-2xl font-black tracking-tight mt-2 font-sans text-amber-500">
+                        {liveStats.pendingOrders} টি
+                      </h3>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center space-x-1 text-xs text-amber-500 font-bold">
+                    <span>অপেক্ষমান ও প্রক্রিয়াকরণাধীন</span>
+                  </div>
+                </div>
+
+                {/* Card 8: Delivered Order */}
+                <div className={`p-6 rounded-3xl border transition-all hover:-translate-y-1 duration-300 group relative overflow-hidden
+                  ${settings.themeMode === 'dark' 
+                    ? 'bg-gradient-to-br from-[#1a1614]/90 to-[#231d1a]/80 border-[#322822]/80' 
+                    : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-3xl pointer-events-none rounded-full" />
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider opacity-60">Delivered Order (ডেলিভারড)</p>
+                      <h3 className="text-2xl font-black tracking-tight mt-2 font-sans text-emerald-500">
+                        {liveStats.deliveredOrders} টি
+                      </h3>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center space-x-1 text-xs text-emerald-500 font-bold">
+                    <span>সফলভাবে ডেলিভারি সম্পন্ন</span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* 2. Charts and Reports */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                {/* Dynamic Chart Container */}
+                <div className={`p-6 rounded-[2rem] border lg:col-span-2 flex flex-col justify-between relative overflow-hidden
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/[0.02] blur-3xl pointer-events-none rounded-full" />
+                  
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                      <h3 className="text-lg font-black tracking-tight flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-[#e07a5f]" />
+                        <span>WooCommerce লাইভ অ্যানালিটিক্স চার্ট</span>
+                      </h3>
+                      <p className="text-xs opacity-60">রিয়েল-টাইম ডাটাবেজ থেকে সংগৃহীত চার্ট ও তথ্য</p>
+                    </div>
+                    <div className="flex space-x-1 bg-amber-500/5 p-1 rounded-xl text-[10px] font-bold uppercase">
+                      <span className="px-2 py-1 bg-[#e07a5f] text-white rounded-lg">BDT (৳)</span>
+                    </div>
+                  </div>
+
+                  {/* Multi-chart Sub-tabs */}
+                  <div className="flex flex-wrap gap-2 mb-6 border-b border-inherit pb-4">
+                    <button 
+                      onClick={() => setActiveChartTab('sales')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5
+                        ${activeChartTab === 'sales' 
+                          ? 'bg-[#e07a5f] text-white shadow-lg shadow-orange-600/15' 
+                          : 'bg-amber-500/5 hover:bg-amber-500/10'}`}
+                    >
+                      <TrendingUp className="h-3.5 w-3.5" />
+                      <span>বিক্রয় চার্ট (Sales)</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveChartTab('profit')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5
+                        ${activeChartTab === 'profit' 
+                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-600/15' 
+                          : 'bg-amber-500/5 hover:bg-amber-500/10'}`}
+                    >
+                      <Briefcase className="h-3.5 w-3.5" />
+                      <span>লাভ চার্ট (Profit)</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveChartTab('customers')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5
+                        ${activeChartTab === 'customers' 
+                          ? 'bg-purple-500 text-white shadow-lg shadow-purple-600/15' 
+                          : 'bg-amber-500/5 hover:bg-amber-500/10'}`}
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      <span>কাস্টমার গ্রোথ (Customers)</span>
+                    </button>
+                    <button 
+                      onClick={() => setActiveChartTab('status')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5
+                        ${activeChartTab === 'status' 
+                          ? 'bg-amber-500 text-white shadow-lg shadow-amber-600/15' 
+                          : 'bg-amber-500/5 hover:bg-amber-500/10'}`}
+                    >
+                      <ShoppingBag className="h-3.5 w-3.5" />
+                      <span>অর্ডার স্ট্যাটাস চার্ট</span>
+                    </button>
+                  </div>
+
+                  {/* Dynamic Interactive SVG Charts Block */}
+                  <div className="relative h-64 w-full flex items-end justify-between px-2 pt-6 min-h-[256px]">
+                    
+                    {/* Sales Chart (Revenue overview) */}
+                    {activeChartTab === 'sales' && (
+                      <>
+                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10 text-[10px]">
+                          <div className="border-b w-full flex justify-between"><span>৳ ৪,৫০০,০০০</span></div>
+                          <div className="border-b w-full flex justify-between"><span>৳ ৩,০০০,০০০</span></div>
+                          <div className="border-b w-full flex justify-between"><span>৳ ১,৫০০,০০০</span></div>
+                          <div className="border-b w-full flex justify-between"><span>৳ ০</span></div>
+                        </div>
+
+                        <div className="w-full flex items-end justify-between h-full z-10">
+                          {monthlyAnalyticsData.revenue.map((item) => {
+                            const maxVal = 4500000;
+                            const percent = Math.min(100, (item.val / maxVal) * 100);
+                            return (
+                              <div key={item.month} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                                {/* Hover Tooltip */}
+                                <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-30">
+                                  <div className="bg-[#2c2621] text-[#f6f3ed] text-[10px] rounded-lg p-2.5 shadow-2xl border border-white/10 text-center font-mono">
+                                    <p className="font-bold text-amber-400">{item.month} বিক্রয় রিপোর্ট</p>
+                                    <p className="mt-1">মোট বিক্রি: {formatCurrency(item.val)}</p>
+                                    <p className="opacity-60">মোট অর্ডার: {item.orders} টি</p>
+                                  </div>
+                                </div>
+                                <div 
+                                  style={{ height: `${percent}%` }}
+                                  className="w-8 sm:w-12 bg-gradient-to-t from-[#e07a5f]/30 to-[#e07a5f] rounded-t-xl group-hover:from-orange-400 group-hover:to-orange-500 transition-all duration-300 relative shadow-lg shadow-orange-500/10"
+                                >
+                                  <div className="absolute inset-x-0 top-0 h-1 bg-amber-200 rounded-full opacity-40" />
+                                </div>
+                                <span className="text-[10px] font-bold mt-2 opacity-70">{item.month}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Profit Chart */}
+                    {activeChartTab === 'profit' && (
+                      <>
+                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10 text-[10px]">
+                          <div className="border-b w-full flex justify-between"><span>৳ ২,০০০,০০০</span></div>
+                          <div className="border-b w-full flex justify-between"><span>৳ ১,৩০০,০০০</span></div>
+                          <div className="border-b w-full flex justify-between"><span>৳ ৬০০,০০০</span></div>
+                          <div className="border-b w-full flex justify-between"><span>৳ ০</span></div>
+                        </div>
+
+                        <div className="w-full flex items-end justify-between h-full z-10">
+                          {monthlyAnalyticsData.profit.map((item) => {
+                            const maxVal = 2000000;
+                            const percent = Math.min(100, (item.val / maxVal) * 100);
+                            return (
+                              <div key={item.month} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                                {/* Hover Tooltip */}
+                                <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-30">
+                                  <div className="bg-[#2c2621] text-[#f6f3ed] text-[10px] rounded-lg p-2.5 shadow-2xl border border-white/10 text-center font-mono">
+                                    <p className="font-bold text-emerald-400">{item.month} প্রফিট রিপোর্ট</p>
+                                    <p className="mt-1">নীট প্রফিট: {formatCurrency(item.val)}</p>
+                                    <p className="opacity-60">মার্জিন: ৪৫% (Luxury Brand)</p>
+                                  </div>
+                                </div>
+                                <div 
+                                  style={{ height: `${percent}%` }}
+                                  className="w-8 sm:w-12 bg-gradient-to-t from-emerald-500/30 to-emerald-500 rounded-t-xl group-hover:from-emerald-400 group-hover:to-emerald-600 transition-all duration-300 relative shadow-lg shadow-emerald-500/10"
+                                >
+                                  <div className="absolute inset-x-0 top-0 h-1 bg-emerald-200 rounded-full opacity-40" />
+                                </div>
+                                <span className="text-[10px] font-bold mt-2 opacity-70">{item.month}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Customer Growth Chart */}
+                    {activeChartTab === 'customers' && (
+                      <>
+                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10 text-[10px]">
+                          <div className="border-b w-full flex justify-between"><span>৫০০ জন কাস্টমার</span></div>
+                          <div className="border-b w-full flex justify-between"><span>৩৫০ জন কাস্টমার</span></div>
+                          <div className="border-b w-full flex justify-between"><span>২০০ জন কাস্টমার</span></div>
+                          <div className="border-b w-full flex justify-between"><span>০ জন কাস্টমার</span></div>
+                        </div>
+
+                        <div className="w-full flex items-end justify-between h-full z-10">
+                          {monthlyAnalyticsData.customerGrowth.map((item) => {
+                            const maxVal = 500;
+                            const percent = Math.min(100, (item.val / maxVal) * 100);
+                            return (
+                              <div key={item.month} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                                {/* Hover Tooltip */}
+                                <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-30">
+                                  <div className="bg-[#2c2621] text-[#f6f3ed] text-[10px] rounded-lg p-2.5 shadow-2xl border border-white/10 text-center font-mono">
+                                    <p className="font-bold text-purple-400">{item.month} গ্রাহক রিপোর্ট</p>
+                                    <p className="mt-1">ক্রমবর্ধমান গ্রাহক: {item.val} জন</p>
+                                    <p className="opacity-60">রিয়েল-টাইম CRM ডাটা</p>
+                                  </div>
+                                </div>
+                                <div 
+                                  style={{ height: `${percent}%` }}
+                                  className="w-8 sm:w-12 bg-gradient-to-t from-purple-500/30 to-purple-500 rounded-t-xl group-hover:from-purple-400 group-hover:to-purple-600 transition-all duration-300 relative shadow-lg shadow-purple-500/10"
+                                >
+                                  <div className="absolute inset-x-0 top-0 h-1 bg-purple-200 rounded-full opacity-40" />
+                                </div>
+                                <span className="text-[10px] font-bold mt-2 opacity-70">{item.month}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Order Status Distribution Chart */}
+                    {activeChartTab === 'status' && (
+                      <div className="w-full flex flex-col justify-center space-y-4 h-full z-10">
+                        {monthlyAnalyticsData.orderStatus.map((item) => {
+                          const maxCount = Math.max(...monthlyAnalyticsData.orderStatus.map(s => s.count)) || 1;
+                          const barPercent = (item.count / maxCount) * 100;
+                          return (
+                            <div key={item.name} className="space-y-1.5">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="font-bold flex items-center space-x-2">
+                                  <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+                                  <span>{item.name}</span>
+                                </span>
+                                <span className="font-mono font-bold text-sm">{item.count} টি অর্ডার</span>
+                              </div>
+                              <div className="w-full h-3 rounded-full bg-amber-500/5 border border-inherit/10 overflow-hidden">
+                                <div 
+                                  className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${barPercent}%`, backgroundColor: item.barColor }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+
+                {/* Top Selling Products */}
+                <div className={`p-6 rounded-[2rem] border flex flex-col justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div>
+                    <h3 className="text-lg font-bold mb-5">সেরা বিক্রিত প্রোডাক্ট (Top Selling)</h3>
+                    <div className="space-y-4">
+                      {products.slice(0, 4).map((p, idx) => (
+                        <div key={p.id} className="flex items-center justify-between border-b border-inherit pb-3 last:border-b-0 last:pb-0">
+                          <div className="flex items-center space-x-3 min-w-0">
+                            <div className="h-10 w-10 rounded-xl overflow-hidden bg-[#2c2621]/10 flex-shrink-0">
+                              <img src={p.image} alt={p.name} className="h-full w-full object-cover" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="font-bold text-xs block truncate">{p.name}</span>
+                              <span className="text-[10px] opacity-50 block">{p.category} • {p.stock} in stock</span>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <span className="font-mono text-xs font-bold block">{formatCurrency(p.price)}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 font-bold rounded-full">{p.salesCount} sold</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => setActiveTab('products')}
+                    className="w-full py-2.5 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-[#e07a5f] transition-all border border-[#e07a5f]/10 mt-4"
+                  >
+                    সকল প্রোডাক্ট লিস্ট দেখুন
+                  </button>
+                </div>
+
+              </div>
+
+              {/* 3. Recent Orders table & Quick CRM list */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                
+                {/* Recent Orders Overview */}
+                <div className={`p-6 rounded-[2rem] border xl:col-span-2 overflow-x-auto
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-lg font-bold">সাম্প্রতিক অর্ডার সমূহ (Recent Orders)</h3>
+                      <p className="text-xs opacity-60">কাস্টমারদের সর্বশেষ ৫টি অর্ডার লিস্ট</p>
+                    </div>
+                    <button 
+                      onClick={() => setActiveTab('orders')}
+                      className="text-xs text-[#e07a5f] hover:underline font-bold"
+                    >
+                      সকল অর্ডার দেখুন →
+                    </button>
+                  </div>
+
+                  <table className="w-full text-left border-collapse min-w-[500px]">
+                    <thead>
+                      <tr className="border-b border-[#322822]/10 opacity-60 text-xs">
+                        <th className="pb-3">অর্ডার আইডি</th>
+                        <th className="pb-3">কাস্টমার</th>
+                        <th className="pb-3">তারিখ</th>
+                        <th className="pb-3 text-right">মূল্য</th>
+                        <th className="pb-3 text-center">স্ট্যাটাস</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#322822]/5">
+                      {orders.slice(0, 5).map((order) => (
+                        <tr key={order.id} className="text-xs hover:bg-amber-500/[0.02] transition-colors">
+                          <td className="py-3.5 font-mono font-bold text-[#e07a5f]">{order.id}</td>
+                          <td className="py-3.5">
+                            <span className="font-semibold block">{order.customerName}</span>
+                            <span className="text-[10px] opacity-50 block">{order.paymentMethod}</span>
+                          </td>
+                          <td className="py-3.5 opacity-70">{order.date}</td>
+                          <td className="py-3.5 text-right font-bold font-mono">{formatCurrency(order.total)}</td>
+                          <td className="py-3.5 text-center">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-block
+                              ${order.status === 'Delivered' ? 'bg-emerald-500/10 text-emerald-500' :
+                                order.status === 'Processing' ? 'bg-indigo-500/10 text-indigo-500' :
+                                order.status === 'Pending' ? 'bg-amber-500/10 text-amber-500' :
+                                order.status === 'Shipped' ? 'bg-blue-500/10 text-blue-500' :
+                                'bg-rose-500/10 text-rose-500'
+                              }`}
+                            >
+                              {order.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* VIP Customer segment growth */}
+                <div className={`p-6 rounded-[2rem] border flex flex-col justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div>
+                    <h3 className="text-lg font-bold mb-4">VIP ক্লায়েন্ট লিস্ট (CRM highlights)</h3>
+                    <div className="space-y-4">
+                      {customers.filter(c => c.segment === 'VIP').slice(0, 3).map(c => (
+                        <div key={c.id} className="flex items-center space-x-3 p-2 rounded-xl hover:bg-amber-500/5 transition-all">
+                          <div className="h-9 w-9 rounded-full overflow-hidden">
+                            <img src={c.avatar} alt={c.name} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs truncate">{c.name}</span>
+                              <span className="text-[9px] bg-amber-500/20 text-amber-600 font-mono font-bold px-1.5 rounded">VIP</span>
+                            </div>
+                            <span className="text-[10px] opacity-60 block">{c.email}</span>
+                            <span className="text-[10px] text-amber-500 font-mono font-bold block mt-0.5">মোট খরচ: {formatCurrency(c.totalSpending)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => setActiveTab('customers')}
+                    className="w-full mt-4 py-2 bg-gradient-to-tr from-amber-500 to-[#e07a5f] hover:from-amber-400 hover:to-orange-400 text-white rounded-xl text-xs font-bold shadow-lg shadow-orange-500/10"
+                  >
+                    কাস্টমার পোর্টাল পরিচালনা করুন
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* ==========================================================
+              TAB 2: ORDER MANAGEMENT SYSTEM
+              ========================================================== */}
+          {activeTab === 'orders' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-extrabold tracking-tight">অর্ডার ম্যানেজমেন্ট (Orders Dashboard)</h1>
+                  <p className="opacity-60 text-sm mt-1">কাস্টমার অর্ডার ও ট্র্যাকিং হিস্ট্রি কন্ট্রোল করুন।</p>
+                </div>
+                
+                {/* Actions Panel */}
+                <div className="flex items-center space-x-3 flex-wrap gap-2">
+                  <button 
+                    onClick={handleExportOrders}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold border hover:bg-amber-500/5 transition-all border-inherit"
+                    title="JSON ফরম্যাটে ডাউনলোড করুন"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>এক্সপোর্ট JSON</span>
+                  </button>
+                  <button 
+                    onClick={handleExportCSV}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold border hover:bg-emerald-500/5 transition-all border-inherit text-emerald-500"
+                    title="Excel-এ ওপেন করার জন্য CSV ফাইল ডাউনলোড করুন"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>এক্সপোর্ট CSV (Excel)</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const id = `ORD-${Date.now().toString().substring(8)}`;
+                      const newOrder: Order = {
+                        id,
+                        customerName: "New Guest Customer",
+                        customerEmail: "guest@example.com",
+                        customerPhone: "+880 1711-000000",
+                        customerAddress: "Dhaka, Bangladesh",
+                        date: new Date().toISOString().substring(0, 10),
+                        items: [{ productId: "PROD-001", productName: "Aura Lens Pro", quantity: 1, price: 349900 }],
+                        total: 349900,
+                        status: "New Order",
+                        paymentMethod: "Stripe",
+                        paymentStatus: "Paid",
+                        timeline: [{ status: "New Order", timestamp: new Date().toISOString().replace('T', ' ').substring(0,16), note: "ম্যানুয়াল নতুন অর্ডার তৈরি হয়েছে" }]
+                      };
+                      setOrders([newOrder, ...orders]);
+                      setSelectedOrder(newOrder);
+                      alert(`অর্ডার ${id} তৈরি হয়েছে।`);
+                    }}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#e07a5f] hover:bg-[#d06a4f] text-white transition-all shadow-md"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>ম্যানুয়াল অর্ডার তৈরি</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Horizontal Status Tabs (Not Dropdowns) */}
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-inherit pb-4">
+                <div className="flex items-center space-x-2 overflow-x-auto pb-2 w-full lg:w-auto custom-scrollbar flex-nowrap md:flex-wrap gap-y-2">
+                  {([
+                    { id: 'All', label: 'সব অর্ডার (All)', icon: Layers, badge: orders.length },
+                    { id: 'New Order', label: 'নিউ অর্ডার (New)', icon: Clock, badge: orders.filter(o => o.status === 'New Order').length },
+                    { id: 'Confirmed', label: 'কনফার্মড (Confirmed)', icon: CheckCircle2, badge: orders.filter(o => o.status === 'Confirmed').length },
+                    { id: 'Processing', label: 'প্রসেসিং (Processing)', icon: Activity, badge: orders.filter(o => o.status === 'Processing').length },
+                    { id: 'Shipped', label: 'শিপড (Shipped)', icon: ShoppingBag, badge: orders.filter(o => o.status === 'Shipped' || o.status === 'Ready to Ship').length },
+                    { id: 'Delivered', label: 'ডেলিভারড (Delivered)', icon: CheckCircle2, badge: orders.filter(o => o.status === 'Delivered').length },
+                    { id: 'Cancelled', label: 'বাতিল (Cancelled)', icon: XCircle, badge: orders.filter(o => o.status === 'Cancelled').length }
+                  ]).map((tab) => {
+                    const TabIcon = tab.icon;
+                    const isActive = orderStatusFilter === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setOrderStatusFilter(tab.id)}
+                        className={`px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-2 border whitespace-nowrap
+                          ${isActive 
+                            ? 'bg-[#e07a5f]/15 text-[#e07a5f] border-[#e07a5f]/30 shadow-sm shadow-orange-600/5' 
+                            : 'bg-neutral-50 dark:bg-[#1a1614] border-inherit opacity-75 hover:opacity-100 hover:bg-neutral-100 dark:hover:bg-white/5'}`}
+                      >
+                        <TabIcon className={`h-4 w-4 ${isActive ? 'text-[#e07a5f]' : 'opacity-70'}`} />
+                        <span>{tab.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold
+                          ${isActive ? 'bg-[#e07a5f]/25 text-[#e07a5f]' : 'bg-neutral-200/50 dark:bg-white/10 text-inherit'}`}
+                        >
+                          {tab.badge}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Secondary payment filter dropdown */}
+                <div className="flex items-center space-x-2.5 flex-shrink-0">
+                  <span className="text-xs opacity-60 font-bold flex items-center space-x-1">
+                    <Filter className="h-3.5 w-3.5" />
+                    <span>পেমেন্ট গেটওয়ে:</span>
+                  </span>
+                  <select
+                    value={orderPaymentFilter}
+                    onChange={(e) => setOrderPaymentFilter(e.target.value)}
+                    className={`text-xs px-3 py-1.5 rounded-xl outline-none border border-inherit bg-transparent font-bold
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]' : 'bg-white'}`}
+                  >
+                    <option value="All">সকল পেমেন্ট (All Gateway)</option>
+                    <option value="COD">COD (Cash on Delivery)</option>
+                    <option value="bKash">bKash Mobile Wallet</option>
+                    <option value="Nagad">Nagad Mobile Wallet</option>
+                    <option value="Rocket">Rocket Mobile Wallet</option>
+                    <option value="Stripe">Stripe / Visa / Card</option>
+                    <option value="PayPal">PayPal Global</option>
+                    <option value="Apple Pay">Apple Pay Mobile</option>
+                    <option value="Credit Card">Credit Card Terminal</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Bulk Actions Menu */}
+              {bulkSelectedOrders.length > 0 && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs animate-fade-in">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-bold text-amber-500">🛒 {bulkSelectedOrders.length}টি অর্ডার সিলেক্ট করা হয়েছে</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="opacity-70">স্ট্যাটাস পরিবর্তন:</span>
+                    <select
+                      className="px-2.5 py-1 bg-[#1a1614] border border-[#322822] rounded text-inherit text-xs"
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          handleBulkStatusChange(e.target.value as OrderStatus);
+                          e.target.value = '';
+                        }
+                      }}
+                    >
+                      <option value="">বাছাই করুন...</option>
+                      <option value="New Order">New Order</option>
+                      <option value="Confirmed">Confirmed</option>
+                      <option value="Processing">Processing</option>
+                      <option value="Ready to Ship">Ready to Ship</option>
+                      <option value="Shipped">Shipped</option>
+                      <option value="Delivered">Delivered</option>
+                      <option value="Returned">Returned</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+
+                    <button 
+                      onClick={() => {
+                        const selectedObjects = orders.filter(o => bulkSelectedOrders.includes(o.id));
+                        const headers = ["Order ID", "Customer Name", "Email", "Phone", "Date", "Items", "Total (BDT)", "Status", "Payment Method", "Payment Status", "Shipping Address"];
+                        let csvContent = headers.join(",") + "\n";
+                        selectedObjects.forEach(order => {
+                          const itemNames = order.items.map(item => `${item.productName} (${item.quantity}x)`).join(" | ");
+                          const row = [
+                            order.id, order.customerName, order.customerEmail, order.customerPhone, order.date,
+                            itemNames, order.total, order.status, order.paymentMethod, order.paymentStatus, order.customerAddress
+                          ].map(v => `"${String(v).replace(/"/g, '""')}"`);
+                          csvContent += row.join(",") + "\n";
+                        });
+                        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.setAttribute("href", url);
+                        link.setAttribute("download", `bulk_orders_${Date.now()}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                      }}
+                      className="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded font-bold transition-all"
+                    >
+                      সিলেক্টেড এক্সপোর্ট (CSV)
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        if (window.confirm(`আপনি কি নিশ্চিত যে সিলেক্ট করা ${bulkSelectedOrders.length}টি অর্ডার মুছে ফেলতে চান?`)) {
+                          setOrders(prev => prev.filter(o => !bulkSelectedOrders.includes(o.id)));
+                          setBulkSelectedOrders([]);
+                        }
+                      }}
+                      className="px-3 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded font-bold transition-all"
+                    >
+                      ডিলিট করুন
+                    </button>
+
+                    <button 
+                      onClick={() => setBulkSelectedOrders([])}
+                      className="px-2.5 py-1 bg-inherit text-inherit opacity-70 border rounded hover:opacity-100"
+                    >
+                      ক্লিয়ার
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Main Orders List Table */}
+              <div className={`rounded-3xl border overflow-hidden
+                ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+              >
+                <table className="w-full text-left border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="border-b border-[#322822]/10 opacity-60 text-xs">
+                      <th className="p-4 w-12 text-center">
+                        <input 
+                          type="checkbox" 
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setBulkSelectedOrders(filteredOrders.map(o => o.id));
+                            } else {
+                              setBulkSelectedOrders([]);
+                            }
+                          }}
+                        />
+                      </th>
+                      <th className="p-4">অর্ডার আইডি</th>
+                      <th className="p-4">কাস্টমার নাম</th>
+                      <th className="p-4">ফোন নাম্বার</th>
+                      <th className="p-4">তারিখ</th>
+                      <th className="p-4 text-right">মোট মূল্য</th>
+                      <th className="p-4">পেমেন্ট গেটওয়ে</th>
+                      <th className="p-4">ডেলিভারি লোকেশন</th>
+                      <th className="p-4 text-center">স্ট্যাটাস</th>
+                      <th className="p-4 text-right">অ্যাকশন</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#322822]/5">
+                    {filteredOrders.map((order) => {
+                      const isSelected = bulkSelectedOrders.includes(order.id);
+                      
+                      // Format gateway badge
+                      let gatewayBadgeColor = "bg-amber-500/10 text-amber-500 border border-amber-500/10";
+                      if (order.paymentMethod === 'bKash') {
+                        gatewayBadgeColor = "bg-pink-500/10 text-pink-500 border border-pink-500/15";
+                      } else if (order.paymentMethod === 'Nagad') {
+                        gatewayBadgeColor = "bg-rose-500/10 text-rose-500 border border-rose-500/15";
+                      } else if (order.paymentMethod === 'COD') {
+                        gatewayBadgeColor = "bg-orange-500/10 text-orange-500 border border-orange-500/15";
+                      } else if (order.paymentMethod === 'Rocket') {
+                        gatewayBadgeColor = "bg-indigo-500/10 text-indigo-400 border border-indigo-500/15";
+                      } else {
+                        gatewayBadgeColor = "bg-sky-500/10 text-sky-500 border border-sky-500/15";
+                      }
+
+                      // Format location
+                      const locationStr = order.customerAddress.split(',')[0] || "ঢাকা";
+
+                      return (
+                        <tr 
+                          key={order.id} 
+                          className={`text-xs hover:bg-amber-500/[0.01] transition-colors group border-b border-[#322822]/5
+                            ${isSelected ? 'bg-amber-500/[0.02]' : ''}`}
+                        >
+                          <td className="p-4 text-center">
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setBulkSelectedOrders(prev => [...prev, order.id]);
+                                } else {
+                                  setBulkSelectedOrders(prev => prev.filter(id => id !== order.id));
+                                }
+                              }}
+                            />
+                          </td>
+                          <td className="p-4 font-mono font-bold text-[#e07a5f] group-hover:underline cursor-pointer" onClick={() => setSelectedOrder(order)}>
+                            {order.id}
+                          </td>
+                          <td className="p-4 font-bold">
+                            {order.customerName}
+                          </td>
+                          <td className="p-4 font-mono font-medium opacity-85">
+                            {order.customerPhone}
+                          </td>
+                          <td className="p-4 opacity-75 font-mono">
+                            {order.date}
+                          </td>
+                          <td className="p-4 text-right font-black font-mono text-[#e07a5f]">
+                            {formatCurrency(order.total)}
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${gatewayBadgeColor}`}>
+                              {order.paymentMethod}
+                            </span>
+                          </td>
+                          <td className="p-4 font-bold opacity-85">
+                            {locationStr}
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block border
+                              ${order.status === 'Delivered' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                                order.status === 'Processing' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                                order.status === 'New Order' ? 'bg-purple-500/15 text-purple-400 border-purple-500/30' :
+                                order.status === 'Confirmed' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                                order.status === 'Ready to Ship' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' :
+                                order.status === 'Shipped' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
+                                order.status === 'Returned' ? 'bg-pink-500/10 text-pink-500 border-pink-500/20' :
+                                'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                              }`}
+                            >
+                              {order.status === 'New Order' ? 'New Order' :
+                               order.status === 'Confirmed' ? 'Confirmed' :
+                               order.status === 'Processing' ? 'Processing' :
+                               order.status === 'Shipped' ? 'Shipped' :
+                               order.status === 'Delivered' ? 'Delivered' :
+                               order.status === 'Cancelled' ? 'Cancelled' : order.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right space-x-1.5">
+                            <button 
+                              onClick={() => setSelectedOrder(order)}
+                              className="p-1.5 hover:bg-amber-500/10 rounded-lg text-amber-500 transition-all inline-flex items-center justify-center"
+                              title="অর্ডার বিবরণী (View)"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => setEditingOrder(order)}
+                              className="p-1.5 hover:bg-sky-500/10 rounded-lg text-sky-500 transition-all inline-flex items-center justify-center"
+                              title="অর্ডার এডিট (Edit)"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                const nextStatusMap: Record<OrderStatus, OrderStatus> = {
+                                  'New Order': 'Confirmed',
+                                  'Confirmed': 'Processing',
+                                  'Processing': 'Shipped',
+                                  'Ready to Ship': 'Shipped',
+                                  'Shipped': 'Delivered',
+                                  'Delivered': 'Returned',
+                                  'Returned': 'Cancelled',
+                                  'Cancelled': 'New Order'
+                                };
+                                const nextSt = nextStatusMap[order.status] || 'New Order';
+                                updateOrderStatus(order.id, nextSt);
+                              }}
+                              className="p-1.5 hover:bg-purple-500/10 rounded-lg text-purple-400 transition-all inline-flex items-center justify-center"
+                              title="স্ট্যাটাস পরিবর্তন (Change Status)"
+                            >
+                              <Activity className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setTimeout(() => window.print(), 200);
+                              }}
+                              className="p-1.5 hover:bg-emerald-500/10 rounded-lg text-emerald-500 transition-all inline-flex items-center justify-center"
+                              title="ইনভয়েস প্রিন্ট (Print Invoice)"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                const csv = `Order ID,Customer,Phone,Date,Total,Gateway,Location,Status\n"${order.id}","${order.customerName}","${order.customerPhone}","${order.date}","${order.total}","${order.paymentMethod}","${locationStr}","${order.status}"`;
+                                const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8;' });
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement("a");
+                                link.href = url;
+                                link.download = `order_${order.id}.csv`;
+                                link.click();
+                              }}
+                              className="p-1.5 hover:bg-neutral-500/10 rounded-lg text-neutral-400 transition-all inline-flex items-center justify-center"
+                              title="এক্সপোর্ট (Export CSV)"
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteOrder(order.id)}
+                              className="p-1.5 hover:bg-rose-500/10 rounded-lg text-rose-500 transition-all inline-flex items-center justify-center"
+                              title="অর্ডার ডিলিট (Delete)"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                {filteredOrders.length === 0 && (
+                  <div className="p-8 text-center opacity-60 text-sm">
+                    কোন অর্ডার পাওয়া যায়নি। ফিল্টার চেঞ্জ করে আবার চেষ্টা করুন।
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================================
+              TAB 3: CUSTOMER MANAGEMENT CRM
+              ========================================================== */}
+          {activeTab === 'customers' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-extrabold tracking-tight">কাস্টমার রিলেশনশিপ (Customer CRM)</h1>
+                  <p className="opacity-60 text-sm mt-1">গ্রাহকদের লাইফটাইম ভ্যালু (LTV), ফ্যাশন পরিমাপ ও ইন্টেলিজেন্স ট্র্যাকিং।</p>
+                </div>
+                
+                {/* Segment stats tabs and Add customer */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex bg-black/15 p-1 rounded-xl border border-white/5 overflow-x-auto">
+                    {['All', 'VIP', 'Regular', 'New', 'Inactive'].map(segment => (
+                      <button
+                        key={segment}
+                        onClick={() => setCustomerSegmentFilter(segment)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap
+                          ${customerSegmentFilter === segment 
+                            ? 'bg-[#e07a5f] text-white shadow' 
+                            : 'hover:bg-amber-500/5 opacity-70'}`}
+                      >
+                        {segment} ({customers.filter(c => segment === 'All' || c.segment === segment).length})
+                      </button>
+                    ))}
+                  </div>
+
+                  <button 
+                    onClick={() => handleOpenCustomerModal(null)}
+                    className="flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#e07a5f] hover:bg-[#d06a4f] text-white transition-all shadow-md self-start sm:self-auto"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>নতুন কাস্টমার যোগ করুন</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Customers Bento Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCustomers.map(cust => {
+                  const isVIP = cust.segment === 'VIP' || (cust.customerValueScore && cust.customerValueScore >= 85);
+                  const isInactive = cust.segment === 'Inactive';
+                  
+                  return (
+                    <div 
+                      key={cust.id}
+                      onClick={() => setSelectedCustomer(cust)}
+                      className={`p-6 rounded-[2rem] border transition-all hover:scale-[1.01] hover:-translate-y-1 duration-300 cursor-pointer relative group flex flex-col justify-between h-full
+                        ${settings.themeMode === 'dark' 
+                          ? 'bg-[#1a1614]/80 border-[#322822]/60 hover:border-amber-500/30' 
+                          : 'bg-white border-[#e8e4dc] hover:border-orange-200 text-neutral-800'}`}
+                    >
+                      <div>
+                        {/* VIP or Inactive status label */}
+                        <div className="absolute top-4 right-4 flex space-x-1">
+                          {isVIP && (
+                            <span className="bg-amber-500/20 text-amber-500 text-[9px] font-black font-mono px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              VIP
+                            </span>
+                          )}
+                          {isInactive && (
+                            <span className="bg-rose-500/20 text-rose-500 text-[9px] font-black font-mono px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              INACTIVE
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                          <div className="h-12 w-12 rounded-full overflow-hidden border border-amber-500/20">
+                            <img src={cust.avatar} alt={cust.name} className="h-full w-full object-cover" />
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <h3 className="font-extrabold text-sm truncate max-w-[130px]">{cust.name}</h3>
+                              <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded bg-black/15 text-neutral-400">
+                                {cust.customerValueScore ? `${cust.customerValueScore} Pts` : 'N/A'}
+                              </span>
+                            </div>
+                            <p className="text-[10px] opacity-60 font-mono mt-0.5">{cust.id}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 space-y-2 text-xs opacity-75">
+                          <p className="flex items-center space-x-2">
+                            <Mail className="h-3.5 w-3.5 text-[#e07a5f]" />
+                            <span className="truncate">{cust.email}</span>
+                          </p>
+                          <p className="flex items-center space-x-2">
+                            <Phone className="h-3.5 w-3.5 text-[#e07a5f]" />
+                            <span>{cust.phone}</span>
+                          </p>
+                          <p className="flex items-center space-x-2">
+                            <MapPin className="h-3.5 w-3.5 text-[#e07a5f]" />
+                            <span className="truncate">{cust.address}</span>
+                          </p>
+                        </div>
+
+                        {/* Fashion preferences capsule list */}
+                        <div className="mt-4 flex flex-wrap gap-1.5">
+                          {cust.preferredSize && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#e07a5f]/15 text-[#e07a5f]">
+                              Size: {cust.preferredSize}
+                            </span>
+                          )}
+                          {cust.favoriteColor && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-500">
+                              Color: {cust.favoriteColor}
+                            </span>
+                          )}
+                          {cust.favoriteCategory && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-400">
+                              Pref: {cust.favoriteCategory}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-5 pt-4 border-t border-inherit grid grid-cols-2 gap-4 text-center">
+                          <div>
+                            <span className="text-[10px] opacity-60 uppercase block">জীবনকাল খরচ (LTV)</span>
+                            <span className="font-mono text-sm font-black text-amber-500">{formatCurrency(cust.totalSpending)}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] opacity-60 uppercase block">মোট অর্ডার</span>
+                            <span className="font-mono text-sm font-black text-[#e07a5f]">{cust.ordersCount}টি</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card actions bottom bar */}
+                      <div className="mt-4 pt-3 border-t border-inherit flex justify-between items-center text-[10px] bg-black/5 p-2 rounded-xl">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenCustomerModal(cust);
+                            }}
+                            className="p-1 px-2 border border-[#322822]/20 hover:bg-amber-500/15 hover:border-amber-500/20 text-amber-500 rounded-lg transition-all font-bold"
+                            title="সম্পাদনা করুন"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteCustomer(cust.id);
+                            }}
+                            className="p-1 px-2 border border-rose-500/20 hover:bg-rose-500/15 hover:border-rose-500/20 text-rose-500 rounded-lg transition-all font-bold"
+                            title="ডিলিট করুন"
+                          >
+                            Delete
+                          </button>
+                        </div>
+
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAiAssistantOpen(true);
+                            setUserInput(`Draft a win-back email for customer ${cust.name}. Include their total spending of ${formatCurrency(cust.totalSpending)} and thank them for being a premium ${cust.segment} club member.`);
+                          }}
+                          className="text-[#e07a5f] hover:underline font-extrabold"
+                        >
+                          AI ইমেইল লিখুন
+                        </button>
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+
+              {filteredCustomers.length === 0 && (
+                <div className="p-8 text-center opacity-60 text-sm">
+                  কোন কাস্টমার ডেটা খুঁজে পাওয়া যায়নি।
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================================
+              TAB 4: PRODUCT CATALOG & FASHION INTEL
+              ========================================================== */}
+          {activeTab === 'products' && (
+            <div className="space-y-6 animate-fade-in">
+              
+              {/* Header section with Sub-tab selectors */}
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-[#322822]/15">
+                <div>
+                  <h1 className="text-3xl font-extrabold tracking-tight">প্রোডাক্ট ও ফ্যাশন ড্যাশবোর্ড (Product Catalog)</h1>
+                  <p className="opacity-60 text-sm mt-1">পণ্য ক্যাটালগ, ফ্যাশন সাইজ ও কালেকশন ম্যানেজমেন্ট সিস্টেম।</p>
+                </div>
+                
+                {/* Sub tabs */}
+                <div className="flex bg-black/15 p-1 rounded-2xl border border-white/5 self-start xl:self-auto">
+                  <button
+                    onClick={() => setProductSubTab('catalog')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      productSubTab === 'catalog' 
+                        ? 'bg-[#e07a5f] text-white shadow-md' 
+                        : 'opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    পণ্য ক্যাটালগ (Catalog)
+                  </button>
+                  <button
+                    onClick={() => setProductSubTab('manager')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      productSubTab === 'manager' 
+                        ? 'bg-[#e07a5f] text-white shadow-md' 
+                        : 'opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    ক্যাটাগরি ও ব্র্যান্ড ম্যানেজার (Manager)
+                  </button>
+                  <button
+                    onClick={() => setProductSubTab('analytics')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      productSubTab === 'analytics' 
+                        ? 'bg-[#e07a5f] text-white shadow-md' 
+                        : 'opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    কালেকশন অ্যানালিটিক্স (Analytics)
+                  </button>
+                </div>
+              </div>
+
+              {/* --------------------------------------------------------
+                  SUB-TAB 1: PRODUCT CATALOG LIST (WITH ADVANCED FILTERS)
+                  -------------------------------------------------------- */}
+              {productSubTab === 'catalog' && (
+                <div className="space-y-6">
+                  
+                  {/* Advanced Multi-Filter Panel */}
+                  <div className="bg-black/10 p-5 rounded-3xl border border-white/5 space-y-4">
+                    <div className="flex items-center space-x-2 text-xs font-bold opacity-75">
+                      <Filter className="h-4 w-4 text-[#e07a5f]" />
+                      <span>মাল্টি-ফিল্টারিং অপশন (Advanced Search Filters):</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      
+                      {/* Category Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] opacity-60 font-bold block uppercase">ক্যাটাগরি (Category)</label>
+                        <select
+                          value={productCategoryFilter}
+                          onChange={(e) => setProductCategoryFilter(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-xl border border-[#322822]/40 bg-[#120e0c] text-[#f6f3ed] outline-none focus:border-[#e07a5f]"
+                        >
+                          <option value="All">সকল ক্যাটাগরি (All Categories)</option>
+                          {categoriesList.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Brand Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] opacity-60 font-bold block uppercase">ব্র্যান্ড (Brand)</label>
+                        <select
+                          value={productBrandFilter}
+                          onChange={(e) => setProductBrandFilter(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-xl border border-[#322822]/40 bg-[#120e0c] text-[#f6f3ed] outline-none focus:border-[#e07a5f]"
+                        >
+                          <option value="All">সকল ব্র্যান্ড (All Brands)</option>
+                          {brandsList.map(brand => (
+                            <option key={brand} value={brand}>{brand}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Collection Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] opacity-60 font-bold block uppercase">কালেকশন (Collection)</label>
+                        <select
+                          value={productCollectionFilter}
+                          onChange={(e) => setProductCollectionFilter(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-xl border border-[#322822]/40 bg-[#120e0c] text-[#f6f3ed] outline-none focus:border-[#e07a5f]"
+                        >
+                          <option value="All">সকল কালেকশন (All Collections)</option>
+                          {collectionsList.map(col => (
+                            <option key={col} value={col}>{col}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Season Filter */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] opacity-60 font-bold block uppercase">সিজন (Season)</label>
+                        <select
+                          value={productSeasonFilter}
+                          onChange={(e) => setProductSeasonFilter(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-xl border border-[#322822]/40 bg-[#120e0c] text-[#f6f3ed] outline-none focus:border-[#e07a5f]"
+                        >
+                          <option value="All">সকল সিজন (All Seasons)</option>
+                          {seasonsList.map(sea => (
+                            <option key={sea} value={sea}>{sea}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2 text-xs">
+                      <div className="opacity-65">
+                        ফলাফল: <span className="font-mono font-bold text-[#e07a5f]">{filteredProducts.length}</span> টি প্রোডাক্ট পাওয়া গিয়েছে।
+                      </div>
+
+                      <div className="flex space-x-2">
+                        {(productCategoryFilter !== 'All' || productBrandFilter !== 'All' || productCollectionFilter !== 'All' || productSeasonFilter !== 'All') && (
+                          <button
+                            onClick={() => {
+                              setProductCategoryFilter('All');
+                              setProductBrandFilter('All');
+                              setProductCollectionFilter('All');
+                              setProductSeasonFilter('All');
+                            }}
+                            className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[11px] font-bold transition-all"
+                          >
+                            ফিল্টার রিসেট করুন
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleOpenProductModal(null)}
+                          className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#e07a5f] hover:bg-[#d06a4f] text-white transition-all shadow-md"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>নতুন প্রোডাক্ট যোগ করুন</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Products Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredProducts.map(prod => (
+                      <div 
+                        key={prod.id}
+                        className={`rounded-[2rem] border overflow-hidden group transition-all duration-300 hover:scale-[1.01] hover:border-amber-500/20 flex flex-col justify-between h-full
+                          ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm text-neutral-800'}`}
+                      >
+                        <div>
+                          {/* Image section */}
+                          <div className="h-52 w-full bg-neutral-900 overflow-hidden relative">
+                            <img 
+                              src={prod.image} 
+                              alt={prod.name} 
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                            
+                            {/* Badges in Image */}
+                            <div className="absolute top-4 left-4 flex flex-col gap-1.5">
+                              <span className="text-[10px] uppercase font-black px-2.5 py-1 rounded-xl bg-[#e07a5f] text-white shadow-md">
+                                {prod.category}
+                              </span>
+                              {prod.collection && (
+                                <span className="text-[10px] uppercase font-black px-2.5 py-1 rounded-xl bg-amber-500/90 text-black shadow-md font-mono">
+                                  {prod.collection}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="absolute top-4 right-4 flex flex-col gap-1.5 items-end">
+                              {prod.brand && (
+                                <span className="text-[10px] font-black px-2.5 py-1 rounded-xl bg-black/75 text-amber-400 border border-amber-500/30 shadow-md">
+                                  {prod.brand}
+                                </span>
+                              )}
+                              {prod.stock <= settings.lowStockLimit && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-rose-500 text-white flex items-center space-x-1 animate-pulse shadow-md">
+                                  <BadgeAlert className="h-3 w-3" />
+                                  <span>LOW STOCK</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* SKU bottom overlay */}
+                            <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-0.5 rounded text-[9px] font-mono text-white tracking-widest uppercase">
+                              SKU: {prod.sku || 'N/A'}
+                            </div>
+                          </div>
+
+                          {/* Details content */}
+                          <div className="p-6 space-y-4">
+                            <div>
+                              <div className="flex justify-between items-start">
+                                <h3 className="font-extrabold text-sm group-hover:text-[#e07a5f] transition-colors leading-snug">{prod.name}</h3>
+                                <span className="text-[9px] font-mono opacity-50 px-1 bg-white/5 rounded">{prod.season || 'All Season'}</span>
+                              </div>
+                              <p className="text-xs opacity-60 mt-1 line-clamp-2 leading-relaxed">{prod.description}</p>
+                            </div>
+
+                            {/* Fashion Attributes Specific UI Grid */}
+                            <div className="grid grid-cols-2 gap-2 text-[11px] p-3 rounded-2xl bg-black/10 border border-white/5">
+                              <div>
+                                <span className="opacity-50 block text-[9px] uppercase font-mono">Fabric / উপাদান</span>
+                                <span className="font-bold truncate block">{prod.fabric || 'Premium Cotton'}</span>
+                              </div>
+                              <div>
+                                <span className="opacity-50 block text-[9px] uppercase font-mono">Sizes / সাইজ</span>
+                                <span className="font-bold truncate block font-mono text-amber-500">
+                                  {prod.sizes && prod.sizes.length > 0 ? prod.sizes.join(', ') : 'Free Size'}
+                                </span>
+                              </div>
+                              <div className="col-span-2 pt-1.5 border-t border-white/5">
+                                <span className="opacity-50 block text-[9px] uppercase font-mono">Colors / কালার</span>
+                                <span className="font-semibold block truncate">
+                                  {prod.colors && prod.colors.length > 0 ? prod.colors.join(', ') : 'Multicolor'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Pricing and Sales Indicators */}
+                            <div className="flex justify-between items-center py-2.5 border-y border-[#322822]/10">
+                              <div>
+                                <span className="text-[10px] opacity-50 block">বিক্রয় মূল্য</span>
+                                <span className="font-mono font-black text-sm text-[#e07a5f]">{formatCurrency(prod.price)}</span>
+                                {prod.originalPrice > prod.price && (
+                                  <span className="font-mono text-[10px] line-through opacity-40 ml-1.5">{formatCurrency(prod.originalPrice)}</span>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[10px] opacity-50 block">বিক্রি সংখ্যা</span>
+                                <span className="font-mono font-bold text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-lg">{prod.salesCount} sold</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card controls (Bottom) */}
+                        <div className="px-6 pb-6 pt-2 flex justify-between items-center bg-black/5 mt-auto">
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-[11px] font-semibold opacity-70">ইনভেন্টরি স্টক:</span>
+                            <span className={`font-mono text-xs font-black ${prod.stock <= settings.lowStockLimit ? 'text-rose-500 text-sm animate-pulse' : 'text-emerald-500'}`}>
+                              {prod.stock} Pcs
+                            </span>
+                          </div>
+                          
+                          <div className="flex space-x-2">
+                            <button 
+                              onClick={() => handleOpenProductModal(prod)}
+                              className="p-2 border border-[#322822]/20 hover:bg-amber-500/10 hover:border-amber-500/20 text-amber-500 rounded-xl transition-all"
+                              title="সম্পাদনা করুন (Edit)"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteProduct(prod.id)}
+                              className="p-2 border border-rose-500/20 hover:bg-rose-500/10 hover:border-rose-500/20 text-rose-500 rounded-xl transition-all"
+                              title="ডিলেট করুন (Delete)"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+
+                  {filteredProducts.length === 0 && (
+                    <div className="p-16 text-center border-2 border-dashed border-[#322822]/20 rounded-[2rem] opacity-60">
+                      কোন ম্যাচিং প্রোডাক্ট খুঁজে পাওয়া যায়নি। ফিল্টার পরিবর্তন করে চেষ্টা করুন।
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* --------------------------------------------------------
+                  SUB-TAB 2: CATEGORY & BRAND & COLLECTION MANAGER
+                  -------------------------------------------------------- */}
+              {productSubTab === 'manager' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* Category Manager Column */}
+                  <div className="bg-[#1a1614] border border-[#322822] rounded-[2rem] p-6 space-y-4">
+                    <div className="flex items-center space-x-2 border-b border-white/5 pb-3">
+                      <Layers className="h-5 w-5 text-[#e07a5f]" />
+                      <div>
+                        <h2 className="font-extrabold text-sm">ক্যাটাগরি ম্যানেজমেন্ট</h2>
+                        <p className="text-[10px] opacity-50">পণ্য ক্যাটাগরি তৈরি ও ডিলিট করুন</p>
+                      </div>
+                    </div>
+
+                    {/* New Category Input Form */}
+                    <div className="flex space-x-2">
+                      <input 
+                        type="text"
+                        placeholder="নতুন ক্যাটাগরি..."
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        className="flex-1 text-xs p-2.5 rounded-xl border border-[#322822]/50 bg-[#120e0c] outline-none"
+                      />
+                      <button 
+                        onClick={() => {
+                          if (newCategoryName.trim()) {
+                            if (!categoriesList.includes(newCategoryName.trim())) {
+                              setCategoriesList(prev => [...prev, newCategoryName.trim()]);
+                              setNewCategoryName('');
+                            } else {
+                              alert('ক্যাটাগরি আগে থেকেই বিদ্যমান আছে!');
+                            }
+                          }
+                        }}
+                        className="p-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] rounded-xl text-white"
+                        title="ক্যাটাগরি যোগ করুন"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {/* Categories List */}
+                    <div className="space-y-2 max-h-[350px] overflow-y-auto">
+                      {categoriesList.map(cat => {
+                        const inUse = products.some(p => p.category === cat);
+                        return (
+                          <div key={cat} className="flex justify-between items-center text-xs p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                            <span className="font-medium">{cat}</span>
+                            <button
+                              onClick={() => {
+                                if (inUse) {
+                                  alert(`এই ক্যাটাগরিটি ডিলেট করা যাবে না। ${products.filter(p => p.category === cat).length}টি প্রোডাক্ট এতে রেজিস্টার্ড রয়েছে।`);
+                                  return;
+                                }
+                                setCategoriesList(prev => prev.filter(c => c !== cat));
+                              }}
+                              className={`p-1 rounded ${inUse ? 'opacity-20 cursor-not-allowed' : 'text-rose-500 hover:bg-rose-500/10'}`}
+                              disabled={inUse}
+                              title={inUse ? "ব্যবহার হচ্ছে" : "ডিলেট করুন"}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Brand Manager Column */}
+                  <div className="bg-[#1a1614] border border-[#322822] rounded-[2rem] p-6 space-y-4">
+                    <div className="flex items-center space-x-2 border-b border-white/5 pb-3">
+                      <Briefcase className="h-5 w-5 text-amber-500" />
+                      <div>
+                        <h2 className="font-extrabold text-sm">ব্র্যান্ড ম্যানেজমেন্ট</h2>
+                        <p className="text-[10px] opacity-50">ব্র্যান্ডের তালিকা নিয়ন্ত্রণ করুন</p>
+                      </div>
+                    </div>
+
+                    {/* New Brand Input Form */}
+                    <div className="flex space-x-2">
+                      <input 
+                        type="text"
+                        placeholder="নতুন ব্র্যান্ড..."
+                        value={newBrandName}
+                        onChange={(e) => setNewBrandName(e.target.value)}
+                        className="flex-1 text-xs p-2.5 rounded-xl border border-[#322822]/50 bg-[#120e0c] outline-none"
+                      />
+                      <button 
+                        onClick={() => {
+                          if (newBrandName.trim()) {
+                            if (!brandsList.includes(newBrandName.trim())) {
+                              setBrandsList(prev => [...prev, newBrandName.trim()]);
+                              setNewBrandName('');
+                            } else {
+                              alert('ব্র্যান্ড আগে থেকেই বিদ্যমান আছে!');
+                            }
+                          }
+                        }}
+                        className="p-2.5 bg-amber-500 hover:bg-amber-600 rounded-xl text-black"
+                        title="ব্র্যান্ড যোগ করুন"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {/* Brands List */}
+                    <div className="space-y-2 max-h-[350px] overflow-y-auto">
+                      {brandsList.map(brand => {
+                        const inUse = products.some(p => p.brand === brand);
+                        return (
+                          <div key={brand} className="flex justify-between items-center text-xs p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                            <span className="font-medium">{brand}</span>
+                            <button
+                              onClick={() => {
+                                if (inUse) {
+                                  alert(`এই ব্র্যান্ড ডিলেট করা যাবে না। প্রোডাক্টে ব্যবহার হচ্ছে।`);
+                                  return;
+                                }
+                                setBrandsList(prev => prev.filter(b => b !== brand));
+                              }}
+                              className={`p-1 rounded ${inUse ? 'opacity-20 cursor-not-allowed' : 'text-rose-500 hover:bg-rose-500/10'}`}
+                              disabled={inUse}
+                              title={inUse ? "ব্যবহার হচ্ছে" : "ডিলেট করুন"}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Collection Manager Column */}
+                  <div className="bg-[#1a1614] border border-[#322822] rounded-[2rem] p-6 space-y-4">
+                    <div className="flex items-center space-x-2 border-b border-white/5 pb-3">
+                      <Sparkles className="h-5 w-5 text-indigo-400" />
+                      <div>
+                        <h2 className="font-extrabold text-sm">কালেকশন ম্যানেজমেন্ট</h2>
+                        <p className="text-[10px] opacity-50">ঈদ, শীতকালীন, গ্রীষ্মকালীন বা বিশেষ কালেকশন</p>
+                      </div>
+                    </div>
+
+                    {/* New Collection Input Form */}
+                    <div className="flex space-x-2">
+                      <input 
+                        type="text"
+                        placeholder="নতুন কালেকশন..."
+                        value={newCollectionName}
+                        onChange={(e) => setNewCollectionName(e.target.value)}
+                        className="flex-1 text-xs p-2.5 rounded-xl border border-[#322822]/50 bg-[#120e0c] outline-none"
+                      />
+                      <button 
+                        onClick={() => {
+                          if (newCollectionName.trim()) {
+                            if (!collectionsList.includes(newCollectionName.trim())) {
+                              setCollectionsList(prev => [...prev, newCollectionName.trim()]);
+                              setNewCollectionName('');
+                            } else {
+                              alert('কালেকশন আগে থেকেই বিদ্যমান আছে!');
+                            }
+                          }
+                        }}
+                        className="p-2.5 bg-indigo-500 hover:bg-indigo-600 rounded-xl text-white"
+                        title="কালেকশন যোগ করুন"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {/* Collections List */}
+                    <div className="space-y-2 max-h-[350px] overflow-y-auto">
+                      {collectionsList.map(col => {
+                        const inUse = products.some(p => p.collection === col);
+                        return (
+                          <div key={col} className="flex justify-between items-center text-xs p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                            <span className="font-medium">{col}</span>
+                            <button
+                              onClick={() => {
+                                if (inUse) {
+                                  alert(`এই কালেকশন ডিলেট করা যাবে না। প্রোডাক্টে ব্যবহার হচ্ছে।`);
+                                  return;
+                                }
+                                setCollectionsList(prev => prev.filter(c => c !== col));
+                              }}
+                              className={`p-1 rounded ${inUse ? 'opacity-20 cursor-not-allowed' : 'text-rose-500 hover:bg-rose-500/10'}`}
+                              disabled={inUse}
+                              title={inUse ? "ব্যবহার হচ্ছে" : "ডিলেট করুন"}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                </div>
+              )}
+
+              {/* --------------------------------------------------------
+                  SUB-TAB 3: COLLECTION SALES & PROFIT ANALYTICS
+                  -------------------------------------------------------- */}
+              {productSubTab === 'analytics' && (
+                <div className="space-y-6">
+                  
+                  {/* Best Performing Highlights Card */}
+                  {bestPerformingCollection && (
+                    <div className="p-6 bg-gradient-to-r from-amber-500/10 via-indigo-500/5 to-transparent border border-amber-500/20 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-4 bg-amber-500/20 text-amber-500 rounded-2xl">
+                          <TrendingUp className="h-8 w-8" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider block">সর্বোচ্চ বিক্রিত কালেকশন (Best Performing)</span>
+                          <h3 className="text-xl font-black text-[#f6f3ed]">{bestPerformingCollection.collectionName}</h3>
+                          <p className="text-xs opacity-60 mt-1">
+                            মোট <span className="text-amber-500 font-bold">{bestPerformingCollection.salesCount}টি</span> পণ্য ক্লিয়ারেন্স করা হয়েছে এবং মোট রেভিনিউ অর্জিত হয়েছে।
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-left md:text-right">
+                        <span className="text-xs opacity-50 block">মোট কালেকশন রেভিনিউ</span>
+                        <span className="text-2xl font-black text-amber-500 font-mono">{formatCurrency(bestPerformingCollection.revenue)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Collections Comparison Bento Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {collectionStats.map(stat => {
+                      const profitMargin = stat.revenue > 0 ? Math.round((stat.profit / stat.revenue) * 100) : 0;
+                      return (
+                        <div 
+                          key={stat.collectionName}
+                          className="bg-[#1a1614] border border-[#322822] rounded-[2.5rem] p-6 space-y-4 relative overflow-hidden group hover:border-[#e07a5f]/20 transition-all duration-300"
+                        >
+                          <div className="absolute top-0 right-0 h-24 w-24 bg-indigo-500/5 rounded-bl-full pointer-events-none group-hover:bg-indigo-500/10 transition-colors"></div>
+                          
+                          <div>
+                            <span className="text-[10px] font-bold opacity-45 uppercase font-mono tracking-widest">Fashion Collection</span>
+                            <h3 className="font-extrabold text-base text-[#f6f3ed] truncate">{stat.collectionName}</h3>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 py-4 border-y border-white/5 text-center">
+                            <div>
+                              <span className="text-[10px] opacity-55 block uppercase">মোট রেভিনিউ</span>
+                              <span className="font-mono text-sm font-black text-amber-500">{formatCurrency(stat.revenue)}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] opacity-55 block uppercase">মোট প্রফিট</span>
+                              <span className="font-mono text-sm font-black text-[#e07a5f]">{formatCurrency(stat.profit)}</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between items-center">
+                              <span className="opacity-60">ক্যাটালগে প্রোডাক্ট সংখ্যা:</span>
+                              <span className="font-bold">{stat.productsCount} টি</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="opacity-60">অর্ডার সেলস ইউনিট:</span>
+                              <span className="font-bold font-mono">{stat.salesCount} Pcs</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="opacity-60">প্রফিট মার্জিন রেট:</span>
+                              <span className="font-bold font-mono text-emerald-500">{profitMargin}% Margin</span>
+                            </div>
+                          </div>
+
+                          {/* Progress bar visualizer */}
+                          <div className="pt-2">
+                            <div className="h-1.5 w-full bg-neutral-900 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min(100, Math.max(5, stat.revenue > 0 ? (stat.profit / stat.revenue) * 100 : 0))}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {/* ==========================================================
+              TAB 5: INVENTORY / STOCK CONTROL
+              ========================================================== */}
+          {activeTab === 'inventory' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-extrabold tracking-tight">ইনভেন্টরি ও লাভ কন্ট্রোল (Inventory & Profits)</h1>
+                  <p className="opacity-60 text-sm mt-1">পণ্য স্টক, সাইজ-কালার বিবরণ এবং রিয়েল-টাইম নিট লাভ (Net Profit ৳) ট্র্যাক করুন।</p>
+                </div>
+
+                {/* Sub-tab switcher */}
+                <div className="flex space-x-1.5 bg-[#120e0c]/10 dark:bg-[#faf8f5]/10 p-1 rounded-2xl w-fit">
+                  {[
+                    { id: 'list', label: 'স্টক ট্র্যাকিং', icon: Warehouse },
+                    { id: 'analytics', label: 'প্রফিট অ্যানালিটিক্স', icon: Coins },
+                    { id: 'history', label: 'ইনভেন্টরি ইতিহাস', icon: Clock }
+                  ].map(tab => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setInventorySubTab(tab.id as any)}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all
+                          ${inventorySubTab === tab.id
+                            ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/10'
+                            : 'opacity-70 hover:opacity-100'}`}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Sub-Tab 1: Stock list (with expandible size/color stock options) */}
+              {inventorySubTab === 'list' && (
+                <div className="space-y-6">
+                  {/* Low stock alerts dashboard header banner */}
+                  <div className="p-5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center space-x-4">
+                    <div className="p-3 bg-amber-500/20 rounded-xl text-amber-500 flex-shrink-0 animate-bounce">
+                      <Warehouse className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm">ইনভেন্টরি এলার্ট: ২ টি প্রোডাক্টের স্টক লিমিট শেষ হচ্ছে!</h3>
+                      <p className="text-xs opacity-80 mt-1">ক্যাটালগে ২ টি প্রোডাক্টের স্টক ৫ ইউনিটের নিচে নেমে গিয়েছে। রি-স্টক রিকোয়েস্ট পাঠান বা স্টক বৃদ্ধি করুন।</p>
+                    </div>
+                  </div>
+
+                  <div className={`rounded-3xl border overflow-hidden
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <div className="p-5 border-b border-inherit flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <h3 className="font-extrabold text-sm text-amber-500">প্রোডাক্ট ক্যাটাগরি স্টক কন্ট্রোল</h3>
+                      <span className="text-xs opacity-60">প্রতিটি লাইনে ক্লিক করে সাইজ এবং কালার অনুযায়ী স্টক ভেরিয়েশন চেক করুন।</span>
+                    </div>
+
+                    <table className="w-full text-left border-collapse min-w-[600px]">
+                      <thead>
+                        <tr className="border-b border-[#322822]/10 opacity-60 text-xs">
+                          <th className="p-4">প্রোডাক্ট বিবরণ</th>
+                          <th className="p-4">ক্যাটাগরি</th>
+                          <th className="p-4 text-center">ইনভেন্টরি স্টক</th>
+                          <th className="p-4">স্টক স্ট্যাটাস</th>
+                          <th className="p-4 text-right font-mono">SKU / Code</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#322822]/5">
+                        {products.map((p) => {
+                          const isLowStock = p.stock <= settings.lowStockLimit;
+                          
+                          return (
+                            <React.Fragment key={p.id}>
+                              <tr className="text-xs hover:bg-amber-500/[0.02] transition-all">
+                                <td className="p-4">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="h-10 w-10 rounded-xl overflow-hidden bg-neutral-900 flex-shrink-0">
+                                      <img src={p.image} alt={p.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                                    </div>
+                                    <div>
+                                      <span className="font-bold block">{p.name}</span>
+                                      <span className="text-[10px] opacity-50 block font-mono">{p.id}</span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="p-4 opacity-80">{p.category}</td>
+                                <td className="p-4 text-center">
+                                  <div className="flex items-center justify-center space-x-2">
+                                    <button 
+                                      onClick={() => handleQuickStockUpdate(p.id, p.stock - 1)}
+                                      className="px-2 py-1 bg-[#120e0c]/10 dark:bg-[#faf8f5]/10 hover:bg-amber-500/20 text-inherit font-bold rounded-lg transition-colors"
+                                    >
+                                      -
+                                    </button>
+                                    <span className={`font-mono font-bold text-sm px-2 ${isLowStock ? 'text-amber-500 font-extrabold' : ''}`}>
+                                      {p.stock}
+                                    </span>
+                                    <button 
+                                      onClick={() => handleQuickStockUpdate(p.id, p.stock + 1)}
+                                      className="px-2 py-1 bg-[#120e0c]/10 dark:bg-[#faf8f5]/10 hover:bg-amber-500/20 text-inherit font-bold rounded-lg transition-colors"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </td>
+                                <td className="p-4">
+                                  {isLowStock ? (
+                                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 font-bold text-[10px] rounded">
+                                      Critical Low Stock
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 font-bold text-[10px] rounded">
+                                      Sufficient Stock
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-4 text-right font-mono font-bold text-[11px] opacity-70">
+                                  {p.sku || 'FBD-SKU-NA'}
+                                </td>
+                              </tr>
+                              
+                              {/* Expanded Size / Color Stock row */}
+                              <tr>
+                                <td colSpan={5} className="p-4 bg-amber-500/[0.01] border-b border-inherit">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-12">
+                                    {/* Size-wise list */}
+                                    <div className="space-y-2">
+                                      <p className="text-[10px] uppercase font-bold opacity-50 tracking-wider">📐 Size-Wise Stock (সাইজ ভিত্তিক স্টক)</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {p.sizes && p.sizes.map(size => {
+                                          const sizeQty = p.sizeStock ? (p.sizeStock[size] || 0) : 0;
+                                          return (
+                                            <div key={size} className="flex items-center space-x-1.5 bg-[#120e0c]/5 dark:bg-[#faf8f5]/5 px-2.5 py-1.5 rounded-lg border border-inherit">
+                                              <span className="font-extrabold text-[10px] opacity-60">{size}:</span>
+                                              <span className="font-mono font-bold text-amber-500">{sizeQty}</span>
+                                            </div>
+                                          );
+                                        })}
+                                        {(!p.sizes || p.sizes.length === 0) && (
+                                          <span className="text-xs opacity-50">No size variations defined.</span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Color-wise list */}
+                                    <div className="space-y-2">
+                                      <p className="text-[10px] uppercase font-bold opacity-50 tracking-wider">🎨 Color-Wise Stock (রং ভিত্তিক স্টক)</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {p.colors && p.colors.map(color => {
+                                          const colorQty = p.colorStock ? (p.colorStock[color] || 0) : 0;
+                                          return (
+                                            <div key={color} className="flex items-center space-x-1.5 bg-[#120e0c]/5 dark:bg-[#faf8f5]/5 px-2.5 py-1.5 rounded-lg border border-inherit">
+                                              <span className="font-bold text-[10px] opacity-60">{color}:</span>
+                                              <span className="font-mono font-bold text-indigo-400">{colorQty}</span>
+                                            </div>
+                                          );
+                                        })}
+                                        {(!p.colors || p.colors.length === 0) && (
+                                          <span className="text-xs opacity-50">No color variations defined.</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-Tab 2: Profit Analytics (Calulating: Net Profit = Price - productCost - deliveryCost - discount - marketingCost) */}
+              {inventorySubTab === 'analytics' && (
+                <div className="space-y-6">
+                  {/* Overview Stats Bar */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[
+                      {
+                        title: 'মোট ক্যাটালগ আইটেম',
+                        val: products.length,
+                        desc: 'সক্রিয় বিক্রয়যোগ্য পণ্য সংখ্যা',
+                        color: 'text-amber-500'
+                      },
+                      {
+                        title: 'গড় প্রোডাক্ট ম্যানুফ্যাকচারিং খরচ',
+                        val: formatCurrency(products.reduce((acc, p) => acc + (p.productCost || 0), 0) / products.length),
+                        desc: 'গড় ক্রয় বা উৎপাদন কস্ট',
+                        color: 'text-indigo-400 font-mono'
+                      },
+                      {
+                        title: 'গড় বিপণন ও ডেলিভারি কস্ট',
+                        val: formatCurrency(products.reduce((acc, p) => acc + ((p.deliveryCost || 0) + (p.marketingCost || 0)), 0) / products.length),
+                        desc: 'বিজ্ঞাপন ও ডেলিভারি গড় কস্ট',
+                        color: 'text-rose-400 font-mono'
+                      },
+                      {
+                        title: 'প্রজেক্টেড মোট নিট লাভ (Net Profit)',
+                        val: formatCurrency(products.reduce((acc, p) => {
+                          const netProfit = (p.price - (p.productCost || 0) - (p.deliveryCost || 0) - (p.discount || 0) - (p.marketingCost || 0));
+                          return acc + (netProfit * p.salesCount);
+                        }, 0)),
+                        desc: 'সমস্ত বিক্রিত পণ্যের প্রকৃত লাভ ৳',
+                        color: 'text-emerald-400 font-mono font-black'
+                      }
+                    ].map((stat, i) => (
+                      <div key={i} className={`p-5 rounded-3xl border
+                        ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc]'}`}
+                      >
+                        <p className="text-[11px] font-bold opacity-60">{stat.title}</p>
+                        <p className={`text-xl font-extrabold mt-1 ${stat.color}`}>{stat.val}</p>
+                        <p className="text-[10px] opacity-50 mt-1">{stat.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Net Profit Calculation Formula Banner */}
+                  <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 text-xs flex justify-between items-center flex-wrap gap-4">
+                    <div>
+                      <p className="font-bold text-emerald-500">📊 নিট লাভ (Net Profit ৳) গণনার ফর্মুলা:</p>
+                      <p className="opacity-75 mt-0.5 font-mono text-[11px]">
+                        Net Profit (৳) = Selling Price - Product Cost - Delivery Cost - Discount - Marketing Cost
+                      </p>
+                    </div>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-mono font-bold px-2 py-1 rounded-full">
+                      Real-time Calculated
+                    </span>
+                  </div>
+
+                  {/* Profit Calculation Grid Table */}
+                  <div className={`rounded-3xl border overflow-hidden
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <table className="w-full text-left border-collapse min-w-[750px]">
+                      <thead>
+                        <tr className="border-b border-[#322822]/10 opacity-60 text-xs">
+                          <th className="p-4">প্রোডাক্ট বিবরণ</th>
+                          <th className="p-4 text-right">বিক্রয় মূল্য (৳)</th>
+                          <th className="p-4 text-right text-indigo-400">প্রোডাক্ট কস্ট (৳)</th>
+                          <th className="p-4 text-right text-amber-500">ডেলিভারি কস্ট (৳)</th>
+                          <th className="p-4 text-right text-rose-400">ছাড়/ডিসকাউন্ট (৳)</th>
+                          <th className="p-4 text-right text-blue-400">মার্কেটিং কস্ট (৳)</th>
+                          <th className="p-4 text-right text-emerald-400 font-extrabold bg-emerald-500/[0.03]">নিট লাভ (Net Profit ৳)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#322822]/5">
+                        {products.map((p) => {
+                          const sellPrice = p.price;
+                          const prodCost = p.productCost || 0;
+                          const delivCost = p.deliveryCost || 0;
+                          const disc = p.discount || 0;
+                          const marketCost = p.marketingCost || 0;
+                          const netProfit = sellPrice - prodCost - delivCost - disc - marketCost;
+                          const totalProductProfit = netProfit * p.salesCount;
+
+                          return (
+                            <tr key={p.id} className="text-xs hover:bg-emerald-500/[0.01] transition-all">
+                              <td className="p-4">
+                                <div className="flex items-center space-x-3">
+                                  <div className="h-8 w-8 rounded-lg overflow-hidden bg-neutral-900 flex-shrink-0">
+                                    <img src={p.image} alt={p.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                                  </div>
+                                  <div>
+                                    <span className="font-bold block">{p.name}</span>
+                                    <span className="text-[9px] opacity-50 block font-mono">বিক্রিত পরিমাণ: {p.salesCount} টি</span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-4 text-right font-mono font-bold">{formatCurrency(sellPrice)}</td>
+                              <td className="p-4 text-right font-mono text-indigo-400 font-medium">{formatCurrency(prodCost)}</td>
+                              <td className="p-4 text-right font-mono text-amber-500 font-medium">{formatCurrency(delivCost)}</td>
+                              <td className="p-4 text-right font-mono text-rose-400 font-medium">{formatCurrency(disc)}</td>
+                              <td className="p-4 text-right font-mono text-blue-400 font-medium">{formatCurrency(marketCost)}</td>
+                              <td className="p-4 text-right font-mono font-black text-emerald-500 bg-emerald-500/[0.03]">
+                                <div className="space-y-0.5">
+                                  <span className="block">{formatCurrency(netProfit)} <span className="opacity-60 text-[9px] font-normal">/ unit</span></span>
+                                  <span className="block text-[10px] text-emerald-400 font-bold">মোট: {formatCurrency(totalProductProfit)}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-Tab 3: Stock logs & adjustment history */}
+              {inventorySubTab === 'history' && (
+                <div className={`rounded-3xl border overflow-hidden
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="p-5 border-b border-inherit flex justify-between items-center">
+                    <h3 className="font-extrabold text-sm text-amber-500">ইনভেন্টরি পরিবর্তন ও অ্যাকশন ইতিহাস (Stock Activity Log)</h3>
+                    <span className="text-[10px] bg-amber-500/10 text-amber-500 font-mono px-2 py-0.5 rounded font-bold uppercase">Real-Time Sync</span>
+                  </div>
+
+                  <table className="w-full text-left border-collapse min-w-[650px]">
+                    <thead>
+                      <tr className="border-b border-[#322822]/10 opacity-60 text-xs">
+                        <th className="p-4">তারিখ ও সময়</th>
+                        <th className="p-4">প্রোডাক্টের নাম</th>
+                        <th className="p-4">সাইজ ও কালার</th>
+                        <th className="p-4 text-center">অ্যাকশন টাইপ</th>
+                        <th className="p-4 text-center">পরিবর্তন (Qty)</th>
+                        <th className="p-4">অতিরিক্ত নোট / বিবরণ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#322822]/5">
+                      {inventoryHistory.map((h) => (
+                        <tr key={h.id} className="text-xs hover:bg-[#120e0c]/5 dark:hover:bg-[#faf8f5]/5 transition-all">
+                          <td className="p-4 font-mono opacity-70">{h.timestamp}</td>
+                          <td className="p-4 font-bold">{h.productName}</td>
+                          <td className="p-4">
+                            <span className="opacity-75">সাইজ: {h.size} | কালার: {h.color}</span>
+                          </td>
+                          <td className="p-4 text-center">
+                            {h.type === 'Restock' && (
+                              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded text-[9px] font-bold">
+                                রিস্টক (Restock)
+                              </span>
+                            )}
+                            {h.type === 'Sale' && (
+                              <span className="px-2 py-0.5 bg-rose-500/10 text-rose-500 rounded text-[9px] font-bold">
+                                বিক্রি (Sale)
+                              </span>
+                            )}
+                            {h.type === 'Adjustment' && (
+                              <span className="px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded text-[9px] font-bold">
+                                সমন্বয় (Adjustment)
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4 text-center font-mono font-bold">
+                            <span className={h.quantity > 0 ? 'text-emerald-500' : 'text-rose-500'}>
+                              {h.quantity > 0 ? `+${h.quantity}` : h.quantity}
+                            </span>
+                          </td>
+                          <td className="p-4 opacity-70 italic max-w-xs truncate">{h.note}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================================
+              TAB 6: ANALYTICS & REPORTS
+              ========================================================== */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-extrabold tracking-tight">বিজনেস অ্যানালিটিক্স (Business Reports)</h1>
+                  <p className="opacity-60 text-sm mt-1">Gemini AI দ্বারা ব্যবসার পারফরম্যান্স, লাভ ও ঝুঁকি নিরীক্ষণ করুন।</p>
+                </div>
+
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => handleTriggerAnalysis('sales')}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#e07a5f] text-white hover:bg-[#d06a4f] transition-all"
+                  >
+                    <PieChart className="h-4 w-4" />
+                    <span>AI সেলস রিপোর্ট</span>
+                  </button>
+                  <button 
+                    onClick={() => handleTriggerAnalysis('behavior')}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-black transition-all"
+                  >
+                    <Users className="h-4 w-4" />
+                    <span>CRM কাস্টমার রিপোর্ট</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Reports Panel */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                {/* Selector */}
+                <div className={`p-6 rounded-[2rem] border flex flex-col justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="space-y-4">
+                    <h3 className="font-extrabold text-sm uppercase tracking-wider opacity-60">অ্যানালাইসিস মডিউলস</h3>
+                    
+                    <button 
+                      onClick={() => handleTriggerAnalysis('sales')}
+                      className={`w-full p-4 rounded-xl border text-left transition-all flex items-start space-x-3
+                        ${aiAnalysisType === 'sales' ? 'border-[#e07a5f] bg-[#e07a5f]/10' : 'border-[#322822]/10 hover:bg-amber-500/5'}`}
+                    >
+                      <TrendingUp className="h-5 w-5 text-[#e07a5f] mt-0.5" />
+                      <div>
+                        <span className="font-bold text-xs block">1. Sales Performance Report</span>
+                        <span className="text-[10px] opacity-60 block mt-0.5">পণ্য বিক্রি ও মুনাফা সর্বোচ্চকরণের পরিকল্পনা</span>
+                      </div>
+                    </button>
+
+                    <button 
+                      onClick={() => handleTriggerAnalysis('behavior')}
+                      className={`w-full p-4 rounded-xl border text-left transition-all flex items-start space-x-3
+                        ${aiAnalysisType === 'behavior' ? 'border-amber-500 bg-amber-500/10' : 'border-[#322822]/10 hover:bg-amber-500/5'}`}
+                    >
+                      <Users className="h-5 w-5 text-amber-500 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-xs block">2. CRM Customer Segment Audit</span>
+                        <span className="text-[10px] opacity-60 block mt-0.5">কাস্টমার উইন-ব্যাক এবং রিটেনশন পলিসি সাজেশন</span>
+                      </div>
+                    </button>
+
+                    <button 
+                      onClick={() => handleTriggerAnalysis('general')}
+                      className={`w-full p-4 rounded-xl border text-left transition-all flex items-start space-x-3
+                        ${aiAnalysisType === 'general' ? 'border-orange-400 bg-orange-400/10' : 'border-[#322822]/10 hover:bg-amber-500/5'}`}
+                    >
+                      <ShieldAlert className="h-5 w-5 text-orange-400 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-xs block">3. Risk & Fraud Detection Audit</span>
+                        <span className="text-[10px] opacity-60 block mt-0.5">ক্ষতিকর অর্ডার ট্র্যাকিং এবং কম স্টক অ্যালার্ট</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/10 mt-6 text-[10px] leading-relaxed">
+                    ⚙️ <strong>প্রো টিপ:</strong> এআই রিপোর্ট জেনারেট করতে রিয়েল-টাইম ড্যাশবোর্ড ডেটা স্ট্রাকচার পাঠানো হয়।
+                  </div>
+                </div>
+
+                {/* AI report output panel */}
+                <div className={`p-6 rounded-[2rem] border lg:col-span-2 min-h-[400px] flex flex-col justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="border-b border-[#322822]/10 pb-4 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-bold">এআই জেনারেটেড বিজনেস ইন্টেলিজেন্স</h3>
+                      <span className="text-[10px] opacity-50 font-mono">Powered by Gemini 3.5 Flash Model</span>
+                    </div>
+                    {aiAnalysisLoading && (
+                      <span className="text-xs text-[#e07a5f] font-bold animate-pulse">রিপোর্ট প্রিপেয়ার করা হচ্ছে...</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 py-6 overflow-y-auto max-h-[450px] space-y-4">
+                    {aiAnalysisLoading ? (
+                      <div className="h-full flex flex-col items-center justify-center space-y-4 text-center opacity-65 pt-12">
+                        <div className="h-8 w-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-xs">Aura AI স্টোরের রিয়েল-টাইম ডেটা নিয়ে বিশ্লেষণ করছে। অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন...</p>
+                      </div>
+                    ) : aiAnalysisResult ? (
+                      <div className="prose dark:prose-invert text-xs max-w-none leading-relaxed whitespace-pre-wrap font-mono text-left bg-black/15 p-4 rounded-xl border border-white/5">
+                        {aiAnalysisResult}
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center space-y-3 text-center opacity-65 pt-12">
+                        <Sparkles className="h-10 w-10 text-[#e07a5f] animate-pulse" />
+                        <p className="font-bold text-xs">কোন রিপোর্ট এখনো জেনারেট করা হয়নি।</p>
+                        <p className="text-[11px] max-w-sm">ডান পাশের বাটনগুলোতে ক্লিক করে কাস্টম সেলস, কাস্টমার আচরণ কিংবা সিকিউরিটি অডিট রিপোর্ট তৈরি করুন।</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-[#322822]/10 pt-4 flex justify-between items-center text-[10px] opacity-60">
+                    <span>স্টোর ডেটা সিঙ্ক সম্পন্ন হয়েছে।</span>
+                    <span>Aura Lux Client Management v2.4</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================================
+              TAB: MARKETING AUTOMATION & LOYALTY CLUB
+              ========================================================== */}
+          {activeTab === 'marketing' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-extrabold tracking-tight">মার্কেটিং ও লয়্যালটি ড্যাশবোর্ড (Marketing & Loyalty Club)</h1>
+                  <p className="opacity-60 text-sm mt-1">
+                    কাস্টমার সেগমেন্টেশন, অটোমেটেড ক্যাম্পেইন, কুপন ম্যানেজমেন্ট এবং মেম্বারশিপ রিওয়ার্ড সিস্টেম।
+                  </p>
+                </div>
+                
+                {/* Sub-tab Selection */}
+                <div className="flex items-center space-x-1.5 p-1 bg-neutral-900/10 dark:bg-white/5 rounded-xl border border-neutral-200 dark:border-white/10">
+                  {(['campaigns', 'segments', 'offers', 'loyalty'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setMarketingSubTab(tab)}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200
+                        ${marketingSubTab === tab 
+                          ? 'bg-[#e07a5f] text-white shadow-md' 
+                          : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-white/5'}`}
+                    >
+                      {tab === 'campaigns' && '📢 অটোমেটেড ক্যাম্পেইন'}
+                      {tab === 'segments' && '👥 কাস্টমার সেগমেন্ট'}
+                      {tab === 'offers' && '🎫 কুপন ও অফার'}
+                      {tab === 'loyalty' && '🪙 লয়্যালটি মেম্বারশিপ'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* STATS ROW */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className={`p-5 rounded-2xl border ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                  <span className="text-[10px] uppercase tracking-wider opacity-50 block font-mono">Total Campaigns Sent</span>
+                  <div className="flex items-baseline space-x-2 mt-1">
+                    <span className="text-2xl font-extrabold font-mono">{campaignsList.reduce((sum, c) => sum + c.sentCount, 0)}</span>
+                    <span className="text-xs text-emerald-500 font-bold">100% Delivery</span>
+                  </div>
+                </div>
+                <div className={`p-5 rounded-2xl border ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                  <span className="text-[10px] uppercase tracking-wider opacity-50 block font-mono">Coupon Redemptions</span>
+                  <div className="flex items-baseline space-x-2 mt-1">
+                    <span className="text-2xl font-extrabold font-mono">{coupons.reduce((sum, c) => sum + c.usageCount, 0)}</span>
+                    <span className="text-xs text-amber-500 font-bold">Active Promo</span>
+                  </div>
+                </div>
+                <div className={`p-5 rounded-2xl border ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                  <span className="text-[10px] uppercase tracking-wider opacity-50 block font-mono">Loyalty Club Members</span>
+                  <div className="flex items-baseline space-x-2 mt-1">
+                    <span className="text-2xl font-extrabold font-mono">{customers.length}</span>
+                    <span className="text-xs text-indigo-500 font-bold">Bronze to VIP</span>
+                  </div>
+                </div>
+                <div className={`p-5 rounded-2xl border ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                  <span className="text-[10px] uppercase tracking-wider opacity-50 block font-mono">Reward Points Issued</span>
+                  <div className="flex items-baseline space-x-2 mt-1">
+                    <span className="text-2xl font-extrabold font-mono text-amber-500">
+                      {customers.reduce((sum, c) => sum + (c.rewardPoints || Math.floor(c.totalSpending * 0.05)), 0).toLocaleString()}
+                    </span>
+                    <span className="text-xs opacity-60">Points Issued</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* TAB CONTENT: CAMPAIGNS */}
+              {marketingSubTab === 'campaigns' && (
+                <div className={`p-6 rounded-[2rem] border space-y-6 ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                  <div>
+                    <h3 className="text-lg font-bold">এআই মার্কেটিং অটোমেশন ইঞ্জিন (Automation Workflows)</h3>
+                    <p className="text-xs opacity-60 mt-0.5">নির্দিষ্ট কাস্টমার ইভেন্ট বা প্রোফাইল সেগমেন্ট পরিবর্তনের উপর ভিত্তি করে স্বয়ংক্রিয় মেসেজিং ক্যাম্পেইন।</p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-[#322822]/10 opacity-60 text-[10px] uppercase">
+                          <th className="p-3">ক্যাম্পেইন নাম</th>
+                          <th className="p-3">অটোমেশন ট্রিগার (Trigger)</th>
+                          <th className="p-3 text-center">মেসেজ প্রেরিত (Sent)</th>
+                          <th className="p-3 text-center">ওপেন রেট (Open Rate)</th>
+                          <th className="p-3 text-center">কনভার্সন (Conversion)</th>
+                          <th className="p-3">স্ট্যাটাস</th>
+                          <th className="p-3 text-right">অ্যাকশন</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#322822]/5">
+                        {campaignsList.map((camp) => (
+                          <tr key={camp.id} className="hover:bg-amber-500/[0.01]">
+                            <td className="p-3 font-bold flex items-center space-x-2">
+                              <span className="p-1.5 bg-amber-500/10 text-amber-500 rounded-lg"><Send className="h-3.5 w-3.5" /></span>
+                              <span>{camp.name === 'Welcome Message' ? 'স্বাগতম বার্তা (Welcome Message)' :
+                                    camp.name === 'Abandoned Cart Reminder' ? 'ফেলে রাখা কার্ট রিমাইন্ডার (Abandoned Cart)' :
+                                    camp.name === 'Birthday Offer' ? 'জন্মদিনের শুভেচ্ছা কুপন (Birthday Offer)' :
+                                    camp.name === 'Win Back Campaign' ? 'ইনঅ্যাক্টিভ উইন-ব্যাক (Win Back Campaign)' :
+                                    'ভিআইপি কাস্টমার ট্রিগার (VIP Offer)'}</span>
+                            </td>
+                            <td className="p-3 font-mono opacity-80">{camp.trigger}</td>
+                            <td className="p-3 text-center font-mono font-bold">{camp.sentCount} বার</td>
+                            <td className="p-3 text-center">
+                              <div className="flex items-center justify-center space-x-1.5">
+                                <span className="font-mono font-bold">{camp.openRate}%</span>
+                                <div className="w-12 bg-neutral-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
+                                  <div className="bg-emerald-500 h-full" style={{ width: `${camp.openRate}%` }} />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3 text-center font-mono font-bold text-[#e07a5f]">{camp.conversionRate}%</td>
+                            <td className="p-3">
+                              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 font-bold rounded text-[9px]">
+                                {camp.status}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <button
+                                onClick={() => {
+                                  // Simulate running campaign test
+                                  setCampaignsList(prev => prev.map(c => c.id === camp.id ? { ...c, sentCount: c.sentCount + 1 } : c));
+                                  setNotifications(prev => [
+                                    {
+                                      id: `NOTIF-${Math.random()}`,
+                                      title: `Campaign Simulation: ${camp.name}`,
+                                      message: `সফলভাবে '${camp.name}' অটোমেশন রান করা হয়েছে। কাস্টমার ট্রিগার চেক সম্পন্ন!`,
+                                      type: 'success',
+                                      timestamp: new Date().toLocaleTimeString(),
+                                      read: false
+                                    },
+                                    ...prev
+                                  ]);
+                                }}
+                                className="px-3 py-1 bg-[#120e0c]/10 dark:bg-[#faf8f5]/10 hover:bg-amber-500/20 text-inherit text-[10px] font-bold rounded-lg transition-colors"
+                              >
+                                টেস্ট করুন (Run Test)
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-start space-x-3">
+                    <Sparkles className="h-5 w-5 text-indigo-400 mt-0.5 flex-shrink-0 animate-pulse" />
+                    <div>
+                      <h4 className="font-bold text-xs">এআই জেনারেটিভ ক্যাটাগরি উইন-ব্যাক (Aura Intelligence Tip)</h4>
+                      <p className="text-[11px] opacity-85 mt-1">ইনঅ্যাক্টিভ কাস্টমার Sadia Afrin গত ৬ মাসে কোনো প্রোডাক্ট ক্রয় করেননি। তার লাস্ট ফেভারিট ক্যাটাগরি Footwear-এর উপর ভিত্তি করে একটি "Atelier Heels Premium Discount" ইমেল অটোমেশন ড্রাফট করতে পারেন।</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB CONTENT: SEGMENTS */}
+              {marketingSubTab === 'segments' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Segmentation Rules */}
+                  <div className={`p-6 rounded-[2rem] border space-y-6 ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                    <div>
+                      <h3 className="text-base font-bold">কাস্টমার সেগমেন্টেশন রুলস</h3>
+                      <p className="text-[11px] opacity-60">মোট ক্রয় ভ্যালু (LTV) এর ভিত্তিতে স্বয়ংক্রিয় শ্রেণীবিভাগ।</p>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                        <div className="flex justify-between font-bold">
+                          <span className="text-amber-500">👑 VIP Customers</span>
+                          <span className="font-mono">{customers.filter(c => c.totalSpending >= 300000).length} জন</span>
+                        </div>
+                        <p className="text-[10px] opacity-70 mt-1">শর্ত: মোট ক্রয় ভ্যালু ৳ ৩,০০,০০০ বা বেশি। রিওয়ার্ড রেট ২০%।</p>
+                      </div>
+                      <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                        <div className="flex justify-between font-bold">
+                          <span className="text-yellow-500">⭐ Gold Segment</span>
+                          <span className="font-mono">{customers.filter(c => c.totalSpending >= 100000 && c.totalSpending < 300000).length} জন</span>
+                        </div>
+                        <p className="text-[10px] opacity-70 mt-1">শর্ত: মোট ক্রয় ভ্যালু ৳ ১,০০,০০০ - ৳ ৩,০০,০০০। রিওয়ার্ড রেট ১৫%।</p>
+                      </div>
+                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                        <div className="flex justify-between font-bold">
+                          <span className="text-indigo-400">🛡️ Silver Segment</span>
+                          <span className="font-mono">{customers.filter(c => c.totalSpending >= 50000 && c.totalSpending < 100000).length} জন</span>
+                        </div>
+                        <p className="text-[10px] opacity-70 mt-1">শর্ত: মোট ক্রয় ভ্যালু ৳ ৫০,০০০ - ৳ ১,০০,০০০। রিওয়ার্ড রেট ১০%।</p>
+                      </div>
+                      <div className="p-3 bg-neutral-500/10 border border-neutral-500/20 rounded-xl">
+                        <div className="flex justify-between font-bold">
+                          <span className="opacity-70">🌱 Bronze Segment</span>
+                          <span className="font-mono">{customers.filter(c => c.totalSpending < 50000).length} জন</span>
+                        </div>
+                        <p className="text-[10px] opacity-70 mt-1">শর্ত: মোট ক্রয় ভ্যালু ৳ ৫০,০০০ এর কম। রিওয়ার্ড রেট ৫%।</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Segment customers directory */}
+                  <div className={`p-6 rounded-[2rem] border lg:col-span-2 space-y-6 ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="text-base font-bold">সেগমেন্ট অনুযায়ী কাস্টমার ডিরেক্টরি</h3>
+                        <p className="text-[11px] opacity-60">কাস্টমারের রিয়েল-টাইম লাইফটাইম ক্রয় ডেটা এবং মেম্বারশিপ লেভেল।</p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-[#322822]/10 opacity-60 text-[10px]">
+                            <th className="p-3">কাস্টমার প্রোফাইল</th>
+                            <th className="p-3 text-center">মেম্বারশিপ টায়ার</th>
+                            <th className="p-3 text-right">মোট ক্রয় (LTV)</th>
+                            <th className="p-3 text-center">রিওয়ার্ড পয়েন্ট</th>
+                            <th className="p-3 text-right">অ্যাকশন</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#322822]/5">
+                          {customers.map((cust) => {
+                            const ltv = cust.totalSpending;
+                            let tierColor = 'bg-neutral-500/20 text-neutral-400';
+                            let tierLabel = 'Bronze';
+                            if (ltv >= 300000) {
+                              tierColor = 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-extrabold';
+                              tierLabel = '👑 VIP';
+                            } else if (ltv >= 100000) {
+                              tierColor = 'bg-yellow-500/20 text-yellow-500 font-bold';
+                              tierLabel = '⭐ Gold';
+                            } else if (ltv >= 50000) {
+                              tierColor = 'bg-slate-400/20 text-slate-400 font-bold';
+                              tierLabel = '🛡️ Silver';
+                            }
+                            const points = cust.rewardPoints || Math.floor(ltv * 0.05);
+
+                            return (
+                              <tr key={cust.id} className="hover:bg-amber-500/[0.01]">
+                                <td className="p-3 flex items-center space-x-2.5">
+                                  <div className="h-8 w-8 rounded-full overflow-hidden bg-neutral-900">
+                                    <img src={cust.avatar} alt={cust.name} className="h-full w-full object-cover" />
+                                  </div>
+                                  <div>
+                                    <span className="font-bold block">{cust.name}</span>
+                                    <span className="text-[9px] opacity-50 block font-mono">{cust.id}</span>
+                                  </div>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className={`px-2.5 py-0.5 rounded text-[9px] ${tierColor}`}>
+                                    {tierLabel}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-right font-mono font-bold">{formatCurrency(ltv)}</td>
+                                <td className="p-3 text-center font-mono font-bold text-amber-500">🪙 {points.toLocaleString()}</td>
+                                <td className="p-3 text-right">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedCustomer(cust);
+                                      setActiveTab('customers');
+                                    }}
+                                    className="px-2.5 py-1 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-lg transition-all text-[10px]"
+                                  >
+                                    CRM প্রোফাইল
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB CONTENT: OFFERS */}
+              {marketingSubTab === 'offers' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Create offer form */}
+                  <div className={`p-6 rounded-[2rem] border space-y-6 ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                    <div>
+                      <h3 className="text-base font-bold">নতুন প্রোমো কোড তৈরি করুন</h3>
+                      <p className="text-[11px] opacity-60">ক্যাম্পেইন ট্র্যাকিং ও ডিসকাউন্ট রুলস সংযুক্ত অফার।</p>
+                    </div>
+
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!couponForm.code.trim()) {
+                        alert('দয়া করে কোড প্রদান করুন।');
+                        return;
+                      }
+                      setCoupons(prev => [
+                        { code: couponForm.code.toUpperCase().trim(), discount: Number(couponForm.discount), type: couponForm.type, status: 'active', usageCount: 0 },
+                        ...prev
+                      ]);
+                      setCouponForm({ code: '', discount: 15, type: 'percentage', status: 'active' });
+                      setNotifications(prev => [
+                        {
+                          id: `NOTIF-${Math.random()}`,
+                          title: 'New Coupon Added',
+                          message: `সফলভাবে কুপন কোড ${couponForm.code.toUpperCase()} যুক্ত করা হয়েছে।`,
+                          type: 'success',
+                          timestamp: new Date().toLocaleTimeString(),
+                          read: false
+                        },
+                        ...prev
+                      ]);
+                    }} className="space-y-4 text-xs">
+                      <div className="space-y-1">
+                        <label className="font-bold opacity-75">প্রোমো কোড (যেমন: EID50)</label>
+                        <input
+                          type="text"
+                          placeholder="কুপন কোড লিখুন..."
+                          value={couponForm.code}
+                          onChange={(e) => setCouponForm(prev => ({ ...prev, code: e.target.value }))}
+                          className="w-full px-3.5 py-2 rounded-xl bg-neutral-900/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 outline-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="font-bold opacity-75">ডিসকাউন্ট পরিমাণ</label>
+                          <input
+                            type="number"
+                            value={couponForm.discount}
+                            onChange={(e) => setCouponForm(prev => ({ ...prev, discount: Number(e.target.value) }))}
+                            className="w-full px-3.5 py-2 rounded-xl bg-neutral-900/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 outline-none font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="font-bold opacity-75">ডিসকাউন্ট টাইপ</label>
+                          <select
+                            value={couponForm.type}
+                            onChange={(e) => setCouponForm(prev => ({ ...prev, type: e.target.value as any }))}
+                            className="w-full px-3.5 py-2 rounded-xl bg-neutral-900/5 dark:bg-white/5 border border-neutral-300 dark:border-white/10 outline-none text-inherit bg-[#1a1614]"
+                          >
+                            <option value="percentage">শতকরা (%)</option>
+                            <option value="fixed">৳ নির্দিষ্ট ছাড়</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl transition-all shadow-md shadow-orange-500/10"
+                      >
+                        কুপন কোড যুক্ত করুন
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Offers List */}
+                  <div className={`p-6 rounded-[2rem] border lg:col-span-2 space-y-6 ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                    <div>
+                      <h3 className="text-base font-bold">সক্রিয় কুপন কোড ও অফারসমূহ</h3>
+                      <p className="text-[11px] opacity-60">WooCommerce এর সাথে সংযুক্ত সক্রিয় এবং ইনঅ্যাক্টিভ ভাউচারসমূহ।</p>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-[#322822]/10 opacity-60 text-[10px]">
+                            <th className="p-3">প্রোমো কোড</th>
+                            <th className="p-3">ডিসকাউন্ট মূল্য</th>
+                            <th className="p-3 text-center">মোট ব্যবহার (Usage)</th>
+                            <th className="p-3">স্ট্যাটাস</th>
+                            <th className="p-3 text-right">অ্যাকশন</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#322822]/5">
+                          {coupons.map((cop) => (
+                            <tr key={cop.code} className="hover:bg-amber-500/[0.01]">
+                              <td className="p-3 font-mono font-bold text-amber-500 flex items-center space-x-2">
+                                <Ticket className="h-4 w-4 opacity-75" />
+                                <span>{cop.code}</span>
+                              </td>
+                              <td className="p-3 font-mono font-bold">
+                                {cop.type === 'percentage' ? `${cop.discount}% ছাড়` : `${formatCurrency(cop.discount)} ছাড়`}
+                              </td>
+                              <td className="p-3 text-center font-mono font-bold">{cop.usageCount} বার</td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold 
+                                  ${cop.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                  {cop.status === 'active' ? 'Active' : 'Inactive'}
+                                </span>
+                              </td>
+                              <td className="p-3 text-right space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setCoupons(prev => prev.map(c => c.code === cop.code ? { ...c, status: c.status === 'active' ? 'inactive' : 'active' } : c));
+                                  }}
+                                  className="px-2 py-1 bg-[#120e0c]/5 dark:bg-white/5 hover:bg-amber-500/20 text-inherit text-[10px] font-bold rounded-lg transition-colors"
+                                >
+                                  স্ট্যাটাস টগল
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setCoupons(prev => prev.filter(c => c.code !== cop.code));
+                                  }}
+                                  className="p-1 hover:bg-rose-500/20 text-rose-500 rounded-lg transition-colors inline-flex align-middle"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB CONTENT: LOYALTY CLUB */}
+              {marketingSubTab === 'loyalty' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Loyalty levels rule sheet */}
+                  <div className={`p-6 rounded-[2rem] border space-y-6 ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                    <div>
+                      <h3 className="text-base font-bold flex items-center space-x-2">
+                        <Coins className="h-5 w-5 text-amber-500 animate-pulse" />
+                        <span>লয়্যালটি রিওয়ার্ড প্রোগ্রাম রুলস</span>
+                      </h3>
+                      <p className="text-[11px] opacity-60 mt-1">কাস্টমারকে পয়েন্ট ডিস্ট্রিবিউট ও পয়েন্ট ভিত্তিক বেনিফিট দেওয়ার গাইডলাইন।</p>
+                    </div>
+
+                    <div className="space-y-4 text-xs">
+                      <div className="p-4 border border-indigo-500/10 bg-indigo-500/[0.02] rounded-xl space-y-2">
+                        <h4 className="font-extrabold text-xs text-indigo-400">🪙 রিওয়ার্ড পয়েন্ট ক্যালকুলেশন রুল</h4>
+                        <p className="text-[11px] leading-relaxed opacity-90">প্রতিটি অর্ডারে মোট ক্রয়ের মূল্যের **৫%** রিওয়ার্ড পয়েন্ট হিসেবে কাস্টমার অ্যাকাউন্টে ক্রেডিট হয়। (যেমন: ৳ ১০০০০ এর ক্রয়ে ৫০০ রিওয়ার্ড পয়েন্ট ক্রেডিট হয়)।</p>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        <h4 className="font-bold text-xs opacity-75">মেম্বারশিপ বেনিফিট চার্ট</h4>
+                        <div className="divide-y divide-[#322822]/10 dark:divide-white/5 space-y-2 text-[11px]">
+                          <div className="pt-2 flex justify-between">
+                            <span className="font-bold text-amber-500">👑 VIP Member</span>
+                            <span className="text-right opacity-80">ফ্ল্যাট ২০% ডিসকাউন্ট + ডেডিকেটেড এআই স্টাইল কনসিয়ার্জ</span>
+                          </div>
+                          <div className="pt-2 flex justify-between">
+                            <span className="font-bold text-yellow-500">⭐ Gold Member</span>
+                            <span className="text-right opacity-80">ফ্ল্যাট ১৫% ডিসকাউন্ট + বার্থডে লাক্সারি গিফট ভাউচার</span>
+                          </div>
+                          <div className="pt-2 flex justify-between">
+                            <span className="font-bold text-slate-400">🛡️ Silver Member</span>
+                            <span className="text-right opacity-80">ফ্ল্যাট ১০% ডিসকাউন্ট + নতুন কালেকশনে ২ দিন আগে অ্যাক্সেস</span>
+                          </div>
+                          <div className="pt-2 flex justify-between">
+                            <span className="font-bold opacity-60">🌱 Bronze Member</span>
+                            <span className="text-right opacity-80">ফ্ল্যাট ৫% ডিসকাউন্ট + ঢাকার ভেতরে ফ্রী হোম ডেলিভারি</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Loyalty Points modification & adjustment table */}
+                  <div className={`p-6 rounded-[2rem] border lg:col-span-2 space-y-6 ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}>
+                    <div>
+                      <h3 className="text-base font-bold">কাস্টমার পয়েন্ট সমন্বয় ও ম্যানুয়াল ক্রেডিট</h3>
+                      <p className="text-[11px] opacity-60">কাস্টমারকে ম্যানুয়ালি অতিরিক্ত লয়্যালটি পয়েন্ট প্রদান অথবা কর্তন করুন।</p>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-[#322822]/10 opacity-60 text-[10px]">
+                            <th className="p-3">কাস্টমার নাম</th>
+                            <th className="p-3 text-center">মেম্বারশিপ লেভেল</th>
+                            <th className="p-3 text-center">বর্তমান পয়েন্ট ব্যালেন্স</th>
+                            <th className="p-3 text-right">পয়েন্ট ক্রেডিট / সমন্বয় অ্যাকশন</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#322822]/5">
+                          {customers.map((cust) => {
+                            const ltv = cust.totalSpending;
+                            const points = cust.rewardPoints || Math.floor(ltv * 0.05);
+                            let tierLabel = 'Bronze Member';
+                            let tierColor = 'text-neutral-400';
+                            if (ltv >= 300000) {
+                              tierLabel = 'VIP Platinum Club';
+                              tierColor = 'text-amber-500 font-extrabold';
+                            } else if (ltv >= 100000) {
+                              tierLabel = 'Gold Elite Club';
+                              tierColor = 'text-yellow-500 font-bold';
+                            } else if (ltv >= 50000) {
+                              tierLabel = 'Silver Premier Club';
+                              tierColor = 'text-slate-400 font-bold';
+                            }
+
+                            return (
+                              <tr key={cust.id} className="hover:bg-amber-500/[0.01]">
+                                <td className="p-3 flex items-center space-x-2">
+                                  <div className="h-7 w-7 rounded-full overflow-hidden bg-neutral-950">
+                                    <img src={cust.avatar} alt={cust.name} className="h-full w-full object-cover" />
+                                  </div>
+                                  <div>
+                                    <span className="font-bold block">{cust.name}</span>
+                                    <span className="text-[9px] opacity-50 block font-mono">{cust.id}</span>
+                                  </div>
+                                </td>
+                                <td className="p-3 text-center font-bold text-[10px]">
+                                  <span className={tierColor}>{tierLabel}</span>
+                                </td>
+                                <td className="p-3 text-center font-mono font-bold text-amber-500 text-sm">
+                                  🪙 {points.toLocaleString()} pts
+                                </td>
+                                <td className="p-3 text-right space-x-1">
+                                  <button
+                                    onClick={() => {
+                                      // Manual Points Increment
+                                      setCustomers(prev => prev.map(c => c.id === cust.id ? { ...c, rewardPoints: points + 500 } : c));
+                                      setNotifications(prev => [
+                                        {
+                                          id: `NOTIF-${Math.random()}`,
+                                          title: 'Loyalty Points Manual Adjust',
+                                          message: `${cust.name}-কে ম্যানুয়ালি ৫০০ পয়েন্ট ক্রেডিট করা হয়েছে। নতুন ব্যালেন্স: ${points + 500}`,
+                                          type: 'success',
+                                          timestamp: new Date().toLocaleTimeString(),
+                                          read: false
+                                        },
+                                        ...prev
+                                      ]);
+                                    }}
+                                    className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 font-bold rounded-lg transition-colors text-[10px]"
+                                  >
+                                    +৫০০ Points ক্রেডিট
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      // Manual Points Decrement
+                                      if (points < 500) {
+                                        alert('পয়েন্ট ব্যালেন্স ৫০০ এর কম আছে। কর্তন করা সম্ভব নয়।');
+                                        return;
+                                      }
+                                      setCustomers(prev => prev.map(c => c.id === cust.id ? { ...c, rewardPoints: points - 500 } : c));
+                                      setNotifications(prev => [
+                                        {
+                                          id: `NOTIF-${Math.random()}`,
+                                          title: 'Loyalty Points Manual Deduct',
+                                          message: `${cust.name}-কে ম্যানুয়ালি ৫০০ পয়েন্ট কর্তন করা হয়েছে। নতুন ব্যালেন্স: ${points - 500}`,
+                                          type: 'warning',
+                                          timestamp: new Date().toLocaleTimeString(),
+                                          read: false
+                                        },
+                                        ...prev
+                                      ]);
+                                    }}
+                                    className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold rounded-lg transition-colors text-[10px]"
+                                  >
+                                    -৫০০ Points কর্তন
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================================
+              TAB 7: WORDPRESS & WOOCOMMERCE SYNC PORTAL
+              ========================================================== */}
+          {activeTab === 'tech-stack' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-3xl font-extrabold tracking-tight">WordPress & WooCommerce সিঙ্ক পোর্টাল (Sync Portal)</h1>
+                  <p className="opacity-60 text-sm mt-1">
+                    WooCommerce REST API ইন্টিগ্রেশন এবং কাস্টম প্লাগইন আর্কিটেকচার ম্যানেজমেন্ট ওয়ার্কস্পেস।
+                  </p>
+                </div>
+                
+                {/* Integration Sub-tabs */}
+                <div className="flex space-x-2 bg-black/20 p-1 rounded-xl border border-inherit">
+                  {(['terminal', 'explorer', 'database'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setWpActiveSubTab(tab)}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize
+                        ${wpActiveSubTab === tab 
+                          ? 'bg-amber-500/20 text-amber-500 border-none shadow' 
+                          : 'opacity-70 hover:opacity-100'}`}
+                    >
+                      {tab === 'terminal' && '🔌 REST API টার্মিনাল'}
+                      {tab === 'explorer' && '📁 প্লাগইন কোড এক্সপ্লোরার'}
+                      {tab === 'database' && '🗄️ MySQL স্কিমা অপ্টিমাইজেশন'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Status Banner */}
+              <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4
+                ${settings.themeMode === 'dark' ? 'bg-[#1e1916] border-amber-500/15' : 'bg-amber-500/5 border-amber-500/10'}`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-amber-500/10 rounded-xl text-amber-500">
+                    <RefreshCcw className={`h-5 w-5 ${syncStatusState === 'running' ? 'animate-spin' : ''}`} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xs">WooCommerce Sync Status</h3>
+                    <p className="text-[10px] opacity-60 mt-0.5">
+                      {syncStatusState === 'idle' && 'স্ট্যান্ডবাই - সিঙ্ক শুরু করার জন্য রেডি।'}
+                      {syncStatusState === 'running' && 'WooCommerce REST v3 API এন্ডপয়েন্টে রিকোয়েস্ট পাঠানো হচ্ছে...'}
+                      {syncStatusState === 'success' && 'ডাটা সিঙ্ক্রোনাইজেশন সফলভাবে সম্পন্ন হয়েছে!'}
+                      {syncStatusState === 'failed' && 'সিঙ্ক ব্যর্থ হয়েছে। অনুগ্রহ করে নেটওয়ার্ক এবং API কি চেক করুন।'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 text-xs font-mono">
+                  <span className="opacity-60">API SSL:</span>
+                  <span className="text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">Secure TLS 1.3</span>
+                </div>
+              </div>
+
+              {/* MAIN SUB-TAB 1: REST API TERMINAL / SIMULATOR */}
+              {wpActiveSubTab === 'terminal' && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left Controls column */}
+                  <div className="lg:col-span-4 space-y-4">
+                    <div className={`p-6 rounded-[2rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc]'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit">ইন্টারেক্টিভ টেস্ট কনসোল</h3>
+                      
+                      <div className="space-y-2.5">
+                        <p className="text-[11px] opacity-70 leading-relaxed">
+                          এই টার্মিনালটি WooCommerce REST API v3 ইন্টিগ্রেশন এবং সিকিউর Nonce অথেনটিকেশন লেয়ার পরীক্ষা করে। নিচের বাটনে ক্লিক করে লাইভ সিঙ্ক প্রসেস সিমুলেট করুন:
+                        </p>
+
+                        {/* Button 1: Sync products */}
+                        <button
+                          onClick={() => {
+                            setSyncStatusState('running');
+                            setSyncConsoleLogs(prev => [
+                              ...prev,
+                              `[${new Date().toLocaleTimeString()}] [GET] Sending REST Request to /wp-json/wc/v3/products...`,
+                              `[${new Date().toLocaleTimeString()}] [SECURITY] Verifying wp_nonce: ${Math.random().toString(36).substring(7)}`,
+                              `[${new Date().toLocaleTimeString()}] [REST-API] WooCommerce responded with 200 OK status. Found ${products.length} catalog items.`,
+                              `[${new Date().toLocaleTimeString()}] [SYNC] Matching SKU codes and importing sizes (${products.map(p => p.sku).join(', ')})`,
+                              `[${new Date().toLocaleTimeString()}] [SUCCESS] Successfully synched and updated local product catalog levels.`
+                            ]);
+                            setTimeout(() => setSyncStatusState('success'), 1200);
+                          }}
+                          disabled={syncStatusState === 'running'}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-xl transition-all"
+                        >
+                          <span>📦 ক্যাটালগ সিঙ্ক করুন (Get Products)</span>
+                          <ArrowUpRight className="h-4 w-4" />
+                        </button>
+
+                        {/* Button 2: Sync Customers */}
+                        <button
+                          onClick={() => {
+                            setSyncStatusState('running');
+                            setSyncConsoleLogs(prev => [
+                              ...prev,
+                              `[${new Date().toLocaleTimeString()}] [GET] Dispatching query: /wp-json/wc/v3/customers?role=all&per_page=100`,
+                              `[${new Date().toLocaleTimeString()}] [AUTH] Verifying Consumer Key (ck_xxxx) and Secret (cs_xxxx) credentials...`,
+                              `[${new Date().toLocaleTimeString()}] [WP-REST] Authorized. Fetching customer metadata, gender, and sizing preferences.`,
+                              `[${new Date().toLocaleTimeString()}] [CRM-IMPORT] Synced ${customers.length} profiles successfully. VIP markers computed.`
+                            ]);
+                            setTimeout(() => setSyncStatusState('success'), 1200);
+                          }}
+                          disabled={syncStatusState === 'running'}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl transition-all"
+                        >
+                          <span>👤 কাস্টমার ডাটা সিঙ্ক (Sync CRM)</span>
+                          <ArrowUpRight className="h-4 w-4" />
+                        </button>
+
+                        {/* Button 3: Push orders */}
+                        <button
+                          onClick={() => {
+                            setSyncStatusState('running');
+                            setSyncConsoleLogs(prev => [
+                              ...prev,
+                              `[${new Date().toLocaleTimeString()}] [POST] Pushing ORD-2026-9043 details to Woocommerce...`,
+                              `[${new Date().toLocaleTimeString()}] [PAYMENT] Synced status: Awaiting validation via Stripe webhook payload.`,
+                              `[${new Date().toLocaleTimeString()}] [HOOKS] Triggered WordPress Action: 'woocommerce_new_order'`,
+                              `[${new Date().toLocaleTimeString()}] [SUCCESS] WooCommerce Order reference mapped to Local DB.`
+                            ]);
+                            setTimeout(() => setSyncStatusState('success'), 1000);
+                          }}
+                          disabled={syncStatusState === 'running'}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded-xl transition-all"
+                        >
+                          <span>🛍️ অর্ডার পুশ করুন (Push Orders)</span>
+                          <ArrowUpRight className="h-4 w-4" />
+                        </button>
+
+                        {/* Button 4: Clear terminal */}
+                        <button
+                          onClick={() => setSyncConsoleLogs([`[SYSTEM] Console cleared at ${new Date().toLocaleTimeString()}`])}
+                          className="w-full text-center py-2 text-[10px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
+                        >
+                          টার্মিনাল মুছুন (Clear Logs)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* WC Credentials Preview Card */}
+                    <div className={`p-5 rounded-[2rem] border text-xs space-y-2.5
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc]'}`}
+                    >
+                      <h4 className="font-extrabold text-xs">WordPress REST API Credentials</h4>
+                      <div className="space-y-1 font-mono text-[10px] opacity-80">
+                        <p className="flex justify-between"><span className="opacity-60">Endpoint URL:</span> <span className="font-bold">https://example.com/wp-json</span></p>
+                        <p className="flex justify-between"><span className="opacity-60">Consumer Key:</span> <span className="font-bold text-amber-500">ck_483a99...f91a</span></p>
+                        <p className="flex justify-between"><span className="opacity-60">Consumer Secret:</span> <span className="font-bold text-amber-500">cs_de72b8...a003</span></p>
+                        <p className="flex justify-between"><span className="opacity-60">Nonce Method:</span> <span className="font-bold text-indigo-400">X-WP-Nonce header</span></p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Terminal Output Column */}
+                  <div className="lg:col-span-8">
+                    <div className="bg-[#0f0b08] text-[#f2e7dd] rounded-[2rem] border border-[#2b221d] overflow-hidden flex flex-col h-[380px] shadow-2xl">
+                      {/* Terminal header */}
+                      <div className="bg-[#181310] px-6 py-3 border-b border-[#2b221d] flex justify-between items-center">
+                        <div className="flex space-x-1.5 items-center">
+                          <span className="h-3 w-3 rounded-full bg-[#ff5f56]" />
+                          <span className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
+                          <span className="h-3 w-3 rounded-full bg-[#27c93f]" />
+                          <span className="text-[10px] font-mono opacity-50 ml-2">Secure WooCommerce REST Console</span>
+                        </div>
+                        <span className="text-[10px] bg-amber-500/20 text-amber-400 font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">REST v3</span>
+                      </div>
+                      
+                      {/* Console Body */}
+                      <div className="flex-1 overflow-y-auto p-6 font-mono text-xs space-y-2.5 leading-relaxed">
+                        {syncConsoleLogs.map((log, index) => (
+                          <div 
+                            key={index} 
+                            className={`
+                              ${log.includes('[SUCCESS]') ? 'text-emerald-400' : ''}
+                              ${log.includes('[SECURITY]') ? 'text-indigo-400' : ''}
+                              ${log.includes('[STATUS]') ? 'text-amber-400' : ''}
+                              ${log.includes('[GET]') || log.includes('[POST]') ? 'text-sky-400 font-bold' : ''}
+                              ${log.includes('[CRM-IMPORT]') ? 'text-rose-400' : ''}
+                              ${log.includes('[SYSTEM]') ? 'text-[#e8d3b9] opacity-60' : ''}
+                            `}
+                          >
+                            {log}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MAIN SUB-TAB 2: PLUGIN CODE EXPLORER */}
+              {wpActiveSubTab === 'explorer' && (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Files list */}
+                  <div className="lg:col-span-4 space-y-1.5 max-h-[500px] overflow-y-auto pr-2">
+                    {[
+                      { id: 'main', name: 'fashion-business-dashboard.php', desc: 'প্লাগইন বুটস্ট্র্যাপ ও কোর লোডার' },
+                      { id: 'admin', name: 'admin/class-fashion-business-admin.php', desc: 'অ্যাডমিন ড্যাশবোর্ড ও মেনু ইন্টিগ্রেশন' },
+                      { id: 'crm', name: 'modules/customer-crm/class-customer-crm.php', desc: 'সাইজ ইন্টেলিজেন্স ও সিআরএম ডাটা' },
+                      { id: 'orders', name: 'modules/order-management/class-order-management.php', desc: 'অর্ডার সিঙ্ক ও ট্র্যাকিং হুক্স' },
+                      { id: 'products', name: 'modules/product-management/class-product-management.php', desc: 'প্রোডাক্ট মেটাফিল্ড ও ফ্যাশন অ্যাট্রিবিউট' },
+                      { id: 'inventory', name: 'modules/inventory/class-inventory-manager.php', desc: 'সাইজ ও কালার স্টক ট্র্যাকিং' },
+                      { id: 'analytics', name: 'modules/analytics/class-profit-analytics.php', desc: 'নিট লাভ (Net Profit ৳) ক্যালকুলেটর' },
+                      { id: 'marketing', name: 'modules/marketing/class-marketing-automation.php', desc: 'অটোমেটেড ক্যাম্পেইন ও লয়্যালটি মেম্বারশিপ' }
+                    ].map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => setWpCodeFile(f.id)}
+                        className={`w-full text-left p-3.5 rounded-2xl border transition-all text-xs
+                          ${wpCodeFile === f.id
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold shadow-inner'
+                            : 'bg-transparent border-inherit opacity-75 hover:opacity-100 hover:bg-amber-500/5'}`}
+                      >
+                        <p className="font-mono text-[11px] truncate">{f.name}</p>
+                        <p className="text-[9px] opacity-65 font-sans mt-0.5 leading-relaxed">{f.desc}</p>
+                      </button>
+                    ))}
+                    <div className="p-4 rounded-2xl bg-amber-500/5 border border-dashed border-amber-500/20 text-[10px] leading-relaxed opacity-80 mt-4">
+                      💡 <strong>WordPress Architecture Standards:</strong> এই প্লাগইনটি অবজেক্ট ওরিয়েন্টেড পিএইচপি (OOP), ওয়ার্ডপ্রেস অ্যাকশন/ফিল্টার হুক্স এবং ওউন্স (Nonce Verification) সিকিউরিটি আর্কিটেকচার মেনে ডিজাইন করা।
+                    </div>
+                  </div>
+
+                  {/* Code Editor Preview */}
+                  <div className="lg:col-span-8">
+                    <div className="bg-[#0f0b08] text-[#f2e7dd] rounded-[2rem] border border-[#2b221d] overflow-hidden flex flex-col shadow-2xl">
+                      {/* Editor Title */}
+                      <div className="bg-[#181310] px-6 py-3 border-b border-[#2b221d] flex justify-between items-center text-xs">
+                        <span className="font-mono text-amber-500">
+                          {wpCodeFile === 'main' && 'wp-content/plugins/fashion-business-dashboard/fashion-business-dashboard.php'}
+                          {wpCodeFile === 'admin' && 'wp-content/plugins/fashion-business-dashboard/admin/class-fashion-business-admin.php'}
+                          {wpCodeFile === 'crm' && 'wp-content/plugins/fashion-business-dashboard/modules/customer-crm/class-customer-crm.php'}
+                          {wpCodeFile === 'orders' && 'wp-content/plugins/fashion-business-dashboard/modules/order-management/class-order-management.php'}
+                          {wpCodeFile === 'products' && 'wp-content/plugins/fashion-business-dashboard/modules/product-management/class-product-management.php'}
+                          {wpCodeFile === 'inventory' && 'wp-content/plugins/fashion-business-dashboard/modules/inventory/class-inventory-manager.php'}
+                          {wpCodeFile === 'analytics' && 'wp-content/plugins/fashion-business-dashboard/modules/analytics/class-profit-analytics.php'}
+                          {wpCodeFile === 'marketing' && 'wp-content/plugins/fashion-business-dashboard/modules/marketing/class-marketing-automation.php'}
+                        </span>
+                        <span className="font-bold opacity-40 font-mono">PHP (7.4+)</span>
+                      </div>
+                      
+                      {/* Editor Code Pane */}
+                      <pre className="p-6 overflow-x-auto font-mono text-xs leading-relaxed max-h-[420px] text-left">
+                        {wpCodeFile === 'main' && `<?php
+/**
+ * Plugin Name: Fashion Business Dashboard Connector
+ * Plugin URI:  https://github.com/aura-lux/fashion-business-dashboard
+ * Description: WordPress plugin with custom modules (CRM, Profit Analytics, Stock, size/color variant, and loyalty automation) integrated with WooCommerce.
+ * Version:     1.0.0
+ * Author:      Aura Lux Systems
+ * License:     GPL-2.0+
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+class Fashion_Business_Dashboard {
+    private static $instance = null;
+
+    public static function get_instance() {
+        if ( null === self::$instance ) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    private function __construct() {
+        $this->define_constants();
+        $this->includes();
+        $this->init_hooks();
+    }
+
+    private function define_constants() {
+        define( 'FBD_VERSION', '1.0.0' );
+        define( 'FBD_PATH', plugin_dir_path( __FILE__ ) );
+    }
+
+    private function includes() {
+        require_once FBD_PATH . 'admin/class-fashion-business-admin.php';
+        require_once FBD_PATH . 'modules/customer-crm/class-customer-crm.php';
+        require_once FBD_PATH . 'modules/order-management/class-order-management.php';
+        require_once FBD_PATH . 'modules/product-management/class-product-management.php';
+        require_once FBD_PATH . 'modules/inventory/class-inventory-manager.php';
+        require_once FBD_PATH . 'modules/analytics/class-profit-analytics.php';
+        require_once FBD_PATH . 'modules/marketing/class-marketing-automation.php';
+    }
+
+    private function init_hooks() {
+        register_activation_hook( __FILE__, array( 'Fashion_Business_Dashboard_DB', 'create_tables' ) );
+    }
+}
+
+Fashion_Business_Dashboard::get_instance();`}
+
+                        {wpCodeFile === 'admin' && `<?php
+/**
+ * Admin Panel & Custom Menu registration for Fashion Business Dashboard.
+ */
+
+class Fashion_Business_Admin {
+    public function __construct() {
+        add_action( 'admin_menu', array( $this, 'register_admin_pages' ) );
+        add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_styles' ) );
+    }
+
+    public function register_admin_pages() {
+        add_menu_page(
+            'Fashion Dashboard',
+            'Fashion Dashboard',
+            'manage_options',
+            'fashion-business-dashboard',
+            array( $this, 'render_dashboard_view' ),
+            'dashicons-chart-area',
+            25
+        );
+    }
+
+    public function render_dashboard_view() {
+        echo '<div class="wrap">';
+        echo '<h1>ফ্যাশন বিজনেস ইন্টেলিজেন্স ড্যাশবোর্ড</h1>';
+        echo '<p>WooCommerce রিয়েল-টাইম এআই অ্যানালিটিক্স, কাস্টমার সাইজ ইন্টেলিজেন্স এবং লয়্যালটি ক্লাব ইন্টিগ্রেশন প্যানেল।</p>';
+        echo '</div>';
+    }
+
+    public function enqueue_admin_styles( $hook ) {
+        if ( 'toplevel_page_fashion-business-dashboard' !== $hook ) {
+            return;
+        }
+        wp_enqueue_style( 'fbd-admin-css', plugins_url( 'assets/admin.css', dirname(__FILE__) ) );
+    }
+}
+new Fashion_Business_Admin();`}
+
+                        {wpCodeFile === 'crm' && `<?php
+/**
+ * Customer CRM Module - Size Intelligence & History Tracker.
+ */
+
+class FBD_Customer_CRM {
+    public function __construct() {
+        // Add custom billing fields inside WooCommerce Admin checkout details
+        add_action( 'woocommerce_admin_order_data_after_billing_address', array( $this, 'display_order_size_intelligence' ) );
+        add_action( 'woocommerce_save_account_details', array( $this, 'save_user_custom_sizing_meta' ), 10, 1 );
+    }
+
+    public function save_user_custom_sizing_meta( $user_id ) {
+        if ( isset( $_POST['fbd_shirt_size'] ) ) {
+            update_user_meta( $user_id, '_fbd_shirt_size', sanitize_text_field( $_POST['fbd_shirt_size'] ) );
+        }
+        if ( isset( $_POST['fbd_pant_size'] ) ) {
+            update_user_meta( $user_id, '_fbd_pant_size', sanitize_text_field( $_POST['fbd_pant_size'] ) );
+        }
+        if ( isset( $_POST['fbd_shoe_size'] ) ) {
+            update_user_meta( $user_id, '_fbd_shoe_size', sanitize_text_field( $_POST['fbd_shoe_size'] ) );
+        }
+    }
+
+    public function display_order_size_intelligence( $order ) {
+        $customer_id = $order->get_customer_id();
+        if ( ! $customer_id ) return;
+
+        $shirt = get_user_meta( $customer_id, '_fbd_shirt_size', true );
+        $pant = get_user_meta( $customer_id, '_fbd_pant_size', true );
+        $shoe = get_user_meta( $customer_id, '_fbd_shoe_size', true );
+
+        echo '<h3>কাস্টমার সাইজ ইন্টেলিজেন্স (Size Recommendation Data)</h3>';
+        echo '<p><strong>শার্ট সাইজ:</strong> ' . esc_html( $shirt ?: 'Not Specified' ) . '</p>';
+        echo '<p><strong>প্যান্ট সাইজ:</strong> ' . esc_html( $pant ?: 'Not Specified' ) . '</p>';
+        echo '<p><strong>জুতো বা শু সাইজ:</strong> ' . esc_html( $shoe ?: 'Not Specified' ) . '</p>';
+    }
+}
+new FBD_Customer_CRM();`}
+
+                        {wpCodeFile === 'orders' && `<?php
+/**
+ * Order Sync & Hooks mapping.
+ */
+
+class FBD_Order_Sync {
+    public function __construct() {
+        add_action( 'woocommerce_payment_complete', array( $this, 'sync_on_payment_complete' ) );
+    }
+
+    public function sync_on_payment_complete( $order_id ) {
+        $order = wc_get_order( $order_id );
+        
+        // Structure API packet for cloud platform synchronization
+        $payload = array(
+            'order_id'       => $order_id,
+            'total_amount'   => $order->get_total(),
+            'currency'       => $order->get_currency(),
+            'items'          => array(),
+            'customer_email' => $order->get_billing_email(),
+        );
+
+        foreach ( $order->get_items() as $item_id => $item ) {
+            $payload['items'][] = array(
+                'sku'      => $item->get_product()->get_sku(),
+                'quantity' => $item->get_quantity(),
+                'total'    => $item->get_total(),
+            );
+        }
+
+        wp_remote_post( 'https://api.aura-lux.com/orders/sync-webhook', array(
+            'method'    => 'POST',
+            'body'      => json_encode( $payload ),
+            'headers'   => array( 'Content-Type' => 'application/json' ),
+            'blocking'  => false,
+        ));
+    }
+}
+new FBD_Order_Sync();`}
+
+                        {wpCodeFile === 'products' && `<?php
+/**
+ * Product Management Module - Fashion attributes & Profit calculation fields.
+ */
+
+class FBD_Product_Management {
+    public function __construct() {
+        add_action( 'woocommerce_product_options_pricing', array( $this, 'add_cost_and_profit_fields' ) );
+        add_action( 'woocommerce_process_product_meta', array( $this, 'save_custom_cost_fields' ) );
+    }
+
+    public function add_cost_and_profit_fields() {
+        echo '<div class="options_group">';
+        
+        woocommerce_wp_text_input( array(
+            'id'          => '_fbd_product_cost',
+            'label'       => 'Product Cost (৳)',
+            'description' => 'প্রোডাক্ট ক্রয়ের দাম বা ম্যানুফ্যাকচারিং কস্ট।',
+            'desc_tip'    => 'true',
+            'type'        => 'number',
+        ));
+
+        woocommerce_wp_text_input( array(
+            'id'          => '_fbd_delivery_cost',
+            'label'       => 'Delivery Cost (৳)',
+            'description' => 'প্যাকেজিং এবং ডেলিভারি খরচ।',
+            'desc_tip'    => 'true',
+            'type'        => 'number',
+        ));
+
+        woocommerce_wp_text_input( array(
+            'id'          => '_fbd_marketing_cost',
+            'label'       => 'Marketing Cost (৳)',
+            'description' => 'প্রতি প্রোডাক্টের মার্কেটিং বিজ্ঞাপন কস্ট।',
+            'desc_tip'    => 'true',
+            'type'        => 'number',
+        ));
+
+        echo '</div>';
+    }
+
+    public function save_custom_cost_fields( $post_id ) {
+        if ( isset( $_POST['_fbd_product_cost'] ) ) {
+            update_post_meta( $post_id, '_fbd_product_cost', sanitize_text_field( $_POST['_fbd_product_cost'] ) );
+        }
+        if ( isset( $_POST['_fbd_delivery_cost'] ) ) {
+            update_post_meta( $post_id, '_fbd_delivery_cost', sanitize_text_field( $_POST['_fbd_delivery_cost'] ) );
+        }
+        if ( isset( $_POST['_fbd_marketing_cost'] ) ) {
+            update_post_meta( $post_id, '_fbd_marketing_cost', sanitize_text_field( $_POST['_fbd_marketing_cost'] ) );
+        }
+    }
+}
+new FBD_Product_Management();`}
+
+                        {wpCodeFile === 'inventory' && `<?php
+/**
+ * Inventory Module - Dynamic Size and Color Stocks tracking.
+ */
+
+class FBD_Inventory_Tracker {
+    public function __construct() {
+        add_action( 'woocommerce_variation_options_pricing', array( $this, 'add_fashion_attributes_fields' ), 10, 3 );
+        add_action( 'woocommerce_save_product_variation', array( $this, 'save_fashion_attributes_fields' ), 10, 2 );
+    }
+
+    public function add_fashion_attributes_fields( $loop, $variation_data, $variation ) {
+        woocommerce_wp_text_input( array(
+            'id'          => '_fbd_season_attribute[' . $loop . ']',
+            'label'       => 'Fashion Season',
+            'value'       => get_post_meta( $variation->ID, '_fbd_season_attribute', true ),
+            'placeholder' => 'Eid Collection, Winter, Summer',
+        ));
+    }
+
+    public function save_fashion_attributes_fields( $variation_id, $i ) {
+        if ( isset( $_POST['_fbd_season_attribute'][$i] ) ) {
+            update_post_meta( $variation_id, '_fbd_season_attribute', sanitize_text_field( $_POST['_fbd_season_attribute'][$i] ) );
+        }
+    }
+}
+new FBD_Inventory_Tracker();`}
+
+                        {wpCodeFile === 'analytics' && `<?php
+/**
+ * Net Profit (৳) Calculator and Profit Analytics.
+ * Net Profit = Selling Price - Product Cost - Delivery Cost - Discount - Marketing Cost
+ */
+
+class FBD_Profit_Analytics {
+    public static function calculate_net_profit( $selling_price, $cost, $delivery, $discount, $marketing ) {
+        // Formula specified by user
+        $net_profit = $selling_price - $cost - $delivery - $discount - $marketing;
+        return $net_profit;
+    }
+
+    public function get_monthly_profit_summary() {
+        global $wpdb;
+        
+        // Optimized raw SQL lookup to calculate profits dynamically from order meta
+        $query = "
+            SELECT 
+                p.ID as order_id,
+                MAX(CASE WHEN pm.meta_key = '_order_total' THEN pm.meta_value END) as selling_price,
+                MAX(CASE WHEN pm.meta_key = '_fbd_total_product_cost' THEN pm.meta_value END) as product_cost,
+                MAX(CASE WHEN pm.meta_key = '_fbd_total_delivery_cost' THEN pm.meta_value END) as delivery_cost,
+                MAX(CASE WHEN pm.meta_key = '_fbd_total_marketing_cost' THEN pm.meta_value END) as marketing_cost,
+                MAX(CASE WHEN pm.meta_key = '_cart_discount' THEN pm.meta_value END) as discount
+            FROM {$wpdb->prefix}posts p
+            JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
+            WHERE p.post_type = 'shop_order' 
+              AND p.post_status = 'wc-completed'
+            GROUP BY p.ID
+        ";
+        
+        $orders_data = $wpdb->get_results( $query, ARRAY_A );
+        $total_net_profit = 0;
+
+        foreach ( $orders_data as $order ) {
+            $net = self::calculate_net_profit(
+                (float)$order['selling_price'],
+                (float)$order['product_cost'],
+                (float)$order['delivery_cost'],
+                (float)$order['discount'],
+                (float)$order['marketing_cost']
+            );
+            $total_net_profit += $net;
+        }
+
+        return $total_net_profit;
+    }
+}
+new FBD_Profit_Analytics();`}
+
+                        {wpCodeFile === 'marketing' && `<?php
+/**
+ * Marketing Automation & Customer Loyalty Club.
+ */
+
+class FBD_Marketing_Automation {
+    public function __construct() {
+        add_action( 'woocommerce_created_customer', array( $this, 'trigger_welcome_message_campaign' ) );
+        add_action( 'woocommerce_order_status_completed', array( $this, 'allocate_customer_loyalty_points' ), 10, 1 );
+    }
+
+    public function trigger_welcome_message_campaign( $customer_id ) {
+        $customer = get_userdata( $customer_id );
+        $email = $customer->user_email;
+
+        // Dispatch Welcome Message Template with a 10% Welcome Coupon!
+        $subject = "Welcome to Aura Lux Loyalty Club!";
+        $message = "হ্যালো! আমাদের প্রিমিয়াম মেম্বারশিপ ক্লাবে আপনাকে স্বাগতম। আপনার জন্য উপহার কোড: WELCOME10";
+        wp_mail( $email, $subject, $message );
+    }
+
+    public function allocate_customer_loyalty_points( $order_id ) {
+        $order = wc_get_order( $order_id );
+        $customer_id = $order->get_customer_id();
+        if ( ! $customer_id ) return;
+
+        $order_total = $order->get_total();
+        // 5% Points Award rules
+        $points_earned = floor( $order_total * 0.05 );
+
+        $current_points = (int)get_user_meta( $customer_id, '_fbd_loyalty_points', true );
+        update_user_meta( $customer_id, '_fbd_loyalty_points', $current_points + $points_earned );
+    }
+}
+new FBD_Marketing_Automation();`}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MAIN SUB-TAB 3: DATABASE SCHEMA BLUEPRINT */}
+              {wpActiveSubTab === 'database' && (
+                <div className={`p-6 rounded-[2rem] border space-y-6
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc]'}`}
+                >
+                  <div className="flex items-center space-x-2 pb-4 border-b border-inherit">
+                    <Database className="h-5 w-5 text-amber-500" />
+                    <h3 className="text-lg font-bold">WooCommerce Relational Table Indexes (MySQL optimized for high scale)</h3>
+                  </div>
+                  
+                  <p className="text-xs opacity-75">
+                    স্টোরের ডাটাবেজ স্কেলিং অপ্টিমাইজড রাখতে এবং সার্চ কোয়েরি স্পিড বৃদ্ধি করতে WooCommerce কাস্টম ডাটাবেজ টেবিল রিলেশনাল ডিজাইন এবং মেটা-ফিল্ড ইনডেক্সিং গাইডলাইন:
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 font-mono text-[10px]">
+                    {/* WP posts mapping */}
+                    <div className="p-4 rounded-xl bg-black/10 border border-[#322822]/30 space-y-2">
+                      <span className="font-extrabold text-[#e07a5f] block border-b border-inherit pb-1">🛍️ wp_posts Table</span>
+                      <p className="opacity-80 font-bold">ID (bigint) [PK]</p>
+                      <p className="opacity-60">post_title (text)</p>
+                      <p className="opacity-60">post_status (varchar)</p>
+                      <p className="opacity-60">post_type (varchar) [INDEXED]</p>
+                      <p className="text-[9px] text-amber-500/80 italic pt-1 border-t border-inherit/25 leading-normal">
+                        * প্রোডাক্ট এবং অর্ডারের ডেটা স্টোর করে।
+                      </p>
+                    </div>
+
+                    {/* WP postmeta mapping */}
+                    <div className="p-4 rounded-xl bg-black/10 border border-[#322822]/30 space-y-2">
+                      <span className="font-extrabold text-[#f2cc8f] block border-b border-inherit pb-1">🔑 wp_postmeta Table</span>
+                      <p className="opacity-80 font-bold">meta_id (bigint) [PK]</p>
+                      <p className="opacity-60">post_id (bigint) [FK]</p>
+                      <p className="opacity-60">meta_key [CUSTOM INDEXED]</p>
+                      <p className="opacity-60">meta_value (longtext)</p>
+                      <p className="text-[9px] text-amber-500/80 italic pt-1 border-t border-inherit/25 leading-normal">
+                        * ফ্যাশন মেটা কস্ট, সাইজ, কালার ডেটা ধারণকারী টেবিল।
+                      </p>
+                    </div>
+
+                    {/* WC custom fields */}
+                    <div className="p-4 rounded-xl bg-black/10 border border-[#322822]/30 space-y-2">
+                      <span className="font-extrabold text-emerald-400 block border-b border-inherit pb-1">📦 wp_wc_product_lookup</span>
+                      <p className="opacity-80 font-bold">product_id [PK]</p>
+                      <p className="opacity-60">sku (varchar) [INDEXED]</p>
+                      <p className="opacity-60">min_price (decimal)</p>
+                      <p className="opacity-60">stock_status [INDEXED]</p>
+                      <p className="text-[9px] text-amber-500/80 italic pt-1 border-t border-inherit/25 leading-normal">
+                        * স্টক ও প্রাইসের জন্য WooCommerce ফাস্ট মেটা লুকআপ।
+                      </p>
+                    </div>
+
+                    {/* USERS mapping */}
+                    <div className="p-4 rounded-xl bg-black/10 border border-[#322822]/30 space-y-2">
+                      <span className="font-extrabold text-indigo-400 block border-b border-inherit pb-1">👥 wp_users Table</span>
+                      <p className="opacity-80 font-bold">ID (bigint) [PK]</p>
+                      <p className="opacity-60">user_login (varchar)</p>
+                      <p className="opacity-60">user_email (varchar) [INDEX]</p>
+                      <p className="opacity-60">display_name (varchar)</p>
+                      <p className="text-[9px] text-amber-500/80 italic pt-1 border-t border-inherit/25 leading-normal">
+                        * কাস্টমার অ্যাকাউন্ট এবং ক্রেডেনশিয়াল টেবিল।
+                      </p>
+                    </div>
+
+                    {/* WC order stats */}
+                    <div className="p-4 rounded-xl bg-black/10 border border-[#322822]/30 space-y-2">
+                      <span className="font-extrabold text-rose-400 block border-b border-inherit pb-1">📊 wp_wc_order_stats</span>
+                      <p className="opacity-80 font-bold">order_id [PK]</p>
+                      <p className="opacity-60">date_created (datetime)</p>
+                      <p className="opacity-60">num_items_sold (int)</p>
+                      <p className="opacity-60">net_total [INDEXED]</p>
+                      <p className="text-[9px] text-amber-500/80 italic pt-1 border-t border-inherit/25 leading-normal">
+                        * লাভ এবং সেলস অ্যানালিটিক্স গ্রিড লোডিং টেবিল।
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Indexes optimization rules sheet */}
+                  <div className="p-4 bg-[#e07a5f]/5 border border-[#e07a5f]/15 rounded-xl space-y-2">
+                    <h4 className="font-extrabold text-xs text-[#e07a5f] flex items-center space-x-1.5">
+                      <span>🚀 database-blueprint-optimizer: MySQL High-Scale indexing query</span>
+                    </h4>
+                    <p className="text-[11px] leading-relaxed opacity-90">
+                      কাস্টমার রিওয়ার্ড পয়েন্টস, শার্ট/প্যান্ট/শু সাইজের মতো মেটা ডাটা এবং প্রোডাক্টের খরচ ও লাভ অতি দ্রুত বের করার জন্য MySQL ডাটাবেজে নিম্নোক্ত কাস্টম মাল্টি-কলাম ইনডেক্স ব্যবহার করতে হবে:
+                    </p>
+                    <pre className="p-3 bg-black/40 text-[#f2e7dd] rounded-lg font-mono text-[10px] overflow-x-auto">
+{`-- Optimize meta lookups for Custom Sizes, LTV and Net Profit Fields
+ALTER TABLE wp_postmeta ADD INDEX fbd_postmeta_speed_idx (meta_key(12), meta_value(30));
+ALTER TABLE wp_usermeta ADD INDEX fbd_user_sizing_idx (user_id, meta_key(15));
+ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, net_total);`}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* SaaS Architecture Section Header */}
+              <div className="pt-6 border-t border-[#322822]/10">
+                <h2 className="text-xl font-bold mb-1 text-amber-500">সিস্টেম আর্কিটেকচার ও টেক স্ট্যাক (SaaS Architecture & Tech Stack)</h2>
+                <p className="text-xs opacity-60">ড্যাশবোর্ডের এন্ড-টু-এন্ড মডার্ন টেকনোলজি ফ্রেমওয়ার্ক এবং ডাটাবেজ ইন্টিগ্রেশন লেয়ার।</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Card 1: Frontend & UI */}
+                <div className={`p-6 rounded-3xl border
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500 w-fit mb-4">
+                    <Code className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-extrabold text-sm">১. ফ্রন্টএন্ড ডিজাইন ও রিঅ্যাক্টিভ স্টেট (Frontend & UI)</h3>
+                  <p className="text-xs opacity-80 mt-2 leading-relaxed">
+                    <strong>React 19 + Tailwind CSS + Motion:</strong> আধুনিক কাস্টম শপফাই-স্টাইলড ইন্টারফেস যা অত্যন্ত হালকা এবং রেসপনসিভ। চোখের সুরক্ষার জন্য বিশেষ ব্লু-লাইট ফিল্টার টেকনোলজি ব্যবহার করা হয়েছে।
+                  </p>
+                  <ul className="text-[11px] opacity-60 mt-3 list-disc pl-4 space-y-1">
+                    <li>টাইপ সেফ কোডিং প্যাটার্ন</li>
+                    <li>সহজ ইন্টারেক্টিভ রিঅ্যাক্টিভ স্টেট</li>
+                    <li>Tailwind CSS স্পিড অপ্টিমাইজেশন</li>
+                  </ul>
+                </div>
+
+                {/* Card 2: Backend & Auth */}
+                <div className={`p-6 rounded-3xl border
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500 w-fit mb-4">
+                    <Cpu className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-extrabold text-sm">২. ব্যাকএন্ড ও এপিআই (Backend & APIs)</h3>
+                  <p className="text-xs opacity-80 mt-2 leading-relaxed">
+                    <strong>Node.js Express / NestJS Server:</strong> ড্যাশবোর্ডের মূল ডাটা ইন্টিগ্রেশন এবং এআই এপিআই হ্যান্ডলার হিসেবে একটি শক্তিশালী Express backend চলমান আছে। প্রোডাকশন লেভেলে NestJS ব্যবহার করা হবে যাতে রিয়েল-টাইম ওয়েব-সকেট কানেক্টিভিটি বজায় থাকে।
+                  </p>
+                  <ul className="text-[11px] opacity-60 mt-3 list-disc pl-4 space-y-1">
+                    <li>RESTful / GraphQL APIs</li>
+                    <li>OAuth Security Integration</li>
+                    <li>JWT & Firebase Auth</li>
+                  </ul>
+                </div>
+
+                {/* Card 3: Storage & Database */}
+                <div className={`p-6 rounded-3xl border
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500 w-fit mb-4">
+                    <Database className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-extrabold text-sm">৩. ডেটাবেস ও স্টোরেজ (Database Strategy)</h3>
+                  <p className="text-xs opacity-80 mt-2 leading-relaxed">
+                    <strong>Cloud Firestore / PostgreSQL:</strong> আমাদের প্রথম চয়েস হচ্ছে Firebase (Firestore), কারণ এটি দিয়ে রিয়েল-টাইম ডাটা সিঙ্ক ও অটো-স্কেলিং করা সম্ভব। রিলেশনাল ডাটা বিশ্লেষণের জন্য Google Cloud SQL (PostgreSQL) ব্যবহার করা অত্যন্ত কার্যকরী।
+                  </p>
+                  <ul className="text-[11px] opacity-60 mt-3 list-disc pl-4 space-y-1">
+                    <li>Durable cloud persistence</li>
+                    <li>রিলেশনাল কাস্টমার ডাটা সিকিউরিটি</li>
+                    <li>অফলাইন সাপোর্ট উইথ লিনিয়ার স্কেল</li>
+                  </ul>
+                </div>
+
+              </div>
+
+              {/* Database relational structure diagram view */}
+              <div className={`p-6 rounded-[2rem] border
+                ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <BookOpen className="h-5 w-5 text-[#e07a5f]" />
+                  <h3 className="text-lg font-bold">ডাটাবেজ রিলেショナル ডায়াগ্রাম আইডিয়া (Database Design Entity Schema)</h3>
+                </div>
+                <p className="text-xs opacity-75 mb-6">Aura Lux স্টোরের কাস্টমার, অর্ডার এবং ইনভেন্টরি ট্র্যাকিং ডাটা স্ট্রাকচার রিলেশন:</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-[11px]">
+                  {/* Entity 1 */}
+                  <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-2">
+                    <span className="font-bold text-amber-400 block border-b border-white/5 pb-1">👤 Customers CRM Table</span>
+                    <p className="opacity-80">🔑 customer_id [PK]</p>
+                    <p className="opacity-60">🔹 name (varchar)</p>
+                    <p className="opacity-60">🔹 email (varchar) [Unique]</p>
+                    <p className="opacity-60">🔹 segment (enum: VIP, regular, etc.)</p>
+                    <p className="opacity-60">🔹 total_spending (decimal)</p>
+                  </div>
+
+                  {/* Entity 2 */}
+                  <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-2">
+                    <span className="font-bold text-rose-400 block border-b border-white/5 pb-1">🛍️ Orders Table</span>
+                    <p className="opacity-80">🔑 order_id [PK]</p>
+                    <p className="opacity-60">🔗 customer_id [FK] ── (1:N)</p>
+                    <p className="opacity-60">🔹 total_amount (decimal)</p>
+                    <p className="opacity-60">🔹 status (enum: pending, shipped, etc.)</p>
+                    <p className="opacity-60">🔹 payment_method (varchar)</p>
+                  </div>
+
+                  {/* Entity 3 */}
+                  <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-2">
+                    <span className="font-bold text-emerald-400 block border-b border-white/5 pb-1">📦 Products Catalogue</span>
+                    <p className="opacity-80">🔑 product_id [PK]</p>
+                    <p className="opacity-60">🔹 name (varchar)</p>
+                    <p className="opacity-60">🔹 category (varchar)</p>
+                    <p className="opacity-60">🔹 price (decimal)</p>
+                    <p className="opacity-60">🔹 stock (int)</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================================
+              COLLECTIONS TAB
+              ========================================================== */}
+          {activeTab === 'collections' && (
+            <div className="space-y-6 animate-fade-in text-xs">
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-inherit">
+                <div>
+                  <span className="text-[10px] font-bold text-[#e07a5f] uppercase tracking-wider">কালেকশন হাব ও এনালিটিক্স</span>
+                  <h1 className="text-2xl font-extrabold tracking-tight mt-0.5">কালেকশন ড্যাশবোর্ড (Collection Manager)</h1>
+                  <p className="text-xs opacity-60">ঈদ, শীত ও গ্রীষ্মকালীন ফ্যাশন কালেকশনের সেলস, প্রফিট ও ক্যাটালগ সাইজ ট্র্যাকিং পোর্টাল।</p>
+                </div>
+              </div>
+
+              {/* KPI Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className={`p-6 rounded-3xl border flex items-center justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div>
+                    <span className="text-[10px] uppercase font-bold opacity-55">সর্বমোট কালেকশন সেলস (Total Sales)</span>
+                    <h3 className="text-2xl font-black mt-1 text-[#e07a5f]">{formatCurrency(collectionsData.reduce((acc, c) => acc + c.sales, 0))}</h3>
+                    <p className="text-[9px] text-emerald-500 font-bold mt-1 flex items-center">↗ 14.5% Growth this season</p>
+                  </div>
+                  <div className="p-3.5 bg-[#e07a5f]/10 rounded-2xl text-[#e07a5f]">
+                    <TrendingUp className="h-6 w-6" />
+                  </div>
+                </div>
+
+                <div className={`p-6 rounded-3xl border flex items-center justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div>
+                    <span className="text-[10px] uppercase font-bold opacity-55">কালেকশন নিট প্রফিট (Net Profit ৳)</span>
+                    <h3 className="text-2xl font-black mt-1 text-emerald-500">{formatCurrency(collectionsData.reduce((acc, c) => acc + c.profit, 0))}</h3>
+                    <p className="text-[9px] opacity-60 mt-1">Average Profit Margin: 34.8%</p>
+                  </div>
+                  <div className="p-3.5 bg-emerald-500/10 rounded-2xl text-emerald-500">
+                    <Coins className="h-6 w-6" />
+                  </div>
+                </div>
+
+                <div className={`p-6 rounded-3xl border flex items-center justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div>
+                    <span className="text-[10px] uppercase font-bold opacity-55">সেরা পারফর্মিং ক্যাটাগরি (Best Seller)</span>
+                    <h3 className="text-xl font-extrabold mt-1">Premium Wear</h3>
+                    <p className="text-[9px] opacity-60 mt-1">৳ 2.45M Sales • Active</p>
+                  </div>
+                  <div className="p-3.5 bg-amber-500/10 rounded-2xl text-amber-500">
+                    <Sparkles className="h-6 w-6" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Form & List split container */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Add collection form */}
+                <div className="lg:col-span-4">
+                  <div className={`p-6 rounded-[2.5rem] border space-y-4
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                      <Plus className="h-4 w-4 text-[#e07a5f]" />
+                      <span>নতুন কালেকশন যোগ করুন (Add)</span>
+                    </h3>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const target = e.currentTarget;
+                        const name = (target.elements.namedItem('col_name') as HTMLInputElement).value;
+                        const season = (target.elements.namedItem('col_season') as HTMLSelectElement).value;
+                        const status = (target.elements.namedItem('col_status') as HTMLSelectElement).value;
+                        const sales = Number((target.elements.namedItem('col_sales') as HTMLInputElement).value) || 0;
+                        const profit = Math.floor(sales * 0.35);
+
+                        const newCol = {
+                          id: `col-${Date.now()}`,
+                          name,
+                          season,
+                          status,
+                          sales,
+                          profit,
+                          itemsCount: 0
+                        };
+
+                        setCollectionsData(prev => [newCol, ...prev]);
+                        target.reset();
+
+                        const newNotif = {
+                          id: `notif-${Date.now()}`,
+                          title: `নতুন কালেকশন যুক্ত করা হয়েছে`,
+                          message: `"${name}" কালেকশনটি সফলভাবে সিস্টেমে এবং ওউ-কমার্সে রেজিস্টার করা হয়েছে।`,
+                          timestamp: new Date().toISOString(),
+                          read: false
+                        };
+                        setNotifications(prev => [newNotif, ...prev]);
+                      }}
+                      className="space-y-3.5"
+                    >
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">কালেকশনের নাম (Name)</label>
+                        <input 
+                          name="col_name"
+                          type="text"
+                          required
+                          placeholder="যেমন: Summer Collection 2026"
+                          className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">সিজন ট্যাগ (Season)</label>
+                        <select 
+                          name="col_season"
+                          className={`w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit
+                            ${settings.themeMode === 'dark' ? 'bg-[#1a1614]' : 'bg-white'}`}
+                        >
+                          <option value="Eid">Eid</option>
+                          <option value="Winter">Winter</option>
+                          <option value="Summer">Summer</option>
+                          <option value="Spring">Spring</option>
+                          <option value="All Season">All Season</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">স্ট্যাটাস (Status)</label>
+                        <select 
+                          name="col_status"
+                          className={`w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit
+                            ${settings.themeMode === 'dark' ? 'bg-[#1a1614]' : 'bg-white'}`}
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Draft">Draft</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">প্রারম্ভিক বিক্রয় (Initial Sales ৳)</label>
+                        <input 
+                          name="col_sales"
+                          type="number"
+                          placeholder="৳ 25000"
+                          className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                        />
+                      </div>
+                      <button 
+                        type="submit"
+                        className="w-full py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl text-xs shadow-lg shadow-orange-500/10 transition-all"
+                      >
+                        কালেকশন সেভ করুন
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* List table */}
+                <div className="lg:col-span-8">
+                  <div className={`p-6 rounded-[2.5rem] border overflow-hidden
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-sm font-extrabold">সক্রিয় কালেকশনসমূহ (Active Collections List)</h3>
+                      <span className="text-[10px] font-mono opacity-50">মোট কালেকশন: {collectionsData.length}</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-inherit opacity-60 text-[10px] uppercase font-bold">
+                            <th className="py-3 px-3">কালেকশন নাম (Collection)</th>
+                            <th className="py-3 px-3">সিজন (Season)</th>
+                            <th className="py-3 px-3">টোটাল সেলস (Sales)</th>
+                            <th className="py-3 px-3">নিট প্রফিট (Net Profit)</th>
+                            <th className="py-3 px-3">অবস্থা (Status)</th>
+                            <th className="py-3 px-3 text-right">অ্যাকশন</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-inherit/40 text-xs">
+                          {collectionsData.map(c => (
+                            <tr key={c.id} className="hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors">
+                              <td className="py-3 px-3 font-bold">{c.name}</td>
+                              <td className="py-3 px-3">
+                                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-[#e07a5f]/10 text-[#e07a5f]">
+                                  {c.season}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 font-mono font-bold">{formatCurrency(c.sales)}</td>
+                              <td className="py-3 px-3 font-mono font-bold text-emerald-500">{formatCurrency(c.profit)}</td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold
+                                  ${c.status === 'Active' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}
+                                >
+                                  {c.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-right space-x-1">
+                                <button 
+                                  onClick={() => {
+                                    setCollectionsData(prev => prev.map(item => item.id === c.id ? { ...item, status: item.status === 'Active' ? 'Draft' : 'Active' } : item));
+                                  }}
+                                  className="p-1 hover:bg-[#e07a5f]/10 text-amber-500 rounded-lg text-[10px] font-bold"
+                                  title="Toggle Status"
+                                >
+                                  স্ট্যাটাস পাল্টান
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    setCollectionsData(prev => prev.filter(item => item.id !== c.id));
+                                  }}
+                                  className="p-1.5 hover:bg-rose-500/15 text-rose-500 rounded-lg"
+                                  title="Delete Collection"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================================
+              RETURNS & REFUND MANAGEMENT
+              ========================================================== */}
+          {activeTab === 'returns' && (
+            <div className="space-y-6 animate-fade-in text-xs">
+              {/* Header */}
+              <div className="pb-4 border-b border-inherit">
+                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">WooCommerce Return Center</span>
+                <h1 className="text-2xl font-extrabold tracking-tight mt-0.5">রিটার্ন ও রিফান্ড ডেস্ক (Returns & Refund Desk)</h1>
+                <p className="text-xs opacity-60">সাইজ অমিল বা অন্যান্য ড্যামেজ ইস্যুর জন্য কাস্টমারদের রিটার্ন রিকোয়েস্ট ও রিফান্ড ভেরিফিকেশন হাব।</p>
+              </div>
+
+              {/* KPI indicators */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className={`p-6 rounded-3xl border flex items-center justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div>
+                    <span className="text-[10px] uppercase font-bold opacity-55">অপেক্ষমাণ রিকোয়েস্ট (Pending Approval)</span>
+                    <h3 className="text-2xl font-black mt-1 text-amber-500">
+                      {returnsData.filter(r => r.status === 'Pending Approval').length} Orders
+                    </h3>
+                    <p className="text-[9px] opacity-60 mt-1">SLA response time: 2.4 Hours</p>
+                  </div>
+                  <div className="p-3.5 bg-amber-500/10 rounded-2xl text-amber-500">
+                    <Clock className="h-6 w-6" />
+                  </div>
+                </div>
+
+                <div className={`p-6 rounded-3xl border flex items-center justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div>
+                    <span className="text-[10px] uppercase font-bold opacity-55">সর্বমোট রিফান্ড ভ্যালু (Total Refunded Value)</span>
+                    <h3 className="text-2xl font-black mt-1 text-rose-500">
+                      {formatCurrency(returnsData.filter(r => r.status === 'Refunded').reduce((acc, r) => acc + r.refundAmount, 0))}
+                    </h3>
+                    <p className="text-[9px] opacity-60 mt-1">Successfully debited back to customers</p>
+                  </div>
+                  <div className="p-3.5 bg-rose-500/10 rounded-2xl text-rose-500">
+                    <Undo2 className="h-6 w-6" />
+                  </div>
+                </div>
+
+                <div className={`p-6 rounded-3xl border flex items-center justify-between
+                  ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                >
+                  <div>
+                    <span className="text-[10px] uppercase font-bold opacity-55">রিটার্ন রেট (SaaS Return Rate)</span>
+                    <h3 className="text-2xl font-black mt-1 text-indigo-500">1.84%</h3>
+                    <p className="text-[9px] text-emerald-500 font-bold mt-1">↘ Industry average is 8.5% (AURA is super low!)</p>
+                  </div>
+                  <div className="p-3.5 bg-indigo-500/10 rounded-2xl text-indigo-500">
+                    <Activity className="h-6 w-6" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Table of returns */}
+              <div className={`p-6 rounded-[2.5rem] border overflow-hidden
+                ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-sm font-extrabold">রিটার্ন ট্রানজ্যাকশন লিস্ট (Active Returns Register)</h3>
+                  <span className="text-[10px] font-mono opacity-50">মোট রিটার্ন হিস্ট্রি: {returnsData.length} টি</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-inherit opacity-60 text-[10px] uppercase font-bold">
+                        <th className="py-3 px-3">রিটার্ন আইডি</th>
+                        <th className="py-3 px-3">ক্রেতা ও কন্টাক্ট</th>
+                        <th className="py-3 px-3">প্রোডাক্ট ও কারণ</th>
+                        <th className="py-3 px-3">রিফান্ড এমাউন্ট</th>
+                        <th className="py-3 px-3">তারিখ</th>
+                        <th className="py-3 px-3">স্ট্যাটাস</th>
+                        <th className="py-3 px-3 text-right">অ্যাকশন বাটন</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-inherit/40 text-xs">
+                      {returnsData.map(r => (
+                        <tr key={r.id} className="hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors">
+                          <td className="py-3 px-3 font-mono font-bold text-rose-500">{r.id}</td>
+                          <td className="py-3 px-3">
+                            <p className="font-bold">{r.customerName}</p>
+                            <p className="text-[10px] opacity-60">{r.phone}</p>
+                          </td>
+                          <td className="py-3 px-3">
+                            <p className="font-bold">{r.productName}</p>
+                            <p className="text-[10px] opacity-60 italic">" {r.reason} "</p>
+                          </td>
+                          <td className="py-3 px-3 font-mono font-bold">{formatCurrency(r.refundAmount)}</td>
+                          <td className="py-3 px-3">{r.date}</td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold
+                              ${r.status === 'Pending Approval' ? 'bg-amber-500/10 text-amber-500' : ''}
+                              ${r.status === 'Refunded' ? 'bg-emerald-500/10 text-emerald-500' : ''}
+                              ${r.status === 'Rejected' ? 'bg-rose-500/10 text-rose-500' : ''}`}
+                            >
+                              {r.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right space-x-1.5">
+                            {r.status === 'Pending Approval' ? (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setReturnsData(prev => prev.map(item => item.id === r.id ? { ...item, status: 'Refunded' } : item));
+                                    const notif = {
+                                      id: `notif-${Date.now()}`,
+                                      title: `রিফান্ড অ্যাপ্রুভড`,
+                                      message: `${r.customerName} এর জন্য ${formatCurrency(r.refundAmount)} রিফান্ড প্রসেস সম্পন্ন হয়েছে।`,
+                                      timestamp: new Date().toISOString(),
+                                      read: false
+                                    };
+                                    setNotifications(prev => [notif, ...prev]);
+                                  }}
+                                  className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold rounded-lg transition-colors"
+                                >
+                                  অনুমোদন
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setReturnsData(prev => prev.map(item => item.id === r.id ? { ...item, status: 'Rejected' } : item));
+                                    const notif = {
+                                      id: `notif-${Date.now()}`,
+                                      title: `রিটার্ন বাতিল করা হয়েছে`,
+                                      message: `${r.customerName} এর রিটার্ন রিকোয়েস্ট রিজেক্ট করা হয়েছে।`,
+                                      timestamp: new Date().toISOString(),
+                                      read: false
+                                    };
+                                    setNotifications(prev => [notif, ...prev]);
+                                  }}
+                                  className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-bold rounded-lg transition-colors"
+                                >
+                                  বাতিল
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-[10px] opacity-40 italic">মীমাংসিত</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================================
+              SYSTEM SETTINGS WITH EYE PROTECTION & LIVE UPDATES
+              ========================================================== */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6 animate-fade-in text-xs">
+              {/* Header */}
+              <div className="pb-4 border-b border-inherit">
+                <span className="text-[10px] font-bold text-[#e07a5f] uppercase tracking-wider">Aura Lux Preferences</span>
+                <h1 className="text-2xl font-extrabold tracking-tight mt-0.5">গ্লোবাল সেটিংস (System Settings)</h1>
+                <p className="text-xs opacity-60">স্টোর ব্র্যান্ডিং, ওউ-কমার্স কানেকশন প্যারামিটার এবং রিঅ্যাক্টিভ ব্লু-লাইট আই প্রটেকশন টিউন করার কন্ট্রোল প্যানেল।</p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Brand and safety col */}
+                <div className="lg:col-span-6 space-y-6">
+                  {/* Brand Branding Card */}
+                  <div className={`p-6 rounded-[2.5rem] border space-y-4
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                      <Settings className="h-4.5 w-4.5 text-[#e07a5f]" />
+                      <span>১. ব্রান্ড পরিচিতি সেটিংস (Brand Slogan Settings)</span>
+                    </h3>
+                    <div className="space-y-3.5">
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1.5">ব্র্যান্ড নাম (Brand Name - লাইভ আপডেট!)</label>
+                        <input 
+                          type="text"
+                          value={settings.brandName}
+                          onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))}
+                          className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1.5">ব্র্যান্ড স্লোগান / ট্যাগলাইন (Tagline)</label>
+                        <input 
+                          type="text"
+                          value={settings.tagline}
+                          onChange={(e) => setSettings(prev => ({ ...prev, tagline: e.target.value }))}
+                          className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Reactive Eye Protection & Blue Light Card */}
+                  <div className={`p-6 rounded-[2.5rem] border space-y-4
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                      <ShieldAlert className="h-4.5 w-4.5 text-amber-500" />
+                      <span>২. আই প্রোটেকশন ও স্ক্রিন ওয়ার্মথ (Eye Protection Filter)</span>
+                    </h3>
+                    <p className="text-[11px] opacity-75 leading-relaxed">
+                      রাতে বা দীর্ঘ সময় স্ক্রিনে কাজ করার সময় চোখের সুরক্ষার জন্য আমাদের রিঅ্যাক্টিভ ব্লু-লাইট ফিল্টার চালু করুন। এটি লাইভ স্ক্রিনের তাপমাত্রা পরিবর্তন করে।
+                    </p>
+
+                    <div className="space-y-4 pt-2">
+                      <div className="flex items-center justify-between p-3.5 bg-neutral-100 dark:bg-white/5 rounded-2xl">
+                        <div>
+                          <p className="font-bold text-xs">আই প্রোটেকশন ফিল্টার চালু করুন</p>
+                          <p className="text-[10px] opacity-60">Enable warm blue-light protective overlay</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSettings(prev => ({ ...prev, eyeProtectionEnabled: !prev.eyeProtectionEnabled }))}
+                          className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-300 focus:outline-none
+                            ${settings.eyeProtectionEnabled ? 'bg-amber-500' : 'bg-neutral-300 dark:bg-neutral-700'}`}
+                        >
+                          <div className={`w-5 h-5 rounded-full bg-white transition-transform duration-300 shadow-md
+                            ${settings.eyeProtectionEnabled ? 'translate-x-6' : 'translate-x-0'}`} 
+                          />
+                        </button>
+                      </div>
+
+                      {settings.eyeProtectionEnabled && (
+                        <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-2">
+                          <div className="flex justify-between text-[10px] font-bold">
+                            <span className="text-amber-600">ফিল্টার ওয়ার্মথ লেভেল (Warmth Strength)</span>
+                            <span className="text-amber-600">80% Intensity</span>
+                          </div>
+                          <input 
+                            type="range"
+                            min="10"
+                            max="100"
+                            defaultValue="80"
+                            className="w-full accent-amber-500"
+                          />
+                          <p className="text-[9px] opacity-60 text-amber-600 italic">চোখের ক্লান্তি কমাতে স্ক্রিনকে উষ্ণ হলুদ আভায় রূপান্তর করা হয়েছে।</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* API and Inventory col */}
+                <div className="lg:col-span-6 space-y-6">
+                  {/* WooCommerce credentials card */}
+                  <div className={`p-6 rounded-[2.5rem] border space-y-4
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                      <RefreshCcw className="h-4.5 w-4.5 text-indigo-500" />
+                      <span>৩. ওউ-কমার্স REST API ক্রেডেনশিয়ালস (WooCommerce Keys)</span>
+                    </h3>
+                    <div className="space-y-3 font-mono text-[11px]">
+                      <div>
+                        <label className="block text-[10px] font-sans font-bold opacity-75 mb-1.5">WooCommerce REST API URL</label>
+                        <input 
+                          type="text"
+                          defaultValue="https://auralux-fashion.com/wp-json"
+                          className="w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold text-[10px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-sans font-bold opacity-75 mb-1.5">Consumer Key (ck_xxxx)</label>
+                        <input 
+                          type="password"
+                          defaultValue="ck_483a99264c12bb9f71ab937d7a126cb3"
+                          className="w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-[10px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-sans font-bold opacity-75 mb-1.5">Consumer Secret (cs_xxxx)</label>
+                        <input 
+                          type="password"
+                          defaultValue="cs_de72b83c16f23e42a003fdfa2893fcc2"
+                          className="w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-[10px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Inventory Limits card */}
+                  <div className={`p-6 rounded-[2.5rem] border space-y-4
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                      <Warehouse className="h-4.5 w-4.5 text-rose-500" />
+                      <span>৪. ইনভেন্টরি এলার্ট লেভেল সেটিংস (Stock Thresholds)</span>
+                    </h3>
+                    <div className="space-y-4 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold">লো-স্টক এলার্ট লিমিট (Low Stock Level)</p>
+                          <p className="text-[10px] opacity-60">স্টকের পরিমাণ এর নিচে নামলে লাল নোটিফিকেশন আসবে</p>
+                        </div>
+                        <input 
+                          type="number"
+                          defaultValue="5"
+                          className="w-16 p-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-center font-bold"
+                        />
+                      </div>
+
+                      <div className="pt-2 border-t border-inherit flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newNotif = {
+                              id: `notif-${Date.now()}`,
+                              title: `সেটিংস সফলভাবে সংরক্ষিত`,
+                              message: `স্টোর গ্লোবাল কনফিগারেশন প্যারামিটার সফলভাবে আপডেট ও ডাটাবেজে লক করা হয়েছে।`,
+                              timestamp: new Date().toISOString(),
+                              read: false
+                            };
+                            setNotifications(prev => [newNotif, ...prev]);
+                          }}
+                          className="px-6 py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl text-xs shadow-lg shadow-orange-500/10 transition-all"
+                        >
+                          সেটিংস সংরক্ষণ করুন (Save Settings)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================================
+              USER & STAFF ROLE MANAGEMENT
+              ========================================================== */}
+          {activeTab === 'user-management' && (
+            <div className="space-y-6 animate-fade-in text-xs">
+              {/* Header */}
+              <div className="pb-4 border-b border-inherit">
+                <span className="text-[10px] font-bold text-[#e07a5f] uppercase tracking-wider">Access Control Panel</span>
+                <h1 className="text-2xl font-extrabold tracking-tight mt-0.5">ইউজার ম্যানেজমেন্ট ও রোলস (Staff Roles)</h1>
+                <p className="text-xs opacity-60">ড্যাশবোর্ড ব্যবহারের জন্য অ্যাডমিন, শপ ম্যানেজার এবং সাপোর্ট টিমের রোল পারমিশন এবং সিকিউর এক্সেস কন্ট্রোল লিস্ট।</p>
+              </div>
+
+              {/* Grid content */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Form column */}
+                <div className="lg:col-span-4">
+                  <div className={`p-6 rounded-[2.5rem] border space-y-4
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                      <UserCheck className="h-4.5 w-4.5 text-[#e07a5f]" />
+                      <span>নতুনスタッフ সদস্য যোগ করুন (Invite)</span>
+                    </h3>
+
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const target = e.currentTarget;
+                        const name = (target.elements.namedItem('st_name') as HTMLInputElement).value;
+                        const email = (target.elements.namedItem('st_email') as HTMLInputElement).value;
+                        const role = (target.elements.namedItem('st_role') as HTMLSelectElement).value;
+
+                        let permissions = 'View only';
+                        if (role === 'Admin') permissions = 'Full Access';
+                        else if (role === 'Shop Manager') permissions = 'Orders & Inventory';
+                        else if (role === 'Support Team') permissions = 'Customer CRM & Ticketing';
+                        else if (role === 'Inventory Specialist') permissions = 'Stock Controls only';
+
+                        const newStaff = { name, email, role, status: 'Active', permissions };
+                        setStaffData(prev => [newStaff, ...prev]);
+                        target.reset();
+
+                        const notif = {
+                          id: `notif-${Date.now()}`,
+                          title: `স্টাফ সদস্য ইনভাইট করা হয়েছে`,
+                          message: `${name} (${role}) কে সিকিউর লগইন লিংক সহ আমন্ত্রণ পাঠানো হয়েছে।`,
+                          timestamp: new Date().toISOString(),
+                          read: false
+                        };
+                        setNotifications(prev => [notif, ...prev]);
+                      }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">স্টাফের নাম (Full Name)</label>
+                        <input 
+                          name="st_name"
+                          type="text"
+                          required
+                          placeholder="যেমন: আরহান রহমান"
+                          className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">ইমেইল ঠিকানা (Email Address)</label>
+                        <input 
+                          name="st_email"
+                          type="email"
+                          required
+                          placeholder="যেমন: arhan@auralux.com"
+                          className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">স্টাফের রোল (Dashboard Role)</label>
+                        <select 
+                          name="st_role"
+                          className={`w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit
+                            ${settings.themeMode === 'dark' ? 'bg-[#1a1614]' : 'bg-white'}`}
+                        >
+                          <option value="Admin">Admin</option>
+                          <option value="Shop Manager">Shop Manager</option>
+                          <option value="Support Team">Support Team</option>
+                          <option value="Inventory Specialist">Inventory Specialist</option>
+                        </select>
+                      </div>
+                      <button 
+                        type="submit"
+                        className="w-full py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl text-xs shadow-lg shadow-orange-500/10 transition-all"
+                      >
+                        টিমে আমন্ত্রণ পাঠান
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Directory table */}
+                <div className="lg:col-span-8">
+                  <div className={`p-6 rounded-[2.5rem] border overflow-hidden
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-sm font-extrabold">স্টাফ ডিরেক্টরি ও পারমিশন ম্যাট্রিক্স (Staff Directory)</h3>
+                      <span className="text-[10px] font-mono opacity-50">সক্রিয় স্টাফ: {staffData.length} জন</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-inherit opacity-60 text-[10px] uppercase font-bold">
+                            <th className="py-3 px-3">টিম মেম্বার নাম ও ইমেইল</th>
+                            <th className="py-3 px-3">রোল (Role)</th>
+                            <th className="py-3 px-3">অনুমতিপত্র (Permissions)</th>
+                            <th className="py-3 px-3">অবস্থা (Status)</th>
+                            <th className="py-3 px-3 text-right">অ্যাকশন</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-inherit/40 text-xs">
+                          {staffData.map(s => (
+                            <tr key={s.email} className="hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors">
+                              <td className="py-3 px-3">
+                                <p className="font-bold">{s.name}</p>
+                                <p className="text-[10px] opacity-60 font-mono">{s.email}</p>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold
+                                  ${s.role === 'Admin' ? 'bg-rose-500/10 text-rose-500' : ''}
+                                  ${s.role === 'Shop Manager' ? 'bg-emerald-500/10 text-emerald-500' : ''}
+                                  ${s.role === 'Support Team' ? 'bg-indigo-500/10 text-indigo-500' : ''}
+                                  ${s.role === 'Inventory Specialist' ? 'bg-amber-500/10 text-amber-500' : ''}`}
+                                >
+                                  {s.role}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 font-medium opacity-80">{s.permissions}</td>
+                              <td className="py-3 px-3">
+                                <span className="text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full text-[9px]">
+                                  {s.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                {s.role !== 'Admin' ? (
+                                  <button
+                                    onClick={() => setStaffData(prev => prev.filter(item => item.email !== s.email))}
+                                    className="p-1.5 hover:bg-rose-500/15 text-rose-500 rounded-lg transition-colors"
+                                    title="Revoke Access"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                ) : (
+                                  <span className="text-[9px] opacity-40 italic">সুরক্ষিত</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================================
+              SUPPORT INTERACTIVE HELPDESK
+              ========================================================== */}
+          {activeTab === 'support' && (
+            <div className="space-y-6 animate-fade-in text-xs">
+              {/* Header */}
+              <div className="pb-4 border-b border-inherit">
+                <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Aura Systems Helpdesk</span>
+                <h1 className="text-2xl font-extrabold tracking-tight mt-0.5">গ্রাহক ও সিস্টেম সাপোর্ট ডেস্ক (Support Tickets)</h1>
+                <p className="text-xs opacity-60">ওউ-কমার্স প্লাগইন, এআই মডেল এলার্ট বা অন্য যেকোনো জটিল প্রযুক্তিগত বিষয়ে অফিশিয়াল সাপোর্ট টিকেট ইন্টিগ্রেশন লেয়ার।</p>
+              </div>
+
+              {/* Grid panel */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left ticket form */}
+                <div className="lg:col-span-4">
+                  <div className={`p-6 rounded-[2.5rem] border space-y-4
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                      <HelpCircle className="h-4.5 w-4.5 text-indigo-500" />
+                      <span>নতুন সাপোর্ট টিকেট খুলুন (New Ticket)</span>
+                    </h3>
+
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const target = e.currentTarget;
+                        const subject = (target.elements.namedItem('tk_subj') as HTMLInputElement).value;
+                        const category = (target.elements.namedItem('tk_cat') as HTMLSelectElement).value;
+                        const priority = (target.elements.namedItem('tk_prio') as HTMLSelectElement).value;
+
+                        const newTicket = {
+                          id: `TCK-${Math.floor(1000 + Math.random() * 9000)}`,
+                          subject,
+                          category,
+                          priority,
+                          status: 'Open',
+                          date: new Date().toISOString().split('T')[0]
+                        };
+
+                        setTicketsData(prev => [newTicket, ...prev]);
+                        target.reset();
+
+                        const notif = {
+                          id: `notif-${Date.now()}`,
+                          title: `সাপোর্ট টিকেট রেজিস্টার করা হয়েছে`,
+                          message: `টিকেট নম্বর ${newTicket.id} সফলভাবে খোলা হয়েছে এবং আমাদের ইঞ্জিনিয়ারিং টিমকে ট্যাগ করা হয়েছে।`,
+                          timestamp: new Date().toISOString(),
+                          read: false
+                        };
+                        setNotifications(prev => [notif, ...prev]);
+                      }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">টিকেটের বিষয়বস্তু (Subject)</label>
+                        <input 
+                          name="tk_subj"
+                          type="text"
+                          required
+                          placeholder="যেমন: bKash Callback Handshake failure"
+                          className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">টিকেটের ক্যাটাগরি (Category)</label>
+                        <select 
+                          name="tk_cat"
+                          className={`w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit
+                            ${settings.themeMode === 'dark' ? 'bg-[#1a1614]' : 'bg-white'}`}
+                        >
+                          <option value="Syncing">WooCommerce Syncing</option>
+                          <option value="Payment Gateways">bKash/Nagad Payment Gateways</option>
+                          <option value="Printing">PDF Printing & Invoices</option>
+                          <option value="CRM Security">Access Control & CRM</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold opacity-75 mb-1">গুরুত্ব স্তর (Priority)</label>
+                        <select 
+                          name="tk_prio"
+                          className={`w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit
+                            ${settings.themeMode === 'dark' ? 'bg-[#1a1614]' : 'bg-white'}`}
+                        >
+                          <option value="Critical">Critical (Immediate SLA)</option>
+                          <option value="High">High</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Low">Low</option>
+                        </select>
+                      </div>
+                      <button 
+                        type="submit"
+                        className="w-full py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl text-xs shadow-lg shadow-orange-500/10 transition-all"
+                      >
+                        টিকেট সাবমিট করুন (Submit TCK)
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Ticket lists table */}
+                <div className="lg:col-span-8">
+                  <div className={`p-6 rounded-[2.5rem] border overflow-hidden
+                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                  >
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-sm font-extrabold">সহায়তা টিকেটের ডেক্স তালিকা (Active Support Tickets)</h3>
+                      <span className="text-[10px] font-mono opacity-50">মোট ওপেন টিকেট: {ticketsData.length} টি</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-inherit opacity-60 text-[10px] uppercase font-bold">
+                            <th className="py-3 px-3">টিকেট আইডি</th>
+                            <th className="py-3 px-3">বিষয়বস্তু ও ক্যাটাগরি</th>
+                            <th className="py-3 px-3">অগ্রাধিকার (Priority)</th>
+                            <th className="py-3 px-3">অবস্থা (Status)</th>
+                            <th className="py-3 px-3">তারিখ</th>
+                            <th className="py-3 px-3 text-right">অ্যাকশন</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-inherit/40 text-xs">
+                          {ticketsData.map(t => (
+                            <tr key={t.id} className="hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors">
+                              <td className="py-3 px-3 font-mono font-bold text-[#e07a5f]">{t.id}</td>
+                              <td className="py-3 px-3">
+                                <p className="font-bold">{t.subject}</p>
+                                <p className="text-[10px] opacity-60">{t.category}</p>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold
+                                  ${t.priority === 'Critical' ? 'bg-rose-500/10 text-rose-500' : ''}
+                                  ${t.priority === 'High' ? 'bg-amber-500/10 text-amber-500' : ''}
+                                  ${t.priority === 'Medium' ? 'bg-indigo-500/10 text-indigo-500' : ''}
+                                  ${t.priority === 'Low' ? 'bg-neutral-500/15 text-neutral-500' : ''}`}
+                                >
+                                  {t.priority}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold
+                                  ${t.status === 'Open' ? 'bg-rose-500/10 text-rose-500' : ''}
+                                  ${t.status === 'In Progress' ? 'bg-amber-500/10 text-amber-500' : ''}
+                                  ${t.status === 'Resolved' ? 'bg-emerald-500/10 text-emerald-500' : ''}`}
+                                >
+                                  {t.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 font-mono text-[10px] opacity-70">{t.date}</td>
+                              <td className="py-3 px-3 text-right">
+                                {t.status !== 'Resolved' ? (
+                                  <button
+                                    onClick={() => {
+                                      setTicketsData(prev => prev.map(item => item.id === t.id ? { ...item, status: item.status === 'Open' ? 'In Progress' : 'Resolved' } : item));
+                                    }}
+                                    className="px-2.5 py-1 bg-[#e07a5f]/10 hover:bg-[#e07a5f]/20 text-[#e07a5f] text-[10px] font-bold rounded-lg transition-colors"
+                                  >
+                                    ধাপ পরিবর্তন
+                                  </button>
+                                ) : (
+                                  <span className="text-[9px] opacity-40 italic">ক্লোজড</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </main>
+      </div>
+
+      {/* ==========================================================
+          AI ASSISTANT DRAWER (CHROME TRANSITION PANEL)
+          ========================================================== */}
+      {aiAssistantOpen && (
+        <div className="fixed inset-y-0 right-0 w-96 bg-[#1a1614] border-l border-[#322822] shadow-2xl z-50 flex flex-col h-full animate-slide-in text-[#f6f3ed]">
+          {/* Drawer Header */}
+          <div className="p-4 border-b border-[#322822] flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-amber-500 to-[#e07a5f] flex items-center justify-center text-white">
+                <Sparkles className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <span className="font-bold text-sm block">Aura Intelligent Sales AI</span>
+                <span className="text-[10px] text-amber-500 block">Gemini 3.5 Assistant • Online</span>
+              </div>
+            </div>
+            <button 
+              onClick={() => setAiAssistantOpen(false)}
+              className="text-xs opacity-60 hover:opacity-100 p-2"
+            >
+              বন্ধ করুন
+            </button>
+          </div>
+
+          {/* Quick recommendations panel */}
+          <div className="bg-[#2a2420] p-3 text-[11px] leading-relaxed border-b border-[#322822]">
+            💡 <strong>এআই ট্রেইন্ড টাস্ক:</strong> আপনি স্টোরের অর্ডার আপডেট, কাস্টমার ক্যাম্পেইন ড্রাফটিং কিংবা কম স্টক এলার্ট নিয়ে যেকোনো প্রশ্ন করতে পারেন।
+          </div>
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {chatMessages.map((msg, i) => (
+              <div 
+                key={i} 
+                className={`flex flex-col max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed
+                  ${msg.sender === 'user' 
+                    ? 'bg-[#e07a5f] text-white ml-auto rounded-tr-none' 
+                    : 'bg-white/5 border border-white/5 text-[#f6f3ed] mr-auto rounded-tl-none'}`}
+              >
+                <p className="whitespace-pre-wrap">{msg.text}</p>
+                <span className="text-[9px] opacity-40 mt-1 text-right">{msg.timestamp}</span>
+              </div>
+            ))}
+            {aiLoading && (
+              <div className="bg-white/5 border border-white/5 text-xs mr-auto rounded-2xl rounded-tl-none p-3 max-w-[85%] flex items-center space-x-2">
+                <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-bounce" />
+                <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                <span className="opacity-60 text-[10px]">Aura AI বিশ্লেষণ করছে...</span>
+              </div>
+            )}
+            <div ref={chatBottomRef} />
+          </div>
+
+          {/* Chat Input form */}
+          <form onSubmit={handleSendMessage} className="p-4 border-t border-[#322822] bg-[#120e0c]">
+            <div className="flex items-center space-x-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5">
+              <input 
+                type="text" 
+                placeholder="এআই অ্যাসিস্ট্যান্টকে প্রশ্ন করুন..." 
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                className="bg-transparent border-none outline-none w-full text-xs text-white"
+              />
+              <button 
+                type="submit" 
+                disabled={aiLoading}
+                className="p-1.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white rounded-lg disabled:opacity-50 transition-colors"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ==========================================================
+          NOTIFICATION DRAWER PANEL
+          ========================================================== */}
+      {notificationPanelOpen && (
+        <div className="fixed inset-y-0 right-0 w-80 bg-[#1a1614] border-l border-[#322822] shadow-2xl z-50 flex flex-col h-full animate-slide-in text-[#f6f3ed]">
+          <div className="p-4 border-b border-[#322822] flex justify-between items-center">
+            <h3 className="font-extrabold text-sm">সিস্টেম নোটিফিকেশনস ({notifications.filter(n => !n.read).length})</h3>
+            <button 
+              onClick={() => setNotificationPanelOpen(false)}
+              className="text-xs opacity-60 hover:opacity-100 p-2"
+            >
+              বন্ধ করুন
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {notifications.length === 0 ? (
+              <p className="text-center opacity-50 py-10 text-xs">কোন নোটিফিকেশন নেই</p>
+            ) : (
+              notifications.map(n => (
+                <div 
+                  key={n.id}
+                  className={`p-3.5 rounded-xl border text-xs relative space-y-1 transition-all group
+                    ${n.read ? 'bg-white/[0.02] border-white/5 opacity-65' : 'bg-amber-500/[0.04] border-amber-500/20'}`}
+                >
+                  {!n.read && (
+                    <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-rose-500" />
+                  )}
+                  <div className="flex justify-between items-start pr-6">
+                    <h4 className="font-bold text-xs text-[#f6f3ed]">{n.title}</h4>
+                    <div className="flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2.5 right-2 bg-[#1a1614] pl-1.5 rounded-md">
+                      {!n.read && (
+                        <button 
+                          onClick={() => markSingleNotificationAsRead(n.id)}
+                          title="পঠিত চিহ্নিত করুন"
+                          className="text-emerald-500 hover:text-emerald-400 p-0.5"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => deleteNotification(n.id)}
+                        title="মুছে ফেলুন"
+                        className="text-rose-500 hover:text-rose-400 p-0.5"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="opacity-70 text-[11px] leading-relaxed pr-2">{n.message}</p>
+                  <span className="text-[9px] opacity-40 block pt-1 font-mono">{new Date(n.timestamp).toLocaleTimeString()}</span>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="p-4 border-t border-[#322822] bg-[#120e0c]">
+            <button 
+              onClick={markAllNotificationsAsRead}
+              className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 text-[#e07a5f] rounded-xl text-xs font-bold transition-all border border-[#e07a5f]/15"
+            >
+              সব নোটিফিকেশন পঠিত হিসেবে চিহ্নিত করুন
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================================
+          ORDER EDIT MODAL (INTERACTIVE FORM)
+          ========================================================== */}
+      {editingOrder && (
+        <div className="fixed inset-0 bg-black/65 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className={`w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border
+            ${settings.themeMode === 'dark' ? 'bg-[#1a1614] border-[#322822] text-[#f6f3ed]' : 'bg-white border-[#e8e4dc] text-neutral-800'}`}
+          >
+            {/* Modal Header */}
+            <div className="p-6 border-b border-inherit flex justify-between items-center">
+              <div>
+                <span className="text-xs uppercase opacity-60 font-bold">অর্ডার এডিটর</span>
+                <h3 className="font-extrabold text-lg mt-0.5">এডিট অর্ডার: {editingOrder.id}</h3>
+              </div>
+              <button 
+                onClick={() => setEditingOrder(null)}
+                className="text-xs opacity-60 hover:opacity-100 p-2 font-bold"
+              >
+                বন্ধ করুন
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                setOrders(prev => prev.map(o => o.id === editingOrder.id ? editingOrder : o));
+                setEditingOrder(null);
+                const newNotif = {
+                  id: `notif-${Date.now()}`,
+                  title: `অর্ডার আপডেট সফল`,
+                  message: `${editingOrder.id} নম্বরের অর্ডার ডিটেইলস সফলভাবে আপডেট করা হয়েছে।`,
+                  timestamp: new Date().toISOString(),
+                  read: false
+                };
+                setNotifications(prev => [newNotif, ...prev]);
+              }}
+              className="flex-1 overflow-y-auto p-6 space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold opacity-75 mb-1.5">কাস্টমার নাম (Customer Name)</label>
+                <input 
+                  type="text"
+                  required
+                  value={editingOrder.customerName}
+                  onChange={(e) => setEditingOrder(prev => prev ? { ...prev, customerName: e.target.value } : null)}
+                  className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold opacity-75 mb-1.5">ফোন নাম্বার (Phone Number)</label>
+                  <input 
+                    type="text"
+                    required
+                    value={editingOrder.customerPhone}
+                    onChange={(e) => setEditingOrder(prev => prev ? { ...prev, customerPhone: e.target.value } : null)}
+                    className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold opacity-75 mb-1.5">ইমেইল ঠিকানা (Email Address)</label>
+                  <input 
+                    type="email"
+                    required
+                    value={editingOrder.customerEmail}
+                    onChange={(e) => setEditingOrder(prev => prev ? { ...prev, customerEmail: e.target.value } : null)}
+                    className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold opacity-75 mb-1.5">শিপিং ঠিকানা (Shipping Location / Address)</label>
+                <textarea 
+                  required
+                  rows={2}
+                  value={editingOrder.customerAddress}
+                  onChange={(e) => setEditingOrder(prev => prev ? { ...prev, customerAddress: e.target.value } : null)}
+                  className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold opacity-75 mb-1.5">মোট প্রদেয় মূল্য (Total Amount ৳)</label>
+                  <input 
+                    type="number"
+                    required
+                    value={editingOrder.total}
+                    onChange={(e) => setEditingOrder(prev => prev ? { ...prev, total: Number(e.target.value) } : null)}
+                    className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold opacity-75 mb-1.5">পেমেন্ট গেটওয়ে (Gateway)</label>
+                  <select
+                    value={editingOrder.paymentMethod}
+                    onChange={(e) => setEditingOrder(prev => prev ? { ...prev, paymentMethod: e.target.value as any } : null)}
+                    className={`w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]' : 'bg-white'}`}
+                  >
+                    <option value="COD">COD (Cash on Delivery)</option>
+                    <option value="bKash">bKash</option>
+                    <option value="Nagad">Nagad</option>
+                    <option value="Rocket">Rocket</option>
+                    <option value="Stripe">Stripe</option>
+                    <option value="PayPal">PayPal</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold opacity-75 mb-1.5">অর্ডার স্ট্যাটাস (Order Status)</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['New Order', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'] as OrderStatus[]).map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setEditingOrder(prev => prev ? { ...prev, status } : null)}
+                      className={`py-2 rounded-xl text-[10px] font-bold border transition-all
+                        ${editingOrder.status === status 
+                          ? 'bg-[#e07a5f]/15 border-[#e07a5f]/40 text-[#e07a5f] shadow-sm' 
+                          : 'bg-transparent border-inherit opacity-70 hover:opacity-100'}`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Modal Footer Controls */}
+              <div className="pt-4 border-t border-inherit flex justify-end space-x-2">
+                <button 
+                  type="button"
+                  onClick={() => setEditingOrder(null)}
+                  className="px-4 py-2 bg-transparent border border-inherit hover:bg-neutral-100 dark:hover:bg-white/5 text-xs font-bold rounded-xl"
+                >
+                  বাতিল করুন
+                </button>
+                <button 
+                  type="submit"
+                  className="px-5 py-2 bg-[#e07a5f] hover:bg-[#d06a4f] text-white rounded-xl text-xs font-bold shadow-lg shadow-orange-500/10"
+                >
+                  পরিবর্তন সংরক্ষণ করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================================
+          ORDER DETAILS & INVOICE PRINT MODAL
+          ========================================================== */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 print:bg-white print:p-0">
+          <div className="bg-[#1a1614] border border-[#322822] text-[#f6f3ed] w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] print:max-h-full print:border-none print:shadow-none print:w-full">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-[#322822] flex justify-between items-center print:hidden">
+              <div>
+                <span className="text-xs uppercase opacity-55 font-bold">অর্ডার ট্র্যাকিং ও ইনভয়েস বিবরণ</span>
+                <h3 className="font-extrabold text-lg mt-0.5">রিসিপ্ট আইডি: {selectedOrder.id}</h3>
+              </div>
+              <button 
+                onClick={() => setSelectedOrder(null)}
+                className="text-xs opacity-60 hover:opacity-100 p-2"
+              >
+                বন্ধ করুন
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 print:overflow-visible">
+              
+              {/* Invoice Brand header */}
+              <div className="flex justify-between items-center border-b border-[#322822]/10 pb-4">
+                <div>
+                  <h2 className="text-2xl font-black tracking-tight">{settings.brandName}</h2>
+                  <p className="text-[10px] opacity-60 mt-0.5">Premium E-commerce and Wearables Store</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono text-xs font-bold block">তারিখ: {selectedOrder.date}</span>
+                  <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold mt-1 inline-block
+                    ${selectedOrder.paymentStatus === 'Paid' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-amber-500/20 text-amber-500'}`}
+                  >
+                    {selectedOrder.paymentStatus}
+                  </span>
+                </div>
+              </div>
+
+              {/* Billing details */}
+              <div className="grid grid-cols-2 gap-6 text-xs leading-relaxed">
+                <div>
+                  <span className="opacity-50 block text-[10px] uppercase font-bold">ক্রেতার বিবরণ (Billed To):</span>
+                  <p className="font-bold mt-1">{selectedOrder.customerName}</p>
+                  <p className="opacity-70">{selectedOrder.customerEmail}</p>
+                  <p className="opacity-70">{selectedOrder.customerPhone}</p>
+                </div>
+                <div>
+                  <span className="opacity-50 block text-[10px] uppercase font-bold">শিপিং ঠিকানা (Shipping To):</span>
+                  <p className="opacity-70 mt-1">{selectedOrder.customerAddress}</p>
+                  <p className="opacity-70 mt-1 font-semibold">গেটওয়ে: {selectedOrder.paymentMethod}</p>
+                </div>
+              </div>
+
+              {/* Items breakdown list */}
+              <div className="border-t border-[#322822]/10 pt-4">
+                <span className="opacity-50 block text-[10px] uppercase font-bold mb-3">ক্রয়কৃত আইটেম সমূহ</span>
+                <div className="space-y-3">
+                  {selectedOrder.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-xs py-2 border-b border-[#322822]/5">
+                      <div>
+                        <span className="font-bold">{item.productName}</span>
+                        <span className="opacity-55 block mt-0.5">আইডি: {item.productId}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono font-bold">{formatCurrency(item.price)} x {item.quantity}</span>
+                        <span className="font-mono font-black block text-[#e07a5f]">{formatCurrency(item.price * item.quantity)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Total & Summary section */}
+              <div className="pt-4 flex justify-between items-center">
+                <div className="text-xs print:hidden">
+                  {/* Quick transition shortcuts */}
+                  <span className="opacity-50 block text-[10px] uppercase font-bold mb-2">স্ট্যাটাস পরিবর্তন করুন:</span>
+                  <div className="flex space-x-1.5 flex-wrap gap-1.5">
+                    {['Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'].map(st => (
+                      <button
+                        key={st}
+                        onClick={() => updateOrderStatus(selectedOrder.id, st as OrderStatus)}
+                        className={`text-[9px] font-bold px-2 py-0.5 rounded
+                          ${selectedOrder.status === st 
+                            ? 'bg-[#e07a5f] text-white' 
+                            : 'bg-white/5 hover:bg-amber-500/10 border border-white/5 text-inherit'}`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="opacity-50 block text-[10px] uppercase font-bold">সর্বমোট প্রদেয় মূল্য</span>
+                  <span className="font-mono text-2xl font-black text-[#e07a5f] block">{formatCurrency(selectedOrder.total)}</span>
+                  <span className="text-[9px] opacity-40">Tax & Custom calibrated included</span>
+                </div>
+              </div>
+
+              {/* Order Tracking Progress timeline */}
+              <div className="border-t border-[#322822]/10 pt-4 print:hidden">
+                <span className="opacity-50 block text-[10px] uppercase font-bold mb-3">শিপিং ক্রোনোলজিক্যাল টাইমলাইন (Timeline Logs)</span>
+                <div className="space-y-3.5 pl-2 border-l border-[#322822]/20">
+                  {selectedOrder.timeline.map((t, idx) => (
+                    <div key={idx} className="relative pl-4 text-xs">
+                      <div className="absolute -left-[12.5px] top-1.5 h-2 w-2 rounded-full bg-amber-500" />
+                      <div className="flex justify-between">
+                        <span className="font-bold text-xs">{t.status}</span>
+                        <span className="font-mono text-[10px] opacity-50">{t.timestamp}</span>
+                      </div>
+                      <p className="opacity-70 text-[11px] mt-0.5 leading-relaxed">{t.note}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Print trigger controls */}
+            <div className="p-4 border-t border-[#322822] bg-[#120e0c] flex justify-between print:hidden">
+              <button 
+                onClick={() => setSelectedOrder(null)}
+                className="px-4 py-2 bg-inherit border border-white/10 hover:border-white/20 text-xs font-bold rounded-xl"
+              >
+                ফিরে যান
+              </button>
+              <button 
+                onClick={handlePrintInvoice}
+                className="flex items-center space-x-2 px-5 py-2 bg-[#e07a5f] hover:bg-[#d06a4f] text-white rounded-xl text-xs font-bold shadow-lg shadow-orange-500/10"
+              >
+                <Printer className="h-4 w-4" />
+                <span>মেমো প্রিন্ট করুন (Print Invoice)</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================================
+          CUSTOMER PROFILE DETAIL OVERVIEW MODAL
+          ========================================================== */}
+      {selectedCustomer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#1a1614] border border-[#322822] text-[#f6f3ed] w-full max-w-md rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+            
+            <div className="p-5 border-b border-[#322822] flex justify-between items-center">
+              <h3 className="font-extrabold text-sm uppercase opacity-70">কাস্টমার প্রোফাইল (CRM Profile)</h3>
+              <button onClick={() => setSelectedCustomer(null)} className="text-xs opacity-60 hover:opacity-100 p-1">বন্ধ করুন</button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto">
+              
+              {/* Profile Card header */}
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-amber-500/30">
+                  <img src={selectedCustomer.avatar} alt={selectedCustomer.name} className="h-full w-full object-cover" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-base">{selectedCustomer.name}</h4>
+                  <span className="text-[10px] font-mono opacity-50 block">{selectedCustomer.id}</span>
+                  <span className="mt-2 inline-block text-[10px] px-2.5 py-0.5 font-bold bg-amber-500/20 text-amber-500 rounded-full font-mono">
+                    Segment: {selectedCustomer.segment}
+                  </span>
+                </div>
+              </div>
+
+              {/* Stats overview */}
+              <div className="grid grid-cols-2 gap-4 text-center bg-black/15 p-4 rounded-2xl border border-white/5">
+                <div>
+                  <span className="text-[10px] opacity-50 block">জীবনকাল খরচ (LTV)</span>
+                  <span className="font-mono text-base font-black text-amber-500">{formatCurrency(selectedCustomer.totalSpending)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] opacity-50 block">অর্ডার সংখ্যা</span>
+                  <span className="font-mono text-base font-black text-[#e07a5f]">{selectedCustomer.ordersCount}টি</span>
+                </div>
+              </div>
+
+              {/* Activity timelines list */}
+              <div className="space-y-3">
+                <span className="text-[10px] opacity-50 block uppercase font-bold">সাম্প্রতিক কার্যকলাপ (Activity Logs)</span>
+                <div className="space-y-3">
+                  {selectedCustomer.activityTimeline.map((act, i) => (
+                    <div key={i} className="flex justify-between items-start text-xs p-2 bg-white/[0.01] rounded-lg">
+                      <p className="opacity-80 pr-4">{act.action}</p>
+                      <span className="font-mono text-[9px] opacity-40 whitespace-nowrap">{act.date}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            <div className="p-4 bg-[#120e0c] border-t border-[#322822] flex space-x-2">
+              <button 
+                onClick={() => {
+                  setSelectedCustomer(null);
+                  setAiAssistantOpen(true);
+                  setUserInput(`Analyze behavior of customer ${selectedCustomer.name} (LTV of ${formatCurrency(selectedCustomer.totalSpending)}). Propose a dedicated 10% coupon with email template.`);
+                }}
+                className="w-full py-2 bg-[#e07a5f] text-white hover:bg-[#d06a4f] text-xs font-bold rounded-xl transition-all"
+              >
+                এআই ইমেইল ড্রাফট করুন (Draft Email)
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================================
+          ADD / EDIT PRODUCT MODAL FORM
+          ========================================================== */}
+      {showProductModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <form 
+            onSubmit={handleSaveProduct}
+            className="bg-[#1a1614] border border-[#322822] text-[#f6f3ed] w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]"
+          >
+            <div className="p-5 border-b border-[#322822] flex justify-between items-center">
+              <h3 className="font-extrabold text-sm uppercase">
+                {editingProduct ? 'প্রোডাক্ট বিবরণ সম্পাদনা করুন' : 'নতুন প্রোডাক্ট যুক্ত করুন'}
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setShowProductModal(false)} 
+                className="text-xs opacity-60 hover:opacity-100 p-1"
+              >
+                বন্ধ করুন
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto text-xs">
+              
+              {/* Product Name */}
+              <div className="space-y-1.5">
+                <label className="font-bold opacity-75">প্রোডাক্টের নাম (Product Title):</label>
+                <input 
+                  type="text"
+                  required
+                  value={productForm.name}
+                  onChange={(e) => setProductForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="যেমন: Monaco Classic Blazer"
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="font-bold opacity-75">প্রোডাক্ট বিবরণ (Description):</label>
+                <textarea 
+                  value={productForm.description}
+                  onChange={(e) => setProductForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="প্রোডাক্টের উপাদান, বুনন এবং ফিটিং সম্পর্কে তথ্য..."
+                  rows={2}
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              {/* Fabric & SKU Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">উপাদান (Fabric):</label>
+                  <input 
+                    type="text"
+                    required
+                    value={productForm.fabric}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, fabric: e.target.value }))}
+                    placeholder="যেমন: 100% Egyptian Cotton"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">SKU কোড:</label>
+                  <input 
+                    type="text"
+                    required
+                    value={productForm.sku}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, sku: e.target.value }))}
+                    placeholder="যেমন: MON-BLZ-01"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Brand & Category Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">ব্র্যান্ড (Brand):</label>
+                  <select
+                    value={productForm.brand}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, brand: e.target.value }))}
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  >
+                    {brandsList.map(brand => (
+                      <option key={brand} value={brand}>{brand}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">ক্যাটাগরি (Category):</label>
+                  <select
+                    value={productForm.category}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  >
+                    {categoriesList.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Collection & Season Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">কালেকশন (Collection):</label>
+                  <select
+                    value={productForm.collection}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, collection: e.target.value }))}
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  >
+                    {collectionsList.map(col => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">সিজন (Season):</label>
+                  <select
+                    value={productForm.season}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, season: e.target.value }))}
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  >
+                    {seasonsList.map(sea => (
+                      <option key={sea} value={sea}>{sea}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Sizes & Colors Input Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">সাইজসমূহ (Sizes - কমা দিয়ে আলাদা করুন):</label>
+                  <input 
+                    type="text"
+                    value={productForm.sizes}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, sizes: e.target.value }))}
+                    placeholder="যেমন: S, M, L, XL"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">কালারসমূহ (Colors - কমা দিয়ে আলাদা করুন):</label>
+                  <input 
+                    type="text"
+                    value={productForm.colors}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, colors: e.target.value }))}
+                    placeholder="যেমন: Black, Navy, Beige"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Price Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">বিক্রয় মূল্য (৳):</label>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    value={productForm.price || ''}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, price: Number(e.target.value) }))}
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">মূল দাম (Original ৳):</label>
+                  <input 
+                    type="number"
+                    min="1"
+                    value={productForm.originalPrice || ''}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, originalPrice: Number(e.target.value) }))}
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Stock and Image Select Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">ইনভেন্টরি স্টক সংখ্যা:</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    required
+                    value={productForm.stock}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, stock: Number(e.target.value) }))}
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">প্রোডাক্ট ইমেজ URL:</label>
+                  <input 
+                    type="text"
+                    value={productForm.image}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, image: e.target.value }))}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Image File Upload Section (Functional) */}
+              <div className="p-3 bg-white/5 border border-dashed border-white/10 rounded-2xl flex flex-col space-y-2">
+                <label className="font-bold opacity-75 block">অথবা লোকাল ফাইল আপলোড করুন (Local Image File):</label>
+                <input 
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setProductForm(prev => ({ ...prev, image: reader.result as string }));
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="text-[10px] cursor-pointer block w-full file:mr-4 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-[#e07a5f] file:text-white hover:file:bg-[#d06a4f]"
+                />
+                {productForm.image && (
+                  <div className="flex items-center space-x-2 pt-1">
+                    <img src={productForm.image} alt="Preview" className="h-10 w-10 object-cover rounded-lg border border-white/10" />
+                    <span className="text-[9px] opacity-50 truncate max-w-[200px]">ইমেজ সোর্স সফলভাবে যুক্ত হয়েছে।</span>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            <div className="p-4 bg-[#120e0c] border-t border-[#322822] flex justify-end space-x-2">
+              <button 
+                type="button"
+                onClick={() => setShowProductModal(false)}
+                className="px-4 py-2 border border-white/10 hover:border-white/20 text-xs font-bold rounded-xl"
+              >
+                বাতিল
+              </button>
+              <button 
+                type="submit"
+                className="px-5 py-2 bg-[#e07a5f] hover:bg-[#d06a4f] text-white rounded-xl text-xs font-bold"
+              >
+                সংরক্ষণ করুন (Save Item)
+              </button>
+            </div>
+
+          </form>
+        </div>
+      )}
+
+    </div>
+  );
+}

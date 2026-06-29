@@ -1,0 +1,6 @@
+{
+  "name": "E-Commerce Management Dashboard",
+  "description": "A premium, Apple Vision Pro-inspired E-commerce Admin Dashboard with an eye-safe warm theme, comprehensive order, product, and customer CRM tools, and a built-in server-side Gemini AI assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
