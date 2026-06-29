@@ -63,6 +63,9 @@ import {
   Undo2,
   HelpCircle
 } from 'lucide-react';
+import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb } from './lib/supabaseService';
+
+
 
 // Helper to format in Bangladeshi Taka format (e.g. ৳ 1,00,000)
 export const formatCurrency = (amount: number): string => {
@@ -78,6 +81,23 @@ export default function App() {
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [activeChartTab, setActiveChartTab] = useState<'sales' | 'profit' | 'customers' | 'status'>('sales');
+
+  // --- Supabase State ---
+  const [supabaseStatus, setSupabaseStatus] = useState<{
+    connected: boolean;
+    schemaCreated: boolean;
+    loading: boolean;
+    error: string | null;
+  }>({
+    connected: false,
+    schemaCreated: false,
+    loading: true,
+    error: null
+  });
+
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [seedingLogs, setSeedingLogs] = useState<string[]>([]);
+
 
   // --- Filtering & Search ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -259,6 +279,297 @@ export default function App() {
       chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, aiAssistantOpen]);
+
+  // ==========================================
+  // SUPABASE LOADING, SYNCING & REALTIME EFFECTS
+  // ==========================================
+  
+  // 1. Initial Load of all data from Supabase
+  useEffect(() => {
+    async function initSupabase() {
+      setSupabaseStatus(prev => ({ ...prev, loading: true }));
+      const conn = await supabaseService.checkConnection();
+      
+      if (!conn.connected) {
+        setSupabaseStatus({
+          connected: false,
+          schemaCreated: false,
+          loading: false,
+          error: conn.error || 'Connection failed'
+        });
+        return;
+      }
+
+      if (!conn.schemaCreated) {
+        setSupabaseStatus({
+          connected: true,
+          schemaCreated: false,
+          loading: false,
+          error: 'সুপাবেজে প্রয়োজনীয় টেবিলগুলো খুঁজে পাওয়া যায়নি। অনুগ্রহ করে সেটিংস ট্যাব থেকে "Initialize Database" বাটনে ক্লিক করে টেবিলগুলো তৈরি এবং প্রথমবার ডাটা পুশ করুন।'
+        });
+        return;
+      }
+
+      setSupabaseStatus({
+        connected: true,
+        schemaCreated: true,
+        loading: false,
+        error: null
+      });
+
+      // Load all datasets from Supabase
+      try {
+        const [
+          dbSettings,
+          dbProducts,
+          dbOrders,
+          dbCustomers,
+          dbNotifications,
+          dbCollections,
+          dbReturns,
+          dbStaff
+        ] = await Promise.all([
+          supabaseService.getSettings(DEFAULT_SETTINGS),
+          supabaseService.getProducts(INITIAL_PRODUCTS),
+          supabaseService.getOrders(INITIAL_ORDERS),
+          supabaseService.getCustomers(INITIAL_CUSTOMERS),
+          supabaseService.getNotifications(INITIAL_NOTIFICATIONS),
+          supabaseService.getCollections(collectionsData),
+          supabaseService.getReturns(returnsData),
+          supabaseService.getStaff(staffData)
+        ]);
+
+        setSettings(dbSettings);
+        setProducts(dbProducts);
+        setOrders(dbOrders);
+        setCustomers(dbCustomers);
+        setNotifications(dbNotifications);
+        setCollectionsData(dbCollections);
+        setReturnsData(dbReturns);
+        setStaffData(dbStaff);
+
+        // Update refs so we don't trigger immediate upserts on startup
+        prevProductsRef.current = dbProducts;
+        prevOrdersRef.current = dbOrders;
+        prevCustomersRef.current = dbCustomers;
+        prevNotificationsRef.current = dbNotifications;
+        prevSettingsRef.current = dbSettings;
+        prevCollectionsRef.current = dbCollections;
+        prevReturnsRef.current = dbReturns;
+        prevStaffRef.current = dbStaff;
+
+      } catch (err: any) {
+        console.error('Error fetching data from Supabase on start:', err);
+      }
+    }
+
+    initSupabase();
+  }, []);
+
+  // Refs to prevent recursive loops between local updates and DB triggers
+  const prevProductsRef = useRef<Product[]>([]);
+  const prevOrdersRef = useRef<Order[]>([]);
+  const prevCustomersRef = useRef<Customer[]>([]);
+  const prevNotificationsRef = useRef<Notification[]>([]);
+  const prevSettingsRef = useRef<SystemSettings | null>(null);
+  const prevCollectionsRef = useRef<any[]>([]);
+  const prevReturnsRef = useRef<any[]>([]);
+  const prevStaffRef = useRef<any[]>([]);
+
+  // 2. Sync Products changes to Supabase
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || supabaseStatus.loading || isSeeding) {
+      prevProductsRef.current = products;
+      return;
+    }
+    const deleted = prevProductsRef.current.filter(p => !products.some(curr => curr.id === p.id));
+    deleted.forEach(p => {
+      supabaseService.deleteProduct(p.id);
+    });
+    const changed = products.filter(curr => {
+      const prev = prevProductsRef.current.find(p => p.id === curr.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
+    changed.forEach(p => {
+      supabaseService.upsertProduct(p);
+    });
+    prevProductsRef.current = products;
+  }, [products, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
+
+  // 3. Sync Orders changes to Supabase
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || supabaseStatus.loading || isSeeding) {
+      prevOrdersRef.current = orders;
+      return;
+    }
+    const changed = orders.filter(curr => {
+      const prev = prevOrdersRef.current.find(o => o.id === curr.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
+    changed.forEach(o => {
+      supabaseService.upsertOrder(o);
+    });
+    prevOrdersRef.current = orders;
+  }, [orders, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
+
+  // 4. Sync Customers changes to Supabase
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || supabaseStatus.loading || isSeeding) {
+      prevCustomersRef.current = customers;
+      return;
+    }
+    const changed = customers.filter(curr => {
+      const prev = prevCustomersRef.current.find(c => c.id === curr.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
+    changed.forEach(c => {
+      supabaseService.upsertCustomer(c);
+    });
+    prevCustomersRef.current = customers;
+  }, [customers, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
+
+  // 5. Sync Notifications changes to Supabase
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || supabaseStatus.loading || isSeeding) {
+      prevNotificationsRef.current = notifications;
+      return;
+    }
+    const changed = notifications.filter(curr => {
+      const prev = prevNotificationsRef.current.find(n => n.id === curr.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
+    changed.forEach(n => {
+      supabaseService.upsertNotification(n);
+    });
+    prevNotificationsRef.current = notifications;
+  }, [notifications, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
+
+  // 6. Sync Settings changes to Supabase
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || supabaseStatus.loading || isSeeding) {
+      prevSettingsRef.current = settings;
+      return;
+    }
+    if (!prevSettingsRef.current || JSON.stringify(prevSettingsRef.current) !== JSON.stringify(settings)) {
+      supabaseService.upsertSettings(settings);
+    }
+    prevSettingsRef.current = settings;
+  }, [settings, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
+
+  // 7. Sync Collections changes to Supabase
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || supabaseStatus.loading || isSeeding) {
+      prevCollectionsRef.current = collectionsData;
+      return;
+    }
+    const deleted = prevCollectionsRef.current.filter(c => !collectionsData.some(curr => curr.id === c.id));
+    deleted.forEach(c => {
+      supabaseService.deleteCollection(c.id);
+    });
+    const changed = collectionsData.filter(curr => {
+      const prev = prevCollectionsRef.current.find(c => c.id === curr.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
+    changed.forEach(c => {
+      supabaseService.upsertCollection(c);
+    });
+    prevCollectionsRef.current = collectionsData;
+  }, [collectionsData, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
+
+  // 8. Sync Returns changes to Supabase
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || supabaseStatus.loading || isSeeding) {
+      prevReturnsRef.current = returnsData;
+      return;
+    }
+    const changed = returnsData.filter(curr => {
+      const prev = prevReturnsRef.current.find(r => r.id === curr.id);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
+    changed.forEach(r => {
+      supabaseService.upsertReturn(r);
+    });
+    prevReturnsRef.current = returnsData;
+  }, [returnsData, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
+
+  // 9. Sync Staff changes to Supabase
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || supabaseStatus.loading || isSeeding) {
+      prevStaffRef.current = staffData;
+      return;
+    }
+    const deleted = prevStaffRef.current.filter(s => !staffData.some(curr => curr.email === s.email));
+    deleted.forEach(s => {
+      supabaseService.deleteStaff(s.email);
+    });
+    const changed = staffData.filter(curr => {
+      const prev = prevStaffRef.current.find(s => s.email === curr.email);
+      return !prev || JSON.stringify(prev) !== JSON.stringify(curr);
+    });
+    changed.forEach(s => {
+      supabaseService.upsertStaff(s);
+    });
+    prevStaffRef.current = staffData;
+  }, [staffData, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
+
+  // 10. Listen to real-time events on products & orders
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated) return;
+
+    const ordersSubscription = supabase
+      .channel('public:orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        const { eventType, new: newRow, old: oldRow } = payload;
+        
+        if (eventType === 'INSERT' || eventType === 'UPDATE') {
+          const order = mapOrderFromDb(newRow);
+          setOrders(prev => {
+            const index = prev.findIndex(o => o.id === order.id);
+            if (index > -1) {
+              if (JSON.stringify(prev[index]) === JSON.stringify(order)) return prev;
+              const next = [...prev];
+              next[index] = order;
+              return next;
+            } else {
+              return [order, ...prev];
+            }
+          });
+        } else if (eventType === 'DELETE') {
+          setOrders(prev => prev.filter(o => o.id !== oldRow.id));
+        }
+      })
+      .subscribe();
+
+    const productsSubscription = supabase
+      .channel('public:products')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
+        const { eventType, new: newRow, old: oldRow } = payload;
+        
+        if (eventType === 'INSERT' || eventType === 'UPDATE') {
+          const product = mapProductFromDb(newRow);
+          setProducts(prev => {
+            const index = prev.findIndex(p => p.id === product.id);
+            if (index > -1) {
+              if (JSON.stringify(prev[index]) === JSON.stringify(product)) return prev;
+              const next = [...prev];
+              next[index] = product;
+              return next;
+            } else {
+              return [...prev, product];
+            }
+          });
+        } else if (eventType === 'DELETE') {
+          setProducts(prev => prev.filter(p => p.id !== oldRow.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ordersSubscription);
+      supabase.removeChannel(productsSubscription);
+    };
+  }, [supabaseStatus.connected, supabaseStatus.schemaCreated]);
+
 
   // --- Dynamic Dashboard Stats Calculation ---
   // Calculates live numbers based on the updated state of orders, products, and customers
@@ -654,6 +965,57 @@ export default function App() {
 
   // --- CRM & Advanced Order Handlers ---
   
+  // Seed local data into Supabase
+  const handleSeedSupabase = async () => {
+    setIsSeeding(true);
+    setSeedingLogs(['সুপাবেজ প্রজেক্ট কানেকশন চেক করা হচ্ছে...']);
+    
+    // Check connection first
+    const conn = await supabaseService.checkConnection();
+    if (!conn.connected) {
+      setSeedingLogs(prev => [...prev, `❌ কানেকশন ব্যর্থ হয়েছে: ${conn.error}`, 'অনুগ্রহ করে .env ফাইলে VITE_SUPABASE_URL এবং VITE_SUPABASE_ANON_KEY সঠিক কিনা পরীক্ষা করুন।']);
+      setIsSeeding(false);
+      return;
+    }
+
+    setSeedingLogs(prev => [...prev, '✅ সুপাবেজ কানেকশন সফল!']);
+    
+    // Call seed function
+    const result = await supabaseService.seedTables({
+      products,
+      orders,
+      customers,
+      notifications,
+      settings,
+      collections: collectionsData,
+      returns: returnsData,
+      staff: staffData
+    });
+
+    setSeedingLogs(prev => [...prev, ...result.logs]);
+    
+    if (result.success) {
+      setSupabaseStatus({
+        connected: true,
+        schemaCreated: true,
+        loading: false,
+        error: null
+      });
+      // Show success notification
+      const newNotif = {
+        id: `notif-${Date.now()}`,
+        title: `Supabase database initialized`,
+        message: `সকল প্রোডাক্ট, অর্ডার, কাস্টমার এবং নোটিফিকেশন সফলভাবে সুপাবেজ ক্লাউড ডেটাবেজে আপলোড এবং সিঙ্ক করা হয়েছে।`,
+        timestamp: new Date().toISOString(),
+        read: false
+      };
+      setNotifications(prev => [newNotif, ...prev]);
+    } else {
+      setSeedingLogs(prev => [...prev, '⚠️ দ্রষ্টব্য: আপনার সুপাবেজ প্রোজেক্টে টেবিলগুলো তৈরি করা না থাকলে এই সিড সম্পন্ন হবে না। দয়া করে নিচের SQL কোডটি কপি করে সুপাবেজ SQL এডিটর-এ রান করুন।']);
+    }
+    setIsSeeding(false);
+  };
+
   // Save internal notes for an order
   const handleSaveInternalNotes = (orderId: string, notes: string) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, internalNotes: notes } : o));
@@ -5373,6 +5735,261 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                 </div>
 
               </div>
+
+              {/* Supabase Integration Card (Full width under the grid) */}
+              <div className={`p-6 mt-6 rounded-[2.5rem] border space-y-4 lg:col-span-12
+                ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+              >
+                <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Database className="h-4.5 w-4.5 text-teal-500" />
+                    <span>৫. সুপাবেজ রিয়েল-টাইম ডাটাবেজ এক্সেস ও সিঙ্ক (Supabase Connection Panel)</span>
+                  </div>
+                  
+                  {/* Connection status badge */}
+                  <div className="flex items-center space-x-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 
+                        ${supabaseStatus.connected && supabaseStatus.schemaCreated ? 'bg-emerald-400' : supabaseStatus.connected ? 'bg-amber-400' : 'bg-rose-400'}`}
+                      />
+                      <span className={`relative inline-flex rounded-full h-2 w-2 
+                        ${supabaseStatus.connected && supabaseStatus.schemaCreated ? 'bg-emerald-500' : supabaseStatus.connected ? 'bg-amber-500' : 'bg-rose-500'}`}
+                      />
+                    </span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider
+                      ${supabaseStatus.connected && supabaseStatus.schemaCreated ? 'text-emerald-500' : supabaseStatus.connected ? 'text-amber-500' : 'text-rose-500'}`}
+                    >
+                      {supabaseStatus.connected && supabaseStatus.schemaCreated && 'সংযুক্ত ও রিয়েল-টাইম অ্যাক্টিভ'}
+                      {supabaseStatus.connected && !supabaseStatus.schemaCreated && 'সংযুক্ত (টেবিল তৈরি প্রয়োজন)'}
+                      {!supabaseStatus.connected && 'অফলাইন / কানেকশন ব্যর্থ'}
+                    </span>
+                  </div>
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 text-xs">
+                  {/* Connection details & credentials */}
+                  <div className="md:col-span-5 space-y-3">
+                    <p className="opacity-80 leading-relaxed text-[11px]">
+                      সুপাবেজ (Supabase) ডেটাবেজ সংযোগ সক্রিয় আছে। কাস্টমার অর্ডার করা মাত্র বা প্রোডাক্ট আপডেট করা মাত্র রিয়েল-টাইমে ডাটা রিড ও রাইট করা হচ্ছে।
+                    </p>
+
+                    <div className="p-3.5 rounded-2xl bg-neutral-100 dark:bg-white/5 space-y-2 text-[10px] font-mono leading-tight border border-inherit">
+                      <div>
+                        <span className="opacity-50 block text-[9px] uppercase font-sans font-bold">Project URL</span>
+                        <span className="text-[#e07a5f] break-all">https://ytwgoolesgnkegeykpup.supabase.co</span>
+                      </div>
+                      <div className="pt-2 border-t border-inherit">
+                        <span className="opacity-50 block text-[9px] uppercase font-sans font-bold">Anon Publishable Key</span>
+                        <span className="opacity-80 break-all select-all">sb_publishable_9Xwy1UomtTTsk-hogHBCaw_7_0Z4FyS</span>
+                      </div>
+                    </div>
+
+                    {/* Real-time explanation */}
+                    <div className="p-3.5 rounded-2xl bg-teal-500/5 border border-teal-500/10 text-[10px] leading-normal text-teal-600 dark:text-teal-400">
+                      <p className="font-bold flex items-center space-x-1 mb-0.5">
+                        <Sparkles className="h-3 w-3" />
+                        <span>রিয়েল-টাইম ডাবল-বাইন্ডিং সিঙ্ক অ্যাক্টিভ:</span>
+                      </p>
+                      ড্যাশবোর্ডে প্রোডাক্ট বা অর্ডার পরিবর্তন হলে তা সরাসরি সুপাবেজে আপডেট হয়। আবার সুপাবেজ ডেটাবেজে কোনো পরিবর্তন হলে ড্যাশবোর্ড স্ক্রিন রিয়েল-টাইমে আপডেট গ্রহণ করে!
+                    </div>
+                  </div>
+
+                  {/* SQL Setup instructions */}
+                  <div className="md:col-span-7 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold opacity-75 uppercase">১ম этап: সুপাবেজে টেবিল তৈরি করার নির্দেশিকা</span>
+                      <span className="text-[9px] opacity-50 font-mono">PostgreSQL Database Schema</span>
+                    </div>
+
+                    <details className="border border-inherit rounded-2xl overflow-hidden bg-neutral-50 dark:bg-transparent">
+                      <summary className="p-3 font-bold cursor-pointer hover:bg-neutral-100 dark:hover:bg-white/5 flex items-center justify-between select-none">
+                        <span>পদ্ধতি এবং SQL কোড দেখুন (Show SQL Schema)</span>
+                        <span className="text-[10px] px-2 py-0.5 bg-neutral-200 dark:bg-white/10 rounded font-normal text-xs font-sans">ক্লিক করুন</span>
+                      </summary>
+                      <div className="p-3 border-t border-inherit space-y-2">
+                        <p className="text-[10px] opacity-75 leading-relaxed">
+                          আপনার সুপাবেজ ড্যাশবোর্ডের <strong className="font-bold">SQL Editor</strong>-এ গিয়ে নিচের কোডটি পেস্ট করে রান (Run) করলেই প্রয়োজনীয় সব টেবিল স্বয়ংক্রিয়ভাবে তৈরি হয়ে যাবে:
+                        </p>
+                        <div className="relative">
+                          <pre className="p-3 rounded-xl bg-black text-emerald-400 font-mono text-[9px] leading-tight overflow-x-auto max-h-48">
+{`-- ১. Products
+CREATE TABLE IF NOT EXISTS products (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  price NUMERIC NOT NULL,
+  original_price NUMERIC,
+  stock INT NOT NULL,
+  category TEXT,
+  sales_count INT DEFAULT 0,
+  rating NUMERIC DEFAULT 0,
+  image TEXT,
+  sizes JSONB,
+  colors JSONB,
+  fabric TEXT,
+  collection TEXT,
+  sku TEXT,
+  is_new_arrival BOOLEAN DEFAULT false,
+  is_best_seller BOOLEAN DEFAULT false,
+  is_limited_edition BOOLEAN DEFAULT false,
+  size_stock JSONB,
+  color_stock JSONB,
+  season TEXT,
+  brand TEXT,
+  product_cost NUMERIC,
+  delivery_cost NUMERIC,
+  discount NUMERIC DEFAULT 0,
+  marketing_cost NUMERIC
+);
+
+-- ২. Orders
+CREATE TABLE IF NOT EXISTS orders (
+  id TEXT PRIMARY KEY,
+  customer_name TEXT NOT NULL,
+  customer_email TEXT,
+  customer_phone TEXT,
+  customer_address TEXT,
+  date TEXT,
+  items JSONB NOT NULL,
+  total NUMERIC NOT NULL,
+  status TEXT NOT NULL,
+  payment_method TEXT,
+  payment_status TEXT,
+  timeline JSONB,
+  internal_notes TEXT
+);
+
+-- ৩. Customers
+CREATE TABLE IF NOT EXISTS customers (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE,
+  phone TEXT,
+  address TEXT,
+  avatar TEXT,
+  join_date TEXT,
+  total_spending NUMERIC DEFAULT 0,
+  orders_count INT DEFAULT 0,
+  segment TEXT,
+  activity_timeline JSONB,
+  gender TEXT,
+  birthday TEXT,
+  preferred_size TEXT,
+  favorite_color TEXT,
+  favorite_category TEXT,
+  last_purchase_date TEXT,
+  average_order_value NUMERIC,
+  marketing_tags JSONB,
+  shirt_size TEXT,
+  pant_size TEXT,
+  shoe_size TEXT,
+  size_history JSONB,
+  customer_value_score NUMERIC,
+  buying_pattern_analysis TEXT,
+  next_purchase_prediction TEXT,
+  membership_tier TEXT,
+  reward_points INT DEFAULT 0
+);
+
+-- ৪. Notifications
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  type TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  read BOOLEAN DEFAULT false
+);
+
+-- ৫. System Settings
+CREATE TABLE IF NOT EXISTS system_settings (
+  id TEXT PRIMARY KEY,
+  currency TEXT,
+  tax_rate NUMERIC,
+  low_stock_limit INT,
+  eye_protection_enabled BOOLEAN,
+  blue_light_filter_level INT,
+  theme_mode TEXT,
+  brand_name TEXT
+);
+
+-- ৬. Collections Data
+CREATE TABLE IF NOT EXISTS collections_data (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  season TEXT,
+  status TEXT,
+  sales NUMERIC,
+  profit NUMERIC,
+  items_count INT DEFAULT 0
+);
+
+-- ৭. Returns Data
+CREATE TABLE IF NOT EXISTS returns_data (
+  id TEXT PRIMARY KEY,
+  customer_name TEXT,
+  phone TEXT,
+  product_name TEXT,
+  reason TEXT,
+  refund_amount NUMERIC,
+  date TEXT,
+  status TEXT
+);
+
+-- ৮. Staff Data
+CREATE TABLE IF NOT EXISTS staff_data (
+  email TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  role TEXT,
+  status TEXT,
+  permissions TEXT
+);`}
+                          </pre>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS products ( id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price NUMERIC NOT NULL, original_price NUMERIC, stock INT NOT NULL, category TEXT, sales_count INT DEFAULT 0, rating NUMERIC DEFAULT 0, image TEXT, sizes JSONB, colors JSONB, fabric TEXT, collection TEXT, sku TEXT, is_new_arrival BOOLEAN DEFAULT false, is_best_seller BOOLEAN DEFAULT false, is_limited_edition BOOLEAN DEFAULT false, size_stock JSONB, color_stock JSONB, season TEXT, brand TEXT, product_cost NUMERIC, delivery_cost NUMERIC, discount NUMERIC DEFAULT 0, marketing_cost NUMERIC ); CREATE TABLE IF NOT EXISTS orders ( id TEXT PRIMARY KEY, customer_name TEXT NOT NULL, customer_email TEXT, customer_phone TEXT, customer_address TEXT, date TEXT, items JSONB NOT NULL, total NUMERIC NOT NULL, status TEXT NOT NULL, payment_method TEXT, payment_status TEXT, timeline JSONB, internal_notes TEXT ); CREATE TABLE IF NOT EXISTS customers ( id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, address TEXT, avatar TEXT, join_date TEXT, total_spending NUMERIC DEFAULT 0, orders_count INT DEFAULT 0, segment TEXT, activity_timeline JSONB, gender TEXT, birthday TEXT, preferred_size TEXT, favorite_color TEXT, favorite_category TEXT, last_purchase_date TEXT, average_order_value NUMERIC, marketing_tags JSONB, shirt_size TEXT, pant_size TEXT, shoe_size TEXT, size_history JSONB, customer_value_score NUMERIC, buying_pattern_analysis TEXT, next_purchase_prediction TEXT, membership_tier TEXT, reward_points INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS notifications ( id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL, timestamp TEXT NOT NULL, read BOOLEAN DEFAULT false ); CREATE TABLE IF NOT EXISTS system_settings ( id TEXT PRIMARY KEY, currency TEXT, tax_rate NUMERIC, low_stock_limit INT, eye_protection_enabled BOOLEAN, blue_light_filter_level INT, theme_mode TEXT, brand_name TEXT ); CREATE TABLE IF NOT EXISTS collections_data ( id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, status TEXT, sales NUMERIC, profit NUMERIC, items_count INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS returns_data ( id TEXT PRIMARY KEY, customer_name TEXT, phone TEXT, product_name TEXT, reason TEXT, refund_amount NUMERIC, date TEXT, status TEXT ); CREATE TABLE IF NOT EXISTS staff_data ( email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT, status TEXT, permissions TEXT );`);
+                              alert('SQL কোড ক্লিপবোর্ডে কপি হয়েছে!');
+                            }}
+                            className="absolute top-2 right-2 px-2.5 py-1.5 bg-neutral-800 text-[10px] text-white hover:bg-neutral-700 rounded-lg transition-colors border border-neutral-700 font-sans"
+                          >
+                            কপি করুন
+                          </button>
+                        </div>
+                      </div>
+                    </details>
+
+                    <div className="pt-2 space-y-3">
+                      <span className="text-[10px] font-bold opacity-75 uppercase block font-sans">২য় этап: টেবিল তৈরি শেষে ডাটা দিয়ে সুপাবেজ সিড করুন</span>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          type="button"
+                          onClick={handleSeedSupabase}
+                          disabled={isSeeding}
+                          className={`px-5 py-2.5 font-bold rounded-xl text-xs transition-all flex items-center space-x-2 shadow-lg shadow-orange-500/5 font-sans
+                            ${isSeeding ? 'bg-neutral-300 dark:bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-teal-500 hover:bg-teal-600 text-white'}`}
+                        >
+                          <RefreshCcw className={`h-4 w-4 ${isSeeding ? 'animate-spin' : ''}`} />
+                          <span>{isSeeding ? 'সিডিং হচ্ছে...' : 'Initialize Database (ডাটা সিড করুন)'}</span>
+                        </button>
+                        <p className="text-[10px] opacity-60 leading-tight">
+                          টেবিলগুলো ডিক্লেয়ার করা হয়ে থাকলে এই বাটনটি ড্যাশবোর্ডের সব ক্যাটালগ এবং অর্ডার ক্লাউডে পুশ করবে।
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Seeding console logs */}
+                    {seedingLogs.length > 0 && (
+                      <div className="p-3.5 rounded-2xl bg-neutral-900 text-[10px] font-mono text-emerald-400 space-y-1.5 leading-tight max-h-40 overflow-y-auto border border-[#322822]/40">
+                        {seedingLogs.map((log, i) => (
+                          <p key={i}>{log}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
 
