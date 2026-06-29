@@ -17,6 +17,8 @@ import {
   OrderItem 
 } from './types';
 import Sidebar from './components/Sidebar';
+import CustomerStorefront from './components/CustomerStorefront';
+import LoginPage from './components/LoginPage';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -73,6 +75,15 @@ export const formatCurrency = (amount: number): string => {
 };
 
 export default function App() {
+  // --- Customer Storefront & Login State ---
+  const [view, setView] = useState<'storefront' | 'login' | 'admin'>(() => {
+    const saved = localStorage.getItem('aura_admin_authenticated');
+    return saved === 'true' ? 'admin' : 'storefront';
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('aura_admin_authenticated') === 'true';
+  });
+
   // --- Core State ---
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
@@ -1544,6 +1555,46 @@ export default function App() {
     return [...collectionStats].sort((a, b) => b.revenue - a.revenue)[0];
   }, [collectionStats]);
 
+  if (view === 'storefront') {
+    return (
+      <CustomerStorefront
+        products={products}
+        orders={orders}
+        setOrders={setOrders}
+        setNotifications={setNotifications}
+        supabaseService={supabaseService}
+        onGoToLogin={() => setView('login')}
+        themeMode={settings.themeMode}
+      />
+    );
+  }
+
+  if (view === 'login') {
+    return (
+      <LoginPage
+        onLoginSuccess={() => {
+          setIsAuthenticated(true);
+          setView('admin');
+        }}
+        onBackToStore={() => setView('storefront')}
+        themeMode={settings.themeMode}
+      />
+    );
+  }
+
+  if (view === 'admin' && !isAuthenticated) {
+    return (
+      <LoginPage
+        onLoginSuccess={() => {
+          setIsAuthenticated(true);
+          setView('admin');
+        }}
+        onBackToStore={() => setView('storefront')}
+        themeMode={settings.themeMode}
+      />
+    );
+  }
+
   return (
     <div 
       className={`min-h-screen flex transition-colors duration-500 overflow-x-hidden font-sans relative
@@ -1614,6 +1665,28 @@ export default function App() {
               </span>
               <span className="opacity-30">|</span>
               <span className="opacity-70">কারেন্সি: {settings.currency} ($)</span>
+            </div>
+
+            {/* Storefront & Logout Actions */}
+            <div className="flex items-center space-x-2 border-l pl-4 border-inherit">
+              <button
+                onClick={() => setView('storefront')}
+                className="px-3 py-1.5 rounded-xl border border-inherit text-[10px] font-bold uppercase tracking-wider hover:bg-neutral-100 dark:hover:bg-white/5 transition-all flex items-center space-x-1 cursor-pointer"
+              >
+                <ShoppingBag className="h-3.5 w-3.5 text-teal-500" />
+                <span className="hidden sm:inline">স্টোরফ্রন্ট</span>
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('aura_admin_authenticated');
+                  setIsAuthenticated(false);
+                  setView('storefront');
+                }}
+                className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-bold uppercase tracking-wider transition-all flex items-center space-x-1 cursor-pointer"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">লগআউট</span>
+              </button>
             </div>
 
             {/* User Avatar & Settings trigger */}
