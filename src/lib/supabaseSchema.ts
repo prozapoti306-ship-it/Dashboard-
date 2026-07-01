@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS products (
   product_cost NUMERIC,
   delivery_cost NUMERIC,
   discount NUMERIC DEFAULT 0,
-  marketing_cost NUMERIC
+  marketing_cost NUMERIC,
+  video_url TEXT
 );
 
 -- ২. Orders

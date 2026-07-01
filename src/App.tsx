@@ -63,15 +63,25 @@ import {
   Settings,
   UserCheck,
   Undo2,
-  HelpCircle
+  HelpCircle,
+  PlusSquare,
+  PlusCircle
 } from 'lucide-react';
-import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb } from './lib/supabaseService';
+import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb, mapProductToDb } from './lib/supabaseService';
 
 
 
 // Helper to format in Bangladeshi Taka format (e.g. ৳ 1,00,000)
 export const formatCurrency = (amount: number): string => {
   return `৳ ${Math.floor(amount).toLocaleString('en-IN')}`;
+};
+
+// Helper to calculate discount percentage
+export const calculateDiscountPercentage = (regular: string | number, sale: string | number): number => {
+  const reg = Number(regular);
+  const sl = Number(sale);
+  if (!reg || reg <= 0 || !sl || sl <= 0 || sl >= reg) return 0;
+  return Math.round(((reg - sl) / reg) * 100);
 };
 
 export default function App() {
@@ -85,11 +95,111 @@ export default function App() {
   });
 
   // --- Core State ---
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
-  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
-  const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem('aura_cached_products');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Error reading cached products:", e);
+    }
+    return INITIAL_PRODUCTS;
+  });
+
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const cached = localStorage.getItem('aura_cached_orders');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Error reading cached orders:", e);
+    }
+    return INITIAL_ORDERS;
+  });
+
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    try {
+      const cached = localStorage.getItem('aura_cached_customers');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Error reading cached customers:", e);
+    }
+    return INITIAL_CUSTOMERS;
+  });
+
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    try {
+      const cached = localStorage.getItem('aura_cached_notifications');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Error reading cached notifications:", e);
+    }
+    return INITIAL_NOTIFICATIONS;
+  });
+
+  const [settings, setSettings] = useState<SystemSettings>(() => {
+    try {
+      const cached = localStorage.getItem('aura_cached_settings');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn("Error reading cached settings:", e);
+    }
+    return DEFAULT_SETTINGS;
+  });
+
+  // Synchronize state changes to localStorage caches
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_cached_products', JSON.stringify(products));
+    } catch (e) {
+      console.warn("localStorage quota exceeded for products cache");
+    }
+  }, [products]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_cached_orders', JSON.stringify(orders));
+    } catch (e) {
+      console.warn("localStorage cache write failed for orders");
+    }
+  }, [orders]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_cached_customers', JSON.stringify(customers));
+    } catch (e) {
+      console.warn("localStorage cache write failed for customers");
+    }
+  }, [customers]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_cached_notifications', JSON.stringify(notifications));
+    } catch (e) {
+      console.warn("localStorage cache write failed for notifications");
+    }
+  }, [notifications]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_cached_settings', JSON.stringify(settings));
+    } catch (e) {
+      console.warn("localStorage cache write failed for settings");
+    }
+  }, [settings]);
+
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [activeChartTab, setActiveChartTab] = useState<'sales' | 'profit' | 'customers' | 'status'>('sales');
 
@@ -140,6 +250,7 @@ export default function App() {
   // Product Form Modal State
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [productForm, setProductForm] = useState({
     name: '',
     description: '',
@@ -158,7 +269,37 @@ export default function App() {
     productCost: 0,
     deliveryCost: 0,
     discount: 0,
-    marketingCost: 0
+    marketingCost: 0,
+    videoUrl: ''
+  });
+
+  // New Bulk Upload State
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [bulkUploadForm, setBulkUploadForm] = useState({
+    title: 'Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo',
+    regularPrice: '990',
+    salePrice: '690',
+    details: 'Fabric: 100% Cotton\nGSM: 160-170\nPrint: DTF\nSet Includes: 4 piece Tank Top\nNeckline: Crewneck\nSleeves: Sleeveless\nFeatures: Super-Soft Feel\nCare: Machine Washable\n\nবিবরণ: প্রিমিয়াম ১০০% কটন দিয়ে তৈরি আমাদের ৪ পিসের এই স্টাইলিশ ট্যাংক টপ কম্বো সেটটি আপনার আদরের সোনামণির জন্য গরমে অত্যন্ত আরামদায়ক। এর সফট ফেব্রিক বাচ্চার ত্বকের জন্য খুবই নিরাপদ ও মসৃণ।',
+    sizes: '1-2 Years, 3-4 Years, 5-6 Years, 7-8 Years, 9-10 Years, 11-12 Years, 13-14 Years',
+    images: [] as string[],
+    category: 'Baby Category',
+    categoryBannerUrl: '',
+    videoUrl: ''
+  });
+
+  // New Mixed Upload State
+  const [showMixedUploadModal, setShowMixedUploadModal] = useState(false);
+  const [mixedUploadForm, setMixedUploadForm] = useState({
+    title: '',
+    regularPrice: '',
+    salePrice: '',
+    description: '',
+    category: 'Baby Category',
+    image: '',
+    sizes: '1-2 Years, 3-4 Years, 5-6 Years, 7-8 Years, 9-10 Years, 11-12 Years, 13-14 Years',
+    fabric: '100% Cotton (GSM 160-170)',
+    brand: 'Cottoon Baby',
+    stock: '50'
   });
 
   // --- Dynamic ERP Feature Lists ---
@@ -328,49 +469,55 @@ export default function App() {
         error: null
       });
 
-      // Load all datasets from Supabase
+      // Load all datasets from Supabase asynchronously and independently to optimize speed
       try {
-        const [
-          dbSettings,
-          dbProducts,
-          dbOrders,
-          dbCustomers,
-          dbNotifications,
-          dbCollections,
-          dbReturns,
-          dbStaff
-        ] = await Promise.all([
-          supabaseService.getSettings(DEFAULT_SETTINGS),
-          supabaseService.getProducts(INITIAL_PRODUCTS),
-          supabaseService.getOrders(INITIAL_ORDERS),
-          supabaseService.getCustomers(INITIAL_CUSTOMERS),
-          supabaseService.getNotifications(INITIAL_NOTIFICATIONS),
-          supabaseService.getCollections(collectionsData),
-          supabaseService.getReturns(returnsData),
-          supabaseService.getStaff(staffData)
-        ]);
+        supabaseService.getSettings(DEFAULT_SETTINGS).then(dbSettings => {
+          setSettings(dbSettings);
+          prevSettingsRef.current = dbSettings;
+        }).catch(err => console.error("Error loading settings:", err));
 
-        setSettings(dbSettings);
-        setProducts(dbProducts);
-        setOrders(dbOrders);
-        setCustomers(dbCustomers);
-        setNotifications(dbNotifications);
-        setCollectionsData(dbCollections);
-        setReturnsData(dbReturns);
-        setStaffData(dbStaff);
+        supabaseService.getProducts(INITIAL_PRODUCTS).then(dbProducts => {
+          setProducts(dbProducts);
+          prevProductsRef.current = dbProducts;
+          try {
+            localStorage.setItem('aura_cached_products', JSON.stringify(dbProducts));
+          } catch (e) {
+            console.warn("Quota exceeded for cached products");
+          }
+        }).catch(err => console.error("Error loading products:", err));
 
-        // Update refs so we don't trigger immediate upserts on startup
-        prevProductsRef.current = dbProducts;
-        prevOrdersRef.current = dbOrders;
-        prevCustomersRef.current = dbCustomers;
-        prevNotificationsRef.current = dbNotifications;
-        prevSettingsRef.current = dbSettings;
-        prevCollectionsRef.current = dbCollections;
-        prevReturnsRef.current = dbReturns;
-        prevStaffRef.current = dbStaff;
+        supabaseService.getOrders(INITIAL_ORDERS).then(dbOrders => {
+          setOrders(dbOrders);
+          prevOrdersRef.current = dbOrders;
+        }).catch(err => console.error("Error loading orders:", err));
+
+        supabaseService.getCustomers(INITIAL_CUSTOMERS).then(dbCustomers => {
+          setCustomers(dbCustomers);
+          prevCustomersRef.current = dbCustomers;
+        }).catch(err => console.error("Error loading customers:", err));
+
+        supabaseService.getNotifications(INITIAL_NOTIFICATIONS).then(dbNotifications => {
+          setNotifications(dbNotifications);
+          prevNotificationsRef.current = dbNotifications;
+        }).catch(err => console.error("Error loading notifications:", err));
+
+        supabaseService.getCollections(collectionsData).then(dbCollections => {
+          setCollectionsData(dbCollections);
+          prevCollectionsRef.current = dbCollections;
+        }).catch(err => console.error("Error loading collections:", err));
+
+        supabaseService.getReturns(returnsData).then(dbReturns => {
+          setReturnsData(dbReturns);
+          prevReturnsRef.current = dbReturns;
+        }).catch(err => console.error("Error loading returns:", err));
+
+        supabaseService.getStaff(staffData).then(dbStaff => {
+          setStaffData(dbStaff);
+          prevStaffRef.current = dbStaff;
+        }).catch(err => console.error("Error loading staff:", err));
 
       } catch (err: any) {
-        console.error('Error fetching data from Supabase on start:', err);
+        console.error('Error initiating dataset fetches from Supabase:', err);
       }
     }
 
@@ -849,7 +996,8 @@ export default function App() {
         productCost: product.productCost || 0,
         deliveryCost: product.deliveryCost || 0,
         discount: product.discount || 0,
-        marketingCost: product.marketingCost || 0
+        marketingCost: product.marketingCost || 0,
+        videoUrl: product.videoUrl || ''
       });
     } else {
       setEditingProduct(null);
@@ -871,13 +1019,14 @@ export default function App() {
         productCost: 0,
         deliveryCost: 150,
         discount: 0,
-        marketingCost: 0
+        marketingCost: 0,
+        videoUrl: ''
       });
     }
     setShowProductModal(true);
   };
 
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productForm.name || !productForm.price) {
       alert('দয়া করে প্রোডাক্টের নাম এবং সঠিক মূল্য প্রদান করুন।');
@@ -900,36 +1049,41 @@ export default function App() {
 
     if (editingProduct) {
       // Edit mode
-      setProducts(prev => prev.map(p => {
-        if (p.id === editingProduct.id) {
-          return {
-            ...p,
-            name: productForm.name,
-            description: productForm.description,
-            category: productForm.category,
-            price: Number(productForm.price),
-            originalPrice: Number(productForm.originalPrice || productForm.price),
-            stock: Number(productForm.stock),
-            image: productForm.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400',
-            sizes: sizeArray,
-            colors: colorArray,
-            fabric: productForm.fabric,
-            sku: productForm.sku,
-            collection: productForm.collection,
-            season: productForm.season,
-            brand: productForm.brand,
-            productCost: Number(productForm.productCost),
-            deliveryCost: Number(productForm.deliveryCost),
-            discount: Number(productForm.discount),
-            marketingCost: Number(productForm.marketingCost)
-          };
-        }
-        return p;
-      }));
+      const updatedProduct: Product = {
+        ...editingProduct,
+        name: productForm.name,
+        description: productForm.description,
+        category: productForm.category,
+        price: Number(productForm.price),
+        originalPrice: Number(productForm.originalPrice || productForm.price),
+        stock: Number(productForm.stock),
+        image: productForm.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400',
+        sizes: sizeArray,
+        colors: colorArray,
+        fabric: productForm.fabric,
+        sku: productForm.sku,
+        collection: productForm.collection,
+        season: productForm.season,
+        brand: productForm.brand,
+        productCost: Number(productForm.productCost),
+        deliveryCost: Number(productForm.deliveryCost),
+        discount: Number(productForm.discount),
+        marketingCost: Number(productForm.marketingCost),
+        videoUrl: productForm.videoUrl || ''
+      };
+
+      const dbSuccess = await supabaseService.upsertProduct(updatedProduct);
+      if (dbSuccess) {
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? updatedProduct : p));
+        alert('প্রোডাক্ট বিবরণ সফলভাবে আপডেট করা হয়েছে।');
+      } else {
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? updatedProduct : p));
+        alert('ডাটাবেজে আপডেট করতে ব্যর্থ হয়েছে, তবে অফলাইন লিস্টে আপডেট করা হয়েছে।');
+      }
     } else {
       // Add mode
       const newProduct: Product = {
-        id: `PROD-00${products.length + 1}`,
+        id: `PROD-${Date.now()}`,
         name: productForm.name,
         description: productForm.description,
         category: productForm.category,
@@ -949,19 +1103,216 @@ export default function App() {
         productCost: Number(productForm.productCost),
         deliveryCost: Number(productForm.deliveryCost),
         discount: Number(productForm.discount),
-        marketingCost: Number(productForm.marketingCost)
+        marketingCost: Number(productForm.marketingCost),
+        videoUrl: productForm.videoUrl || ''
       };
-      setProducts(prev => [...prev, newProduct]);
+
+      const dbSuccess = await supabaseService.upsertProduct(newProduct);
+      if (dbSuccess) {
+        setProducts(prev => [...prev, newProduct]);
+        alert('নতুন প্রোডাক্ট সফলভাবে তৈরি এবং ডাটাবেজে সেভ করা হয়েছে।');
+      } else {
+        setProducts(prev => [...prev, newProduct]);
+        alert('নতুন প্রোডাক্ট লোকালি তৈরি করা হয়েছে, কিন্তু ডাটাবেজে সেভ করা যায়নি।');
+      }
     }
 
     setShowProductModal(false);
     setEditingProduct(null);
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    if (window.confirm('আপনি কি এই প্রোডাক্টটি ইনভেন্টরি থেকে ডিলেট করতে চান?')) {
-      setProducts(prev => prev.filter(p => p.id !== productId));
+  const handleBulkUploadSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkUploadForm.title || !bulkUploadForm.salePrice || !bulkUploadForm.regularPrice) {
+      alert('দয়া করে প্রোডাক্টের নাম, পূর্বের মূল্য (Regular Price) এবং বর্তমান অফার মূল্য (Sale Price) প্রদান করুন।');
+      return;
     }
+    if (bulkUploadForm.images.length === 0) {
+      alert('দয়া করে কমপক্ষে ১টি ছবি আপলোড করুন অথবা ডেমো ইমেজ লোড করুন।');
+      return;
+    }
+
+    const sizeArray = bulkUploadForm.sizes ? bulkUploadForm.sizes.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const calculatedDiscount = calculateDiscountPercentage(bulkUploadForm.regularPrice, bulkUploadForm.salePrice);
+    
+    // Create new products
+    const newProducts: Product[] = bulkUploadForm.images.map((img, idx) => {
+      const uniqueId = `PROD-BULK-${Date.now()}-${idx}`;
+      return {
+        id: uniqueId,
+        name: `${bulkUploadForm.title} (Combo Variant ${idx + 1})`,
+        description: bulkUploadForm.details,
+        category: bulkUploadForm.category || "Baby Category", // Use dynamic category
+        price: Number(bulkUploadForm.salePrice),
+        originalPrice: Number(bulkUploadForm.regularPrice),
+        stock: 50,
+        salesCount: 0,
+        rating: Number((4.7 + Math.random() * 0.3).toFixed(1)), // nice random high rating
+        image: img,
+        sizes: sizeArray,
+        colors: ["Assorted Baby Combo"],
+        fabric: "100% Cotton (GSM 160-170)",
+        sku: `BB-BULK-${Date.now()}-${idx}`,
+        collection: "New Arrival",
+        season: bulkUploadForm.categoryBannerUrl || "Summer", // Save banner URL in season
+        brand: "Cottoon Baby",
+        productCost: Math.round(Number(bulkUploadForm.salePrice) * 0.4),
+        deliveryCost: 60,
+        discount: calculatedDiscount,
+        marketingCost: 20,
+        videoUrl: bulkUploadForm.videoUrl
+      };
+    });
+
+    // Update frontend state immediately
+    setProducts(prev => [...prev, ...newProducts]);
+
+    // Supabase Bulk Insert in background
+    if (supabaseStatus.connected && supabaseStatus.schemaCreated) {
+      (async () => {
+        try {
+          const mapped = newProducts.map(mapProductToDb);
+          const { error } = await supabase.from('products').upsert(mapped);
+          if (error) {
+            console.error("Supabase bulk insert failed in background:", error);
+          } else {
+            console.log(`Successfully bulk inserted ${newProducts.length} products to Supabase in background!`);
+            // Silently sync the state from database to get correct defaults
+            try {
+              const dbProducts = await supabaseService.getProducts(newProducts);
+              if (dbProducts && dbProducts.length > 0) {
+                setProducts(dbProducts);
+                prevProductsRef.current = dbProducts;
+              }
+            } catch (err) {
+              console.error("Silent background sync failed:", err);
+            }
+          }
+        } catch (err: any) {
+          console.error("Supabase background insertion exception:", err);
+        }
+      })();
+    }
+
+    // Instant Success Message & Modal Closure
+    alert('আপনার প্রোডাক্টগুলো সফলভাবে ওয়েবসাইটে যোগ হয়েছে!');
+
+    // Reset Form instantly
+    setBulkUploadForm({
+      title: 'Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo',
+      regularPrice: '990',
+      salePrice: '690',
+      details: 'Fabric: 100% Cotton\nGSM: 160-170\nPrint: DTF\nSet Includes: 4 piece Tank Top\nNeckline: Crewneck\nSleeves: Sleeveless\nFeatures: Super-Soft Feel\nCare: Machine Washable\n\nবিবরণ: প্রিমিয়াম ১০০% কটন দিয়ে তৈরি আমাদের ৪ পিসের এই স্টাইলিশ ট্যাংক টপ কম্বো সেটটি আপনার আদরের সোনামণির জন্য গরমে অত্যন্ত আরামদায়ক। এর সফট ফেব্রিক বাচ্চার ত্বকের জন্য খুবই নিরাপদ ও মসৃণ।',
+      sizes: '1-2 Years, 3-4 Years, 5-6 Years, 7-8 Years, 9-10 Years, 11-12 Years, 13-14 Years',
+      images: [],
+      category: 'Baby Category',
+      categoryBannerUrl: ''
+    });
+    setShowBulkUploadModal(false);
+  };
+
+  const handleMixedUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mixedUploadForm.title || !mixedUploadForm.salePrice || !mixedUploadForm.regularPrice) {
+      alert('দয়া করে প্রোডাক্টের নাম, পূর্বের মূল্য (Regular Price) এবং বর্তমান অফার মূল্য (Sale Price) প্রদান করুন।');
+      return;
+    }
+    if (!mixedUploadForm.image) {
+      alert('দয়া করে প্রোডাক্টের একটি ছবি বা ছবির ইউআরএল প্রদান করুন।');
+      return;
+    }
+
+    const sizeArray = mixedUploadForm.sizes ? mixedUploadForm.sizes.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const uniqueId = `PROD-MIX-${Date.now()}`;
+    const calculatedDiscount = calculateDiscountPercentage(mixedUploadForm.regularPrice, mixedUploadForm.salePrice);
+
+    const newProduct: Product = {
+      id: uniqueId,
+      name: mixedUploadForm.title,
+      description: mixedUploadForm.description,
+      category: mixedUploadForm.category,
+      price: Number(mixedUploadForm.salePrice),
+      originalPrice: Number(mixedUploadForm.regularPrice),
+      stock: Number(mixedUploadForm.stock) || 50,
+      salesCount: 0,
+      rating: 4.8,
+      image: mixedUploadForm.image,
+      sizes: sizeArray,
+      colors: ["Single Color"],
+      fabric: mixedUploadForm.fabric,
+      sku: `BB-MIX-${Date.now()}`,
+      collection: "New Arrival",
+      season: "Summer",
+      brand: mixedUploadForm.brand,
+      productCost: Math.round(Number(mixedUploadForm.salePrice) * 0.4),
+      deliveryCost: 60,
+      discount: calculatedDiscount,
+      marketingCost: 20
+    };
+
+    // Update frontend state
+    setProducts(prev => [...prev, newProduct]);
+
+    // Supabase Insert
+    if (supabaseStatus.connected && supabaseStatus.schemaCreated) {
+      try {
+        const mapped = mapProductToDb(newProduct);
+        const { error } = await supabase.from('products').upsert(mapped);
+        if (error) {
+          console.error("Supabase insert failed, local state updated:", error);
+          alert(`সুপাবেজে সংরক্ষণে সমস্যা হয়েছে: ${error.message}। তবে লোকাল ড্যাশবোর্ডে প্রোডাক্টটি যুক্ত হয়েছে।`);
+        } else {
+          alert('সফলভাবে প্রোডাক্টটি সুপাবেজ ডাটাবেজে এবং ড্যাশবোর্ডে যুক্ত হয়েছে!');
+          // Re-fetch latest from database to stay fully in sync
+          try {
+            const dbProducts = await supabaseService.getProducts(products);
+            setProducts(dbProducts);
+            prevProductsRef.current = dbProducts;
+          } catch (fetchErr) {
+            console.error("Error re-fetching after mixed insert:", fetchErr);
+          }
+        }
+      } catch (err: any) {
+        console.error(err);
+        alert(`সংরক্ষণ করা যায়নি: ${err.message || err}`);
+      }
+    } else {
+      alert('সফলভাবে প্রোডাক্টটি লোকাল ড্যাশবোর্ডে যুক্ত হয়েছে! (সুপাবেজ সংযোগ নেই)');
+    }
+
+    // Reset Form
+    setMixedUploadForm({
+      title: '',
+      regularPrice: '',
+      salePrice: '',
+      description: '',
+      category: 'Baby Category',
+      image: '',
+      sizes: '1-2 Years, 3-4 Years, 5-6 Years, 7-8 Years, 9-10 Years, 11-12 Years, 13-14 Years',
+      fabric: '100% Cotton (GSM 160-170)',
+      brand: 'Cottoon Baby',
+      stock: '50'
+    });
+    setShowMixedUploadModal(false);
+  };
+
+  const handleDeleteProduct = (productId: string) => {
+    const prod = products.find(p => p.id === productId);
+    if (prod) {
+      setProductToDelete(prod);
+    }
+  };
+
+  const handleConfirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+    const success = await supabaseService.deleteProduct(productToDelete.id);
+    if (success) {
+      setProducts(prev => prev.filter(p => p.id !== productToDelete.id));
+      alert('প্রোডাক্টটি সফলভাবে ডিলিট করা হয়েছে।');
+    } else {
+      alert('ডিলিট করতে ব্যর্থ হয়েছে! অনুগ্রহ করে আবার চেষ্টা করুন।');
+    }
+    setProductToDelete(null);
   };
 
   // Adjust stock directly
@@ -1667,6 +2018,24 @@ export default function App() {
               <span className="opacity-70">কারেন্সি: {settings.currency} ($)</span>
             </div>
 
+            {/* Bulk & Mixed Upload Quick Actions */}
+            <div className="flex items-center space-x-2 border-l pl-4 border-inherit">
+              <button
+                onClick={() => setShowBulkUploadModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider transition-all flex items-center space-x-1 cursor-pointer shadow-md shadow-amber-500/10"
+              >
+                <PlusSquare className="h-3.5 w-3.5" />
+                <span>Bulk Same Upload</span>
+              </button>
+              <button
+                onClick={() => setShowMixedUploadModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black uppercase tracking-wider transition-all flex items-center space-x-1 cursor-pointer shadow-md shadow-orange-500/10"
+              >
+                <PlusCircle className="h-3.5 w-3.5" />
+                <span>Mixed Upload</span>
+              </button>
+            </div>
+
             {/* Storefront & Logout Actions */}
             <div className="flex items-center space-x-2 border-l pl-4 border-inherit">
               <button
@@ -1720,13 +2089,27 @@ export default function App() {
                   <h1 className="text-3xl font-extrabold tracking-tight">ড্যাশবোর্ড ওভারভিউ (Aura Dashboard)</h1>
                   <p className="opacity-60 text-sm mt-1">আপনার ব্যবসার গুরুত্বপূর্ণ তথ্য এক নজরে পর্যবেক্ষণ করুন।</p>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className={`p-1.5 rounded-xl flex items-center space-x-1.5 text-xs font-mono
                     ${settings.themeMode === 'dark' ? 'bg-[#1a1614] border border-[#322822]' : 'bg-amber-50 border border-amber-100'}`}
                   >
                     <span className="opacity-60">আজকের তারিখ:</span>
                     <span className="font-bold text-[#e07a5f]">2026-06-27</span>
                   </div>
+                  <button 
+                    onClick={() => setShowBulkUploadModal(true)}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg shadow-amber-500/15"
+                  >
+                    <PlusSquare className="h-4 w-4" />
+                    <span>Bulk Same Product Upload</span>
+                  </button>
+                  <button 
+                    onClick={() => setShowMixedUploadModal(true)}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white transition-all shadow-lg shadow-orange-500/15"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    <span>Mixed Product Upload</span>
+                  </button>
                   <button 
                     onClick={() => handleTriggerAnalysis('sales')}
                     className="flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#e07a5f] hover:bg-[#d06a4f] text-white transition-all shadow-lg shadow-orange-600/10"
@@ -5912,7 +6295,8 @@ CREATE TABLE IF NOT EXISTS products (
   product_cost NUMERIC,
   delivery_cost NUMERIC,
   discount NUMERIC DEFAULT 0,
-  marketing_cost NUMERIC
+  marketing_cost NUMERIC,
+  video_url TEXT
 );
 
 -- ২. Orders
@@ -6021,7 +6405,7 @@ CREATE TABLE IF NOT EXISTS staff_data (
                           <button
                             type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS products ( id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price NUMERIC NOT NULL, original_price NUMERIC, stock INT NOT NULL, category TEXT, sales_count INT DEFAULT 0, rating NUMERIC DEFAULT 0, image TEXT, sizes JSONB, colors JSONB, fabric TEXT, collection TEXT, sku TEXT, is_new_arrival BOOLEAN DEFAULT false, is_best_seller BOOLEAN DEFAULT false, is_limited_edition BOOLEAN DEFAULT false, size_stock JSONB, color_stock JSONB, season TEXT, brand TEXT, product_cost NUMERIC, delivery_cost NUMERIC, discount NUMERIC DEFAULT 0, marketing_cost NUMERIC ); CREATE TABLE IF NOT EXISTS orders ( id TEXT PRIMARY KEY, customer_name TEXT NOT NULL, customer_email TEXT, customer_phone TEXT, customer_address TEXT, date TEXT, items JSONB NOT NULL, total NUMERIC NOT NULL, status TEXT NOT NULL, payment_method TEXT, payment_status TEXT, timeline JSONB, internal_notes TEXT ); CREATE TABLE IF NOT EXISTS customers ( id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, address TEXT, avatar TEXT, join_date TEXT, total_spending NUMERIC DEFAULT 0, orders_count INT DEFAULT 0, segment TEXT, activity_timeline JSONB, gender TEXT, birthday TEXT, preferred_size TEXT, favorite_color TEXT, favorite_category TEXT, last_purchase_date TEXT, average_order_value NUMERIC, marketing_tags JSONB, shirt_size TEXT, pant_size TEXT, shoe_size TEXT, size_history JSONB, customer_value_score NUMERIC, buying_pattern_analysis TEXT, next_purchase_prediction TEXT, membership_tier TEXT, reward_points INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS notifications ( id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL, timestamp TEXT NOT NULL, read BOOLEAN DEFAULT false ); CREATE TABLE IF NOT EXISTS system_settings ( id TEXT PRIMARY KEY, currency TEXT, tax_rate NUMERIC, low_stock_limit INT, eye_protection_enabled BOOLEAN, blue_light_filter_level INT, theme_mode TEXT, brand_name TEXT ); CREATE TABLE IF NOT EXISTS collections_data ( id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, status TEXT, sales NUMERIC, profit NUMERIC, items_count INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS returns_data ( id TEXT PRIMARY KEY, customer_name TEXT, phone TEXT, product_name TEXT, reason TEXT, refund_amount NUMERIC, date TEXT, status TEXT ); CREATE TABLE IF NOT EXISTS staff_data ( email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT, status TEXT, permissions TEXT );`);
+                              navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS products ( id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price NUMERIC NOT NULL, original_price NUMERIC, stock INT NOT NULL, category TEXT, sales_count INT DEFAULT 0, rating NUMERIC DEFAULT 0, image TEXT, sizes JSONB, colors JSONB, fabric TEXT, collection TEXT, sku TEXT, is_new_arrival BOOLEAN DEFAULT false, is_best_seller BOOLEAN DEFAULT false, is_limited_edition BOOLEAN DEFAULT false, size_stock JSONB, color_stock JSONB, season TEXT, brand TEXT, product_cost NUMERIC, delivery_cost NUMERIC, discount NUMERIC DEFAULT 0, marketing_cost NUMERIC, video_url TEXT ); CREATE TABLE IF NOT EXISTS orders ( id TEXT PRIMARY KEY, customer_name TEXT NOT NULL, customer_email TEXT, customer_phone TEXT, customer_address TEXT, date TEXT, items JSONB NOT NULL, total NUMERIC NOT NULL, status TEXT NOT NULL, payment_method TEXT, payment_status TEXT, timeline JSONB, internal_notes TEXT ); CREATE TABLE IF NOT EXISTS customers ( id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, address TEXT, avatar TEXT, join_date TEXT, total_spending NUMERIC DEFAULT 0, orders_count INT DEFAULT 0, segment TEXT, activity_timeline JSONB, gender TEXT, birthday TEXT, preferred_size TEXT, favorite_color TEXT, favorite_category TEXT, last_purchase_date TEXT, average_order_value NUMERIC, marketing_tags JSONB, shirt_size TEXT, pant_size TEXT, shoe_size TEXT, size_history JSONB, customer_value_score NUMERIC, buying_pattern_analysis TEXT, next_purchase_prediction TEXT, membership_tier TEXT, reward_points INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS notifications ( id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL, timestamp TEXT NOT NULL, read BOOLEAN DEFAULT false ); CREATE TABLE IF NOT EXISTS system_settings ( id TEXT PRIMARY KEY, currency TEXT, tax_rate NUMERIC, low_stock_limit INT, eye_protection_enabled BOOLEAN, blue_light_filter_level INT, theme_mode TEXT, brand_name TEXT ); CREATE TABLE IF NOT EXISTS collections_data ( id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, status TEXT, sales NUMERIC, profit NUMERIC, items_count INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS returns_data ( id TEXT PRIMARY KEY, customer_name TEXT, phone TEXT, product_name TEXT, reason TEXT, refund_amount NUMERIC, date TEXT, status TEXT ); CREATE TABLE IF NOT EXISTS staff_data ( email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT, status TEXT, permissions TEXT );`);
                               alert('SQL কোড ক্লিপবোর্ডে কপি হয়েছে!');
                             }}
                             className="absolute top-2 right-2 px-2.5 py-1.5 bg-neutral-800 text-[10px] text-white hover:bg-neutral-700 rounded-lg transition-colors border border-neutral-700 font-sans"
@@ -7126,6 +7510,20 @@ CREATE TABLE IF NOT EXISTS staff_data (
                 </div>
               </div>
 
+              {/* YouTube Video Link Field */}
+              <div className="space-y-1.5">
+                <label className="font-bold opacity-75 flex items-center space-x-1">
+                  <span>🎬 প্রোডাক্ট ভিডিও লিংক (YouTube Video Link) - Optional:</span>
+                </label>
+                <input 
+                  type="url"
+                  value={productForm.videoUrl || ''}
+                  onChange={(e) => setProductForm(prev => ({ ...prev, videoUrl: e.target.value }))}
+                  placeholder="যেমন: https://www.youtube.com/watch?v=S_8qM7P76uM"
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                />
+              </div>
+
               {/* Image File Upload Section (Functional) */}
               <div className="p-3 bg-white/5 border border-dashed border-white/10 rounded-2xl flex flex-col space-y-2">
                 <label className="font-bold opacity-75 block">অথবা লোকাল ফাইল আপলোড করুন (Local Image File):</label>
@@ -7171,6 +7569,695 @@ CREATE TABLE IF NOT EXISTS staff_data (
             </div>
 
           </form>
+        </div>
+      )}
+
+      {/* ==========================================================
+          BULK SAME PRODUCT UPLOAD MODAL
+          ========================================================== */}
+      {showBulkUploadModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <form 
+            onSubmit={handleBulkUploadSubmit}
+            className="bg-[#1a1614] border border-[#322822] text-[#f6f3ed] w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl flex flex-col my-8 max-h-[90vh]"
+          >
+            <div className="p-5 border-b border-[#322822] flex justify-between items-center bg-[#15110f]">
+              <div className="flex items-center space-x-2">
+                <PlusSquare className="h-5 w-5 text-amber-500" />
+                <h3 className="font-extrabold text-sm uppercase tracking-wider">
+                  Bulk Same Product Upload (একসাথে ১০+ প্রোডাক্ট আপলোড)
+                </h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowBulkUploadModal(false)} 
+                className="text-xs opacity-60 hover:opacity-100 p-1 bg-white/5 hover:bg-white/10 rounded-lg transition-colors px-2 py-1"
+              >
+                বন্ধ করুন (Close)
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto text-xs scrollbar-thin scrollbar-thumb-white/10">
+              
+              {/* Info Note */}
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl leading-relaxed">
+                ℹ️ <strong>একই প্রোডাক্ট বিবরণ ও মূল্যের নিচে একসাথে ১০ বা তার বেশি ছবি আপলোড করুন।</strong> প্রতিটি ছবির জন্য সুপাবেজ ডাটাবেজে এবং ড্যাশবোর্ডে আলাদা রো (row) তৈরি হবে, যার ফলে আপনি খুব দ্রুত কম্বো প্রোডাক্টগুলোর ভ্যারিয়েশন আপলোড করতে পারবেন।
+              </div>
+
+              {/* Dynamic Category Settings */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-amber-400 flex items-center space-x-1">
+                    <span>🏷️ Custom Category Name (ক্যাটাগরির নাম দিন):</span>
+                  </label>
+                  <input 
+                    type="text"
+                    required
+                    value={bulkUploadForm.category || ''}
+                    onChange={(e) => setBulkUploadForm(prev => ({ ...prev, category: e.target.value }))}
+                    placeholder="যেমন: Baby Category, Football, Cricket, New Jersey"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  />
+                  <p className="text-[10px] opacity-55">এই ক্যাটাগরির নামটি সরাসরি কাস্টমার পেজের উপরের হেডার লিংকে যুক্ত হয়ে যাবে।</p>
+                </div>
+
+                <div className="space-y-1.5 flex flex-col justify-between">
+                  <label className="font-bold text-amber-400 flex items-center justify-between">
+                    <span>🖼️ Cover Banner Image (কভার ব্যানার ইমেজ - অপশনাল):</span>
+                    {bulkUploadForm.categoryBannerUrl && (
+                      <button 
+                        type="button"
+                        onClick={() => setBulkUploadForm(prev => ({ ...prev, categoryBannerUrl: '' }))}
+                        className="text-red-400 hover:text-red-300 text-[10px] font-bold flex items-center space-x-0.5"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>মুছে ফেলুন</span>
+                      </button>
+                    )}
+                  </label>
+                  
+                  {bulkUploadForm.categoryBannerUrl ? (
+                    <div className="relative rounded-xl overflow-hidden border border-[#322822] bg-[#120e0c] h-[85px] group">
+                      <img 
+                        src={bulkUploadForm.categoryBannerUrl} 
+                        alt="Category Cover Preview" 
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const inputEl = document.getElementById('banner-file-input');
+                            if (inputEl) inputEl.click();
+                          }}
+                          className="px-2.5 py-1 bg-amber-500 text-black font-bold text-[10px] rounded-lg shadow-md hover:bg-amber-400 transition-all"
+                        >
+                          নতুন ব্যানার আপলোড করুন
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className="border border-dashed border-[#322822] hover:border-amber-500/40 rounded-xl p-3 bg-[#120e0c]/50 text-center cursor-pointer transition-all relative group h-[85px] flex flex-col justify-center items-center"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files[0];
+                        if (file && file.type.startsWith('image/')) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setBulkUploadForm(prev => ({ ...prev, categoryBannerUrl: reader.result as string }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      onClick={() => {
+                        const inputEl = document.getElementById('banner-file-input');
+                        if (inputEl) inputEl.click();
+                      }}
+                    >
+                      <Plus className="h-5 w-5 text-amber-500/60 group-hover:text-amber-500 group-hover:scale-110 transition-all mb-1" />
+                      <span className="font-bold text-[10px] text-white/80 group-hover:text-white transition-colors">
+                        ড্র্যাগ করুন অথবা এখানে ক্লিক করে ব্যানার আপলোড করুন
+                      </span>
+                      <span className="text-[9px] opacity-40">Landscape Recommended (যেমন: ১৮:৯)</span>
+                    </div>
+                  )}
+
+                  <input 
+                    type="file"
+                    accept="image/*"
+                    id="banner-file-input"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setBulkUploadForm(prev => ({ ...prev, categoryBannerUrl: reader.result as string }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+
+                  <div className="flex justify-between items-center text-[9px] opacity-65">
+                    <span>ব্যানার দিলে কাস্টমার পেজের ফিল্টারে উপরে কভার দেখাবে।</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaultBanners = [
+                          "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=1200",
+                          "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&q=80&w=1200",
+                          "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=1200",
+                          "https://images.unsplash.com/photo-1540200049848-d9813ea0e120?auto=format&fit=crop&q=80&w=1200"
+                        ];
+                        const randomBanner = defaultBanners[Math.floor(Math.random() * defaultBanners.length)];
+                        setBulkUploadForm(prev => ({ ...prev, categoryBannerUrl: randomBanner }));
+                      }}
+                      className="text-amber-400 hover:text-amber-300 font-bold transition-all"
+                    >
+                      ✨ ডেমো ব্যানার লোড করুন
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Title */}
+              <div className="space-y-1.5">
+                <label className="font-bold opacity-75">কমন প্রোডাক্টের নাম (Common Product Title):</label>
+                <input 
+                  type="text"
+                  required
+                  value={bulkUploadForm.title}
+                  onChange={(e) => setBulkUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="যেমন: Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo"
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              {/* Price Row with Live Discount Calculation */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">Regular Price (পূর্বের দাম BDT):</label>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    value={bulkUploadForm.regularPrice}
+                    onChange={(e) => setBulkUploadForm(prev => ({ ...prev, regularPrice: e.target.value }))}
+                    placeholder="যেমন: 990"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-[#f2cc8f] font-bold outline-none focus:border-amber-500/50 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5 relative">
+                  <div className="flex justify-between items-center">
+                    <label className="font-bold opacity-75">Sale Price (বর্তমান দাম BDT):</label>
+                    {calculateDiscountPercentage(bulkUploadForm.regularPrice, bulkUploadForm.salePrice) > 0 && (
+                      <span className="px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-400 font-extrabold text-[9px] animate-pulse">
+                        {calculateDiscountPercentage(bulkUploadForm.regularPrice, bulkUploadForm.salePrice)}% OFF
+                      </span>
+                    )}
+                  </div>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    value={bulkUploadForm.salePrice}
+                    onChange={(e) => setBulkUploadForm(prev => ({ ...prev, salePrice: e.target.value }))}
+                    placeholder="যেমন: 690"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-emerald-400 font-bold outline-none focus:border-amber-500/50 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">বয়স / সাইজগুলো (Sizes):</label>
+                  <input 
+                    type="text"
+                    required
+                    value={bulkUploadForm.sizes}
+                    onChange={(e) => setBulkUploadForm(prev => ({ ...prev, sizes: e.target.value }))}
+                    placeholder="যেমন: 1-2 Years, 3-4 Years"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Sizes Live Rendering Preview */}
+              <div className="p-3 bg-white/5 rounded-2xl space-y-2">
+                <span className="font-bold opacity-75 block text-[10px] uppercase tracking-wider text-amber-500">
+                  সাইজ বাটন প্রিভিউ (Real-time Live Size Buttons Preview):
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {bulkUploadForm.sizes.split(',').map(s => s.trim()).filter(Boolean).map((sz, idx) => (
+                    <span 
+                      key={idx}
+                      className="px-2.5 py-1 rounded-lg bg-[#e07a5f]/10 border border-[#e07a5f]/30 text-[#e07a5f] font-bold text-[10px] hover:bg-[#e07a5f] hover:text-white transition-all cursor-pointer"
+                    >
+                      {sz}
+                    </span>
+                  ))}
+                  {bulkUploadForm.sizes.split(',').map(s => s.trim()).filter(Boolean).length === 0 && (
+                    <span className="text-gray-500 italic text-[11px]">কোনো সাইজ যোগ করা হয়নি</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Details text area */}
+              <div className="space-y-1.5">
+                <label className="font-bold opacity-75">কমন প্রোডাক্ট বিবরণ (Details & Quality):</label>
+                <textarea 
+                  value={bulkUploadForm.details}
+                  onChange={(e) => setBulkUploadForm(prev => ({ ...prev, details: e.target.value }))}
+                  placeholder="যেমন: Fabric: 100% Cotton, GSM: 160-170, Print: DTF..."
+                  rows={4}
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50 leading-relaxed font-mono text-[11px]"
+                />
+              </div>
+
+              {/* Product Video YouTube Link */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-amber-400 flex items-center space-x-1">
+                  <span>🎬 Product Video (YouTube Link) - Optional:</span>
+                </label>
+                <input 
+                  type="url"
+                  value={bulkUploadForm.videoUrl || ''}
+                  onChange={(e) => setBulkUploadForm(prev => ({ ...prev, videoUrl: e.target.value }))}
+                  placeholder="যেমন: https://www.youtube.com/watch?v=S_8qM7P76uM বা https://youtu.be/Z0pZf4I_R-o"
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-[#f6f3ed] outline-none focus:border-amber-500/50"
+                />
+                <p className="text-[10px] opacity-55">এখানে শুধু ইউটিউব ভিডিওর লিংক পেস্ট করুন। প্রোডাক্ট ডিটেইলস মডালে কাস্টমার সরাসরি এই ভিডিওটি প্লে করে দেখতে পারবে।</p>
+              </div>
+
+              {/* Image Drag and Drop Zone */}
+              <div className="space-y-2">
+                <label className="font-bold opacity-75 flex justify-between items-center">
+                  <span>প্রোডাক্ট ইমেজ ড্রপজোন (Upload Images - 10+ Supported):</span>
+                  <span className="text-amber-500 font-bold">{bulkUploadForm.images.length}টি যুক্ত</span>
+                </label>
+                
+                <div 
+                  className="border-2 border-dashed border-[#322822] hover:border-amber-500/40 rounded-2xl p-6 bg-[#120e0c]/50 text-center cursor-pointer transition-all relative group"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const files = Array.from(e.dataTransfer.files) as File[];
+                    const remainingSlots = 50 - bulkUploadForm.images.length;
+                    const filesToProcess = files.slice(0, remainingSlots);
+                    
+                    filesToProcess.forEach((file: File) => {
+                      if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setBulkUploadForm(prev => {
+                            if (prev.images.length >= 50) return prev;
+                            return { ...prev, images: [...prev.images, reader.result as string] };
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    });
+                  }}
+                >
+                  <input 
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    id="bulk-file-input"
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []) as File[];
+                      const remainingSlots = 50 - bulkUploadForm.images.length;
+                      const filesToProcess = files.slice(0, remainingSlots);
+                      
+                      filesToProcess.forEach((file: File) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setBulkUploadForm(prev => {
+                            if (prev.images.length >= 50) return prev;
+                            return { ...prev, images: [...prev.images, reader.result as string] };
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                    }}
+                  />
+                  <label htmlFor="bulk-file-input" className="cursor-pointer block">
+                    <div className="flex flex-col items-center space-y-2">
+                      <PlusSquare className="h-8 w-8 text-amber-500 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                      <span className="font-bold text-xs">ড্র্যাগ এবং ড্রপ করুন অথবা এখানে ক্লিক করে ইমেজ ফাইল সিলেক্ট করুন</span>
+                      <span className="text-[10px] opacity-50">JPG, PNG, WEBP ফরম্যাটে একসাথে ১০টি বা তার বেশি ছবি সিলেক্ট করা যাবে</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Preload Test Images action */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const demoImages = [
+                        "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1519242220831-09410926fbff?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1471286174240-e1a485abfe53?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1515488042361-404e9250afef?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1530124566582-ab05137eb57c?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&q=80&w=600",
+                        "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=600"
+                      ];
+                      setBulkUploadForm(prev => ({
+                        ...prev,
+                        images: [...prev.images, ...demoImages].slice(0, 50)
+                      }));
+                      alert('১৫টি প্রিমিয়াম বাচ্চাদের ড্রেস ডেমো ইমেজ ড্রপজোনে যোগ করা হয়েছে।');
+                    }}
+                    className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-[10px] rounded-lg transition-all"
+                  >
+                    ✨ ১৫টি ডেমো ইমেজ লোড করুন (Load Test Images)
+                  </button>
+                </div>
+
+                {/* Image Previews Grid */}
+                {bulkUploadForm.images.length > 0 && (
+                  <div className="grid grid-cols-5 gap-3 p-3 bg-white/5 rounded-2xl border border-white/5">
+                    {bulkUploadForm.images.map((img, idx) => (
+                      <div key={idx} className="relative aspect-square group rounded-xl overflow-hidden border border-white/10 bg-black shadow-inner">
+                        <img src={img} alt="Preview" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBulkUploadForm(prev => ({
+                              ...prev,
+                              images: prev.images.filter((_, i) => i !== idx)
+                            }));
+                          }}
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all text-[10px] font-bold text-rose-400 uppercase cursor-pointer"
+                        >
+                          ডিলেট
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            <div className="p-4 bg-[#120e0c] border-t border-[#322822] flex justify-end space-x-2">
+              <button 
+                type="button"
+                onClick={() => setShowBulkUploadModal(false)}
+                className="px-4 py-2 border border-white/10 hover:border-white/20 text-xs font-bold rounded-xl transition-all"
+              >
+                বাতিল করুন (Cancel)
+              </button>
+              <button 
+                type="submit"
+                className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black transition-all shadow-lg shadow-amber-500/25"
+              >
+                বাল্ক আপলোড করুন ({bulkUploadForm.images.length}টি প্রোডাক্ট)
+              </button>
+            </div>
+
+          </form>
+        </div>
+      )}
+
+      {/* ==========================================================
+          MIXED PRODUCT UPLOAD MODAL
+          ========================================================== */}
+      {showMixedUploadModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <form 
+            onSubmit={handleMixedUploadSubmit}
+            className="bg-[#1a1614] border border-[#322822] text-[#f6f3ed] w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col my-8 max-h-[90vh]"
+          >
+            <div className="p-5 border-b border-[#322822] flex justify-between items-center bg-[#15110f]">
+              <div className="flex items-center space-x-2">
+                <PlusCircle className="h-5 w-5 text-orange-500" />
+                <h3 className="font-extrabold text-sm uppercase tracking-wider">
+                  Mixed Product Upload (ম্যানুয়াল সিঙ্গেল আপলোড)
+                </h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowMixedUploadModal(false)} 
+                className="text-xs opacity-60 hover:opacity-100 p-1 bg-white/5 hover:bg-white/10 rounded-lg transition-colors px-2 py-1"
+              >
+                বন্ধ করুন (Close)
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto text-xs scrollbar-thin scrollbar-thumb-white/10">
+              
+              {/* Product Title */}
+              <div className="space-y-1.5">
+                <label className="font-bold opacity-75">প্রোডাক্টের নাম (Product Title):</label>
+                <input 
+                  type="text"
+                  required
+                  value={mixedUploadForm.title}
+                  onChange={(e) => setMixedUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="যেমন: Kids Premium Dino Print Yellow Tee"
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              {/* Price & Stock Row with Live Discount Calculation */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">Regular Price (পূর্বের দাম BDT):</label>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    value={mixedUploadForm.regularPrice}
+                    onChange={(e) => setMixedUploadForm(prev => ({ ...prev, regularPrice: e.target.value }))}
+                    placeholder="যেমন: 990"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-[#f2cc8f] font-bold outline-none focus:border-amber-500/50 font-mono text-[11px]"
+                  />
+                </div>
+
+                <div className="space-y-1.5 relative">
+                  <div className="flex justify-between items-center">
+                    <label className="font-bold opacity-75">Sale Price (বর্তমান দাম BDT):</label>
+                    {calculateDiscountPercentage(mixedUploadForm.regularPrice, mixedUploadForm.salePrice) > 0 && (
+                      <span className="px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/40 text-rose-400 font-extrabold text-[9px] animate-pulse">
+                        {calculateDiscountPercentage(mixedUploadForm.regularPrice, mixedUploadForm.salePrice)}% OFF
+                      </span>
+                    )}
+                  </div>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    value={mixedUploadForm.salePrice}
+                    onChange={(e) => setMixedUploadForm(prev => ({ ...prev, salePrice: e.target.value }))}
+                    placeholder="যেমন: 690"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-emerald-400 font-bold outline-none focus:border-amber-500/50 font-mono text-[11px]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">স্টক সংখ্যা (Stock):</label>
+                  <input 
+                    type="number"
+                    required
+                    min="1"
+                    value={mixedUploadForm.stock}
+                    onChange={(e) => setMixedUploadForm(prev => ({ ...prev, stock: e.target.value }))}
+                    placeholder="যেমন: 50"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50 font-mono text-[11px]"
+                  />
+                </div>
+              </div>
+
+              {/* Category & Fabric Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">ক্যাটেগরি (Category):</label>
+                  <input 
+                    type="text"
+                    required
+                    value={mixedUploadForm.category}
+                    onChange={(e) => setMixedUploadForm(prev => ({ ...prev, category: e.target.value }))}
+                    placeholder="যেমন: Baby Category"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold opacity-75">ফেব্রিক / উপাদান (Fabric Quality):</label>
+                  <input 
+                    type="text"
+                    required
+                    value={mixedUploadForm.fabric}
+                    onChange={(e) => setMixedUploadForm(prev => ({ ...prev, fabric: e.target.value }))}
+                    placeholder="যেমন: 100% Cotton (GSM 160-170)"
+                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Sizes Comma Separated */}
+              <div className="space-y-1.5">
+                <label className="font-bold opacity-75">বয়স / সাইজগুলো (Sizes - Comma Separated):</label>
+                <input 
+                  type="text"
+                  required
+                  value={mixedUploadForm.sizes}
+                  onChange={(e) => setMixedUploadForm(prev => ({ ...prev, sizes: e.target.value }))}
+                  placeholder="যেমন: 1-2 Years, 3-4 Years, 5-6 Years"
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              {/* Mixed Sizes Preview */}
+              <div className="p-3 bg-white/5 rounded-2xl space-y-1.5">
+                <span className="font-bold opacity-75 block text-[10px] uppercase tracking-wider text-orange-500">
+                  সাইজ বাটন প্রিভিউ (Sizes Preview):
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {mixedUploadForm.sizes.split(',').map(s => s.trim()).filter(Boolean).map((sz, idx) => (
+                    <span 
+                      key={idx}
+                      className="px-2.5 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-400 font-bold text-[10px]"
+                    >
+                      {sz}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Unique Description */}
+              <div className="space-y-1.5">
+                <label className="font-bold opacity-75">প্রোডাক্ট বিবরণ (Unique Description):</label>
+                <textarea 
+                  required
+                  value={mixedUploadForm.description}
+                  onChange={(e) => setMixedUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="এই নির্দিষ্ট প্রোডাক্টের অনন্য বিবরণ, কালার, ফেব্রিক টেক্সচার ইত্যাদি..."
+                  rows={3}
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50 leading-relaxed font-mono text-[11px]"
+                />
+              </div>
+
+              {/* Single Image Upload / Dropzone */}
+              <div className="space-y-2">
+                <label className="font-bold opacity-75">ইমেজ সোর্স (Image Source):</label>
+                <input 
+                  type="text"
+                  value={mixedUploadForm.image}
+                  onChange={(e) => setMixedUploadForm(prev => ({ ...prev, image: e.target.value }))}
+                  placeholder="ইমেজের সরাসরি লিঙ্ক (URL) যেমন: https://images.unsplash.com/..."
+                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-amber-500/50 mb-2"
+                />
+
+                <div 
+                  className="border-2 border-dashed border-[#322822] hover:border-orange-500/40 rounded-2xl p-4 bg-[#120e0c]/50 text-center cursor-pointer transition-all relative group"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && file.type.startsWith('image/')) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setMixedUploadForm(prev => ({ ...prev, image: reader.result as string }));
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                >
+                  <input 
+                    type="file"
+                    accept="image/*"
+                    id="mixed-file-input"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setMixedUploadForm(prev => ({ ...prev, image: reader.result as string }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <label htmlFor="mixed-file-input" className="cursor-pointer block">
+                    <div className="flex flex-col items-center space-y-1">
+                      <PlusCircle className="h-6 w-6 text-orange-500 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all" />
+                      <span className="font-bold text-[11px]">লোকাল ছবি ড্রপ করুন অথবা এখানে ক্লিক করুন</span>
+                    </div>
+                  </label>
+                </div>
+
+                {mixedUploadForm.image && (
+                  <div className="flex items-center space-x-3 p-2.5 bg-white/5 rounded-2xl border border-white/5">
+                    <img src={mixedUploadForm.image} alt="Preview" className="h-14 w-14 object-cover rounded-xl border border-white/10" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider block">ইমেজ প্রিভিউ সফল</span>
+                      <span className="text-[9px] opacity-40 block truncate">{mixedUploadForm.image}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMixedUploadForm(prev => ({ ...prev, image: '' }))}
+                      className="text-[10px] px-2 py-1 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 rounded-lg transition-all"
+                    >
+                      মুছুন
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            <div className="p-4 bg-[#120e0c] border-t border-[#322822] flex justify-end space-x-2">
+              <button 
+                type="button"
+                onClick={() => setShowMixedUploadModal(false)}
+                className="px-4 py-2 border border-white/10 hover:border-white/20 text-xs font-bold rounded-xl transition-all"
+              >
+                বাতিল করুন (Cancel)
+              </button>
+              <button 
+                type="submit"
+                className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-black transition-all shadow-lg shadow-orange-500/25"
+              >
+                সিঙ্গেল প্রোডাক্ট আপলোড করুন (Upload Product)
+              </button>
+            </div>
+
+          </form>
+        </div>
+      )}
+
+      {/* ==========================================================
+          CUSTOM DELETE CONFIRMATION MODAL
+          ========================================================== */}
+      {productToDelete && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-[#1a1614] border border-[#322822] text-[#f6f3ed] w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl p-6 space-y-4">
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 bg-rose-500/10 rounded-full flex items-center justify-center text-rose-500">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <h4 className="font-extrabold text-sm uppercase">প্রোডাক্ট ডিলিট করুন</h4>
+              <p className="text-xs opacity-75 leading-relaxed">
+                আপনি কি নিশ্চিতভাবেই <span className="text-rose-400 font-bold">"{productToDelete.name}"</span> প্রোডাক্টটি ডিলিট করতে চান?
+              </p>
+              <p className="text-[10px] opacity-45">
+                এই প্রোডাক্টটি ডিলিট করলে এটি ড্যাশবোর্ড এবং কাস্টমার সাইট থেকে চিরতরে মুছে যাবে।
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => setProductToDelete(null)}
+                className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-xs font-bold rounded-xl transition-all border border-white/5"
+              >
+                বাতিল করুন (Cancel)
+              </button>
+              <button 
+                type="button"
+                onClick={handleConfirmDeleteProduct}
+                className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black rounded-xl transition-all shadow-lg shadow-rose-500/20"
+              >
+                হ্যাঁ, ডিলিট করুন
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,1 +1,72 @@
 @import "tailwindcss";
+
+:root {
+  --primary-color: #26af5f;   /* সুন্দর ও ফ্রেশ কচুপাতার কালার (Deep Leaf Green) */
+  --secondary-color: #111111; /* লোগোর বোল্ড ব্ল্যাক কালার (হেডার ব্যাকগ্রাউন্ড, টেক্সট এবং মূল বাটনের জন্য) */
+  --accent-color: #ff4757;    /* অফার বা আকর্ষণের জন্য সামান্য লালচে ছোঁয়া */
+  --bg-light: #fcfbfa;        /* ওয়েবসাইটের মেইন অফ-হোয়াইট ব্যাকগ্রাউন্ড */
+  --text-dark: #111111;       /* পড়ার সুবিধার জন্য স্পষ্ট গাঢ় কালো টেক্সট কালার */
+  --text-muted: #57606f;      /* হালকা বর্ণনার জন্য গাঢ় গ্রে কালার */
+}
+
+@theme {
+  --color-brand-yellow: #26af5f;
+  --color-brand-black: #111111;
+  --color-brand-red: #ff4757;
+  --color-brand-light: #fcfbfa;
+  --color-brand-dark: #111111;
+  
+  /* Map Tailwind teal-500 to our primary leaf green so all existing buttons, icons, and highlights get green color */
+  --color-teal-500: #26af5f;
+  --color-teal-600: #1e924d;
+  --color-teal-700: #17753b;
+  --color-teal-500\/10: rgba(38, 175, 95, 0.1);
+  --color-teal-500\/5: rgba(38, 175, 95, 0.05);
+  --color-teal-500\/15: rgba(38, 175, 95, 0.15);
+}
+
+/* Ensure text on white backgrounds is extremely readable and high contrast */
+body {
+  background-color: var(--bg-light) !important;
+  color: var(--text-dark) !important;
+}
+
+/* সাদার ওপর কোনো হলুদ লেখা থাকবে না। সমস্ত লেখা বা টেক্সট গাঢ় কালো বা ডার্ক গ্রে রঙে ফিরে যাবে */
+p, span, h1, h2, h3, h4, h5, h6, label {
+  text-rendering: optimizeLegibility;
+}
+
+/* সাদার ওপর text-teal-500 এবং text-teal-600 কে আরও স্পষ্ট ও গাঢ় কচুপাতা কালার দেওয়া হলো যেন সহজে পড়া যায় */
+.text-teal-500:not(header *):not(.dark *):not(.bg-neutral-900 *):not(.bg-[#120e0c] *) {
+  color: #1e924d !important;
+}
+
+.text-teal-600:not(header *):not(.dark *):not(.bg-neutral-900 *):not(.bg-[#120e0c] *) {
+  color: #17753b !important;
+}
+
+/* Custom layout-preserving brand utility overrides */
+.brand-header {
+  background-color: var(--secondary-color) !important;
+  border-bottom: 3px solid var(--primary-color) !important;
+  color: #ffffff !important;
+}
+
+.brand-offer-banner {
+  background-color: var(--primary-color) !important;
+  color: #ffffff !important; /* কচুপাতা অফার ব্যানারের ভেতরের লেখা স্পষ্ট সাদা */
+  font-weight: bold;
+}
+
+.btn-brand-primary {
+  background-color: var(--secondary-color) !important;
+  color: white !important;
+  border: 2px solid var(--primary-color) !important;
+  transition: all 0.3s ease;
+}
+
+.btn-brand-primary:hover {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  font-weight: bold;
+}

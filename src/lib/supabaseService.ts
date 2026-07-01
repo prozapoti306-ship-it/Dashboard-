@@ -6,6 +6,43 @@ const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 'sb_p
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const safeParseArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      } catch (e) {
+        console.warn("Failed to parse JSON array:", trimmed, e);
+      }
+    }
+    return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+};
+
+const safeParseObject = (val: any): { [key: string]: number } => {
+  if (!val) return {};
+  if (typeof val === 'object' && !Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return {};
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (e) {
+      console.warn("Failed to parse JSON object:", trimmed, e);
+    }
+  }
+  return {};
+};
+
 // ==========================================
 // MAPPERS FOR PRODUCTS
 // ==========================================
@@ -36,35 +73,37 @@ export const mapProductToDb = (p: Product) => ({
   delivery_cost: p.deliveryCost || 0,
   discount: p.discount || 0,
   marketing_cost: p.marketingCost || 0,
+  video_url: p.videoUrl || '',
 });
 
 export const mapProductFromDb = (db: any): Product => ({
   id: db.id,
   name: db.name,
-  description: db.description,
+  description: db.description || '',
   price: Number(db.price),
   originalPrice: Number(db.original_price),
   stock: Number(db.stock),
-  category: db.category,
-  salesCount: Number(db.sales_count),
-  rating: Number(db.rating),
-  image: db.image,
-  sizes: typeof db.sizes === 'string' ? JSON.parse(db.sizes) : (db.sizes || []),
-  colors: typeof db.colors === 'string' ? JSON.parse(db.colors) : (db.colors || []),
-  fabric: db.fabric,
-  collection: db.collection,
-  sku: db.sku,
-  isNewArrival: db.is_new_arrival,
-  isBestSeller: db.is_best_seller,
-  isLimitedEdition: db.is_limited_edition,
-  sizeStock: typeof db.size_stock === 'string' ? JSON.parse(db.size_stock) : (db.size_stock || {}),
-  colorStock: typeof db.color_stock === 'string' ? JSON.parse(db.color_stock) : (db.color_stock || {}),
-  season: db.season,
-  brand: db.brand,
-  productCost: Number(db.product_cost),
-  deliveryCost: Number(db.delivery_cost),
-  discount: Number(db.discount),
-  marketingCost: Number(db.marketing_cost),
+  category: db.category || '',
+  salesCount: Number(db.sales_count || 0),
+  rating: Number(db.rating || 0),
+  image: db.image || '',
+  sizes: safeParseArray(db.sizes),
+  colors: safeParseArray(db.colors),
+  fabric: db.fabric || '',
+  collection: db.collection || '',
+  sku: db.sku || '',
+  isNewArrival: db.is_new_arrival || false,
+  isBestSeller: db.is_best_seller || false,
+  isLimitedEdition: db.is_limited_edition || false,
+  sizeStock: safeParseObject(db.size_stock),
+  colorStock: safeParseObject(db.color_stock),
+  season: db.season || '',
+  brand: db.brand || '',
+  productCost: Number(db.product_cost || 0),
+  deliveryCost: Number(db.delivery_cost || 0),
+  discount: Number(db.discount || 0),
+  marketingCost: Number(db.marketing_cost || 0),
+  videoUrl: db.video_url || '',
 });
 
 // ==========================================
@@ -107,12 +146,12 @@ export const mapOrderFromDb = (db: any): Order => ({
 // ==========================================
 export const mapCustomerToDb = (c: Customer) => ({
   id: c.id,
-  name: c.name,
-  email: c.email || '',
+  name: c.name || 'Unknown',
+  email: c.email && c.email.trim() ? c.email.trim() : null,
   phone: c.phone || '',
   address: c.address || '',
   avatar: c.avatar || '',
-  join_date: c.joinDate,
+  join_date: c.joinDate || new Date().toISOString().split('T')[0],
   total_spending: c.totalSpending || 0,
   orders_count: c.ordersCount || 0,
   segment: c.segment || 'New',
@@ -138,33 +177,33 @@ export const mapCustomerToDb = (c: Customer) => ({
 
 export const mapCustomerFromDb = (db: any): Customer => ({
   id: db.id,
-  name: db.name,
-  email: db.email,
-  phone: db.phone,
-  address: db.address,
-  avatar: db.avatar,
-  joinDate: db.join_date,
-  totalSpending: Number(db.total_spending),
-  ordersCount: Number(db.orders_count),
-  segment: db.segment as any,
+  name: db.name || 'Unknown',
+  email: db.email || '',
+  phone: db.phone || '',
+  address: db.address || '',
+  avatar: db.avatar || '',
+  joinDate: db.join_date || '',
+  totalSpending: Number(db.total_spending || 0),
+  ordersCount: Number(db.orders_count || 0),
+  segment: (db.segment || 'New') as any,
   activityTimeline: typeof db.activity_timeline === 'string' ? JSON.parse(db.activity_timeline) : (db.activity_timeline || []),
-  gender: db.gender as any,
-  birthday: db.birthday,
-  preferredSize: db.preferred_size,
-  favoriteColor: db.favorite_color,
-  favoriteCategory: db.favorite_category,
-  lastPurchaseDate: db.last_purchase_date,
-  averageOrderValue: Number(db.average_order_value),
+  gender: (db.gender || 'Unisex') as any,
+  birthday: db.birthday || '',
+  preferredSize: db.preferred_size || '',
+  favoriteColor: db.favorite_color || '',
+  favoriteCategory: db.favorite_category || '',
+  lastPurchaseDate: db.last_purchase_date || '',
+  averageOrderValue: Number(db.average_order_value || 0),
   marketingTags: typeof db.marketing_tags === 'string' ? JSON.parse(db.marketing_tags) : (db.marketing_tags || []),
-  shirtSize: db.shirt_size,
-  pantSize: db.pant_size,
-  shoeSize: db.shoe_size,
+  shirtSize: db.shirt_size || '',
+  pantSize: db.pant_size || '',
+  shoeSize: db.shoe_size || '',
   sizeHistory: typeof db.size_history === 'string' ? JSON.parse(db.size_history) : (db.size_history || []),
-  customerValueScore: Number(db.customer_value_score),
-  buyingPatternAnalysis: db.buying_pattern_analysis,
-  nextPurchasePrediction: db.next_purchase_prediction,
-  membershipTier: db.membership_tier as any,
-  rewardPoints: Number(db.reward_points),
+  customerValueScore: Number(db.customer_value_score || 0),
+  buyingPatternAnalysis: db.buying_pattern_analysis || '',
+  nextPurchasePrediction: db.next_purchase_prediction || '',
+  membershipTier: (db.membership_tier || 'Bronze') as any,
+  rewardPoints: Number(db.reward_points || 0),
 });
 
 // ==========================================
@@ -172,20 +211,20 @@ export const mapCustomerFromDb = (db: any): Customer => ({
 // ==========================================
 export const mapNotificationToDb = (n: Notification) => ({
   id: n.id,
-  title: n.title,
-  message: n.message,
-  type: n.type,
-  timestamp: n.timestamp,
-  read: n.read,
+  title: n.title || 'Notification',
+  message: n.message || '',
+  type: n.type || 'info',
+  timestamp: n.timestamp || new Date().toISOString(),
+  read: typeof n.read === 'boolean' ? n.read : false,
 });
 
 export const mapNotificationFromDb = (db: any): Notification => ({
   id: db.id,
-  title: db.title,
-  message: db.message,
-  type: db.type as any,
-  timestamp: db.timestamp,
-  read: db.read,
+  title: db.title || '',
+  message: db.message || '',
+  type: (db.type || 'info') as any,
+  timestamp: db.timestamp || '',
+  read: typeof db.read === 'boolean' ? db.read : false,
 });
 
 // ==========================================

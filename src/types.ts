@@ -25,6 +25,7 @@ export interface Product {
   deliveryCost?: number;
   discount?: number;
   marketingCost?: number;
+  videoUrl?: string;
 }
 
 export interface OrderItem {
@@ -56,6 +57,7 @@ export interface Order {
   paymentStatus: 'Paid' | 'Pending' | 'Refunded';
   timeline: OrderTimeline[];
   internalNotes?: string;
+  transactionId?: string;
 }
 
 export type CustomerSegment = 'VIP' | 'Regular' | 'New' | 'Inactive';
