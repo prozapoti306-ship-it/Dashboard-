@@ -19,6 +19,8 @@ import {
 import Sidebar from './components/Sidebar';
 import CustomerStorefront from './components/CustomerStorefront';
 import LoginPage from './components/LoginPage';
+// @ts-ignore
+import trendZoneLogo from './assets/images/trend_zone_logo_1782968033190.jpg';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -65,7 +67,9 @@ import {
   Undo2,
   HelpCircle,
   PlusSquare,
-  PlusCircle
+  PlusCircle,
+  Upload,
+  RotateCcw
 } from 'lucide-react';
 import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb, mapProductToDb } from './lib/supabaseService';
 
@@ -298,7 +302,7 @@ export default function App() {
     image: '',
     sizes: '1-2 Years, 3-4 Years, 5-6 Years, 7-8 Years, 9-10 Years, 11-12 Years, 13-14 Years',
     fabric: '100% Cotton (GSM 160-170)',
-    brand: 'Cottoon Baby',
+    brand: 'Trend Zone Baby',
     stock: '50'
   });
 
@@ -1155,7 +1159,7 @@ export default function App() {
         sku: `BB-BULK-${Date.now()}-${idx}`,
         collection: "New Arrival",
         season: bulkUploadForm.categoryBannerUrl || "Summer", // Save banner URL in season
-        brand: "Cottoon Baby",
+        brand: "Trend Zone Baby",
         productCost: Math.round(Number(bulkUploadForm.salePrice) * 0.4),
         deliveryCost: 60,
         discount: calculatedDiscount,
@@ -1290,7 +1294,7 @@ export default function App() {
       image: '',
       sizes: '1-2 Years, 3-4 Years, 5-6 Years, 7-8 Years, 9-10 Years, 11-12 Years, 13-14 Years',
       fabric: '100% Cotton (GSM 160-170)',
-      brand: 'Cottoon Baby',
+      brand: 'Trend Zone Baby',
       stock: '50'
     });
     setShowMixedUploadModal(false);
@@ -1916,6 +1920,7 @@ export default function App() {
         supabaseService={supabaseService}
         onGoToLogin={() => setView('login')}
         themeMode={settings.themeMode}
+        settings={settings}
       />
     );
   }
@@ -6055,6 +6060,65 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                           onChange={(e) => setSettings(prev => ({ ...prev, tagline: e.target.value }))}
                           className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
                         />
+                      </div>
+
+                      {/* Brand Logo Upload & Custom Selection (Functional & Dynamic) */}
+                      <div className="pt-3 border-t border-inherit">
+                        <label className="block text-[10px] font-bold opacity-75 mb-2">ব্র্যান্ড লোগো সেটিংস (Store Brand Logo)</label>
+                        <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-3xl bg-neutral-100 dark:bg-white/5 border border-dashed border-inherit">
+                          {/* Logo Preview with premium drop-shadow as requested */}
+                          <div className="relative flex items-center justify-center h-20 w-20 rounded-full bg-black/40 border border-[#d4af37]/40 shrink-0 p-1 overflow-hidden group">
+                            <img 
+                              src={settings.brandLogo || trendZoneLogo} 
+                              alt="Brand Logo" 
+                              className="h-full w-full object-contain rounded-full transition-transform duration-300 group-hover:scale-110"
+                              style={{ filter: 'drop-shadow(0px 0px 8px rgba(212, 175, 55, 0.7))' }}
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+
+                          <div className="flex-1 w-full space-y-2">
+                            <div className="flex flex-wrap gap-2">
+                              {/* Standard Upload File Trigger */}
+                              <label className="cursor-pointer flex items-center space-x-1.5 px-3 py-1.5 bg-[#e07a5f] hover:bg-[#e07a5f]/90 text-white rounded-lg text-[10px] font-bold transition-all shadow-sm">
+                                <Upload className="h-3.5 w-3.5" />
+                                <span>লোগো আপলোড (Upload Logo)</span>
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  className="hidden" 
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onload = (event) => {
+                                        if (event.target?.result) {
+                                          setSettings(prev => ({ ...prev, brandLogo: event.target!.result as string }));
+                                        }
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                />
+                              </label>
+
+                              {/* Reset to Default button */}
+                              {settings.brandLogo && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSettings(prev => ({ ...prev, brandLogo: "" }))}
+                                  className="flex items-center space-x-1 px-3 py-1.5 bg-neutral-300 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg text-[10px] font-bold transition-all hover:bg-neutral-400 dark:hover:bg-neutral-700"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                  <span>ডিফল্ট রিস্টোর (Reset)</span>
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-[9px] opacity-60 leading-tight">
+                              সোনালী কয়েন লোগো বা যেকোনো কাস্টম ট্রান্সপারেন্ট লোগো আপলোড করতে পারেন। এটি লাইভ স্টোরফ্রন্ট ও এডমিন ড্যাশবোর্ডে সাথে সাথে আপডেট হবে এবং ডেটাবেজে সংরক্ষিত থাকবে।
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -21,6 +21,8 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { SystemSettings } from '../types';
+// @ts-ignore
+import trendZoneLogo from '../assets/images/trend_zone_logo_1782968033190.jpg';
 
 interface SidebarProps {
   activeTab: string;
@@ -85,9 +87,14 @@ export default function Sidebar({
       <div className="flex flex-col h-[calc(100vh-210px)]">
         <div className="p-5 flex items-center justify-between border-b border-inherit flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-orange-500 shadow-lg shadow-orange-500/20">
-              <Sparkles className="h-5 w-5 text-white animate-pulse" />
-              <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 opacity-20 blur animate-ping" />
+            <div className="relative flex h-9 w-9 items-center justify-center shrink-0">
+              <img 
+                src={settings.brandLogo || trendZoneLogo} 
+                alt={`${settings.brandName} Logo`} 
+                className="h-9 w-9 object-contain rounded-full transition-transform duration-300 hover:scale-105"
+                style={{ filter: 'drop-shadow(0px 0px 4px rgba(212, 175, 55, 0.6))' }}
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <span className="font-sans font-bold tracking-tight text-md block">{settings.brandName}</span>

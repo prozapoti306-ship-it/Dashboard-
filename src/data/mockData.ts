@@ -549,5 +549,6 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   eyeProtectionEnabled: false,
   blueLightFilterLevel: 0, 
   themeMode: "light", // Elegant default light mode for premium SaaS
-  brandName: "AURA LUX"
+  brandName: "TREND ZONE",
+  brandLogo: ""
 };

@@ -98,7 +98,8 @@ CREATE TABLE IF NOT EXISTS system_settings (
   eye_protection_enabled BOOLEAN,
   blue_light_filter_level INT,
   theme_mode TEXT,
-  brand_name TEXT
+  brand_name TEXT,
+  brand_logo TEXT
 );
 
 -- ৬. Collections Data

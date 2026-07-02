@@ -127,4 +127,5 @@ export interface SystemSettings {
   blueLightFilterLevel: number; // 0 to 100
   themeMode: 'light' | 'dark';
   brandName: string;
+  brandLogo?: string;
 }

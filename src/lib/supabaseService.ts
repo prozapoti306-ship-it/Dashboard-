@@ -1,8 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
 import { Product, Order, Customer, Notification, SystemSettings } from '../types';
 
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || 'https://ytwgoolesgnkegeykpup.supabase.co';
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9Xwy1UomtTTsk-hogHBCaw_7_0Z4FyS';
+declare global {
+  interface ImportMetaEnv {
+    VITE_SUPABASE_URL?: string;
+    VITE_SUPABASE_ANON_KEY?: string;
+  }
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+}
+
+const rawUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ytwgoolesgnkegeykpup.supabase.co';
+const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9Xwy1UomtTTsk-hogHBCaw_7_0Z4FyS';
+
+// Self-healing sanitization for user-provided Supabase URL and Key
+let sanitizedUrl = rawUrl.trim();
+if (sanitizedUrl.endsWith('/rest/v1/')) {
+  sanitizedUrl = sanitizedUrl.substring(0, sanitizedUrl.length - 9);
+} else if (sanitizedUrl.endsWith('/rest/v1')) {
+  sanitizedUrl = sanitizedUrl.substring(0, sanitizedUrl.length - 8);
+}
+if (sanitizedUrl.endsWith('/')) {
+  sanitizedUrl = sanitizedUrl.substring(0, sanitizedUrl.length - 1);
+}
+
+const supabaseUrl = sanitizedUrl;
+const supabaseAnonKey = rawKey.trim();
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -239,6 +263,7 @@ export const mapSettingsToDb = (s: SystemSettings) => ({
   blue_light_filter_level: s.blueLightFilterLevel,
   theme_mode: s.themeMode,
   brand_name: s.brandName,
+  brand_logo: s.brandLogo,
 });
 
 export const mapSettingsFromDb = (db: any): SystemSettings => ({
@@ -248,7 +273,8 @@ export const mapSettingsFromDb = (db: any): SystemSettings => ({
   eyeProtectionEnabled: db.eye_protection_enabled || false,
   blueLightFilterLevel: Number(db.blue_light_filter_level) || 50,
   themeMode: (db.theme_mode as any) || 'dark',
-  brandName: db.brand_name || 'AURA LUX',
+  brandName: db.brand_name || 'TREND ZONE',
+  brandLogo: db.brand_logo || '',
 });
 
 // ==========================================
@@ -455,19 +481,45 @@ export const supabaseService = {
     try {
       const { data, error } = await supabase.from('system_settings').select('*').eq('id', 'global').maybeSingle();
       if (error) throw error;
-      if (!data) return fallback;
-      return mapSettingsFromDb(data);
+      
+      const localLogo = localStorage.getItem('trend_zone_brand_logo') || '';
+      if (!data) {
+        return { ...fallback, brandLogo: localLogo || fallback.brandLogo };
+      }
+      
+      const mapped = mapSettingsFromDb(data);
+      if (!mapped.brandLogo && localLogo) {
+        mapped.brandLogo = localLogo;
+      }
+      return mapped;
     } catch (e) {
       console.warn('Supabase getSettings failed, using local fallback:', e);
-      return fallback;
+      const localLogo = localStorage.getItem('trend_zone_brand_logo') || '';
+      return { ...fallback, brandLogo: localLogo || fallback.brandLogo };
     }
   },
 
   async upsertSettings(s: SystemSettings): Promise<boolean> {
     try {
+      // Save logo to local storage first as a quick local fallback
+      if (s.brandLogo !== undefined) {
+        localStorage.setItem('trend_zone_brand_logo', s.brandLogo);
+      }
+      
       const mapped = mapSettingsToDb(s);
       const { error } = await supabase.from('system_settings').upsert(mapped);
-      if (error) throw error;
+      
+      if (error) {
+        // If the error suggests that the brand_logo column doesn't exist yet, retry without it
+        if (error.message?.includes('brand_logo') || error.message?.includes('column')) {
+          console.warn('Supabase system_settings might not have brand_logo column yet, retrying without brand_logo...');
+          const { brand_logo, ...restMapped } = mapped as any;
+          const { error: retryError } = await supabase.from('system_settings').upsert(restMapped);
+          if (retryError) throw retryError;
+          return true;
+        }
+        throw error;
+      }
       return true;
     } catch (e) {
       console.error('Supabase upsertSettings failed:', e);

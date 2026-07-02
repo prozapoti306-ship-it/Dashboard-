@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+// @ts-ignore
+import trendZoneLogo from '../assets/images/trend_zone_logo_1782968033190.jpg';
 import { 
   ShoppingBag, 
   Phone, 
@@ -37,7 +39,7 @@ import {
   Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Product, Order, Notification, Customer, CustomerActivity, CustomerSegment } from '../types';
+import { Product, Order, Notification, Customer, CustomerActivity, CustomerSegment, SystemSettings } from '../types';
 import { formatCurrency } from '../App';
 
 interface CustomerStorefrontProps {
@@ -48,6 +50,7 @@ interface CustomerStorefrontProps {
   supabaseService: any;
   onGoToLogin: () => void;
   themeMode: 'light' | 'dark';
+  settings?: SystemSettings;
 }
 
 // 6 Premium curated sports jerseys for the instant storefront
@@ -176,7 +179,7 @@ const DEFAULT_JERSEYS = [
     sku: "BB-SUM-TT-C1",
     isBestSeller: true,
     isNewArrival: true,
-    brand: "Cottoon Baby"
+    brand: "Trend Zone Baby"
   },
   {
     id: "KIDS-COMBO-02",
@@ -194,7 +197,7 @@ const DEFAULT_JERSEYS = [
     sku: "BB-SUM-TT-C2",
     isBestSeller: false,
     isNewArrival: true,
-    brand: "Cottoon Baby"
+    brand: "Trend Zone Baby"
   },
   {
     id: "KIDS-COMBO-03",
@@ -212,7 +215,7 @@ const DEFAULT_JERSEYS = [
     sku: "BB-SUM-TT-C3",
     isBestSeller: true,
     isNewArrival: false,
-    brand: "Cottoon Baby"
+    brand: "Trend Zone Baby"
   },
   {
     id: "KIDS-COMBO-04",
@@ -230,7 +233,7 @@ const DEFAULT_JERSEYS = [
     sku: "BB-SUM-TT-C4",
     isBestSeller: true,
     isNewArrival: true,
-    brand: "Cottoon Baby"
+    brand: "Trend Zone Baby"
   },
   {
     id: "KIDS-COMBO-05",
@@ -248,7 +251,7 @@ const DEFAULT_JERSEYS = [
     sku: "BB-SUM-TT-C5",
     isBestSeller: false,
     isNewArrival: true,
-    brand: "Cottoon Baby"
+    brand: "Trend Zone Baby"
   }
 ];
 
@@ -333,7 +336,8 @@ export default function CustomerStorefront({
   setNotifications,
   supabaseService,
   onGoToLogin,
-  themeMode
+  themeMode,
+  settings
 }: CustomerStorefrontProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [cartProduct, setCartProduct] = useState<any | null>(null);
@@ -917,18 +921,15 @@ export default function CustomerStorefront({
             <div className="flex items-center space-x-3 logo-container shrink-0">
               <a href="/" className="flex items-center space-x-3">
                 <img 
-                  src="1000044153.png" 
-                  alt="COTTOON.COM" 
-                  className="h-[46px] w-[46px] rounded-full object-cover border border-white/80 shadow-md ring-2 ring-[#26af5f]/40 shrink-0"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const fallbackLogo = document.getElementById('fallback-logo-text');
-                    if (fallbackLogo) fallbackLogo.style.display = 'block';
-                  }}
+                  src={settings?.brandLogo || trendZoneLogo} 
+                  alt={`${settings?.brandName || 'Trend Zone'} Logo`} 
+                  referrerPolicy="no-referrer"
+                  className="h-[64px] w-[64px] sm:h-[68px] sm:w-[68px] object-contain shrink-0 transition-transform duration-300 hover:scale-105"
+                  style={{ filter: 'drop-shadow(0px 0px 10px rgba(212, 175, 55, 0.8))' }}
                 />
-                <div id="fallback-logo-text" className="hidden">
-                  <span className="text-sm font-black tracking-widest uppercase block text-[#26af5f] font-mono">COTTOON.COM</span>
-                  <span className="text-[10px] tracking-widest font-extrabold uppercase opacity-60 text-white">Premium Sportswear</span>
+                <div id="fallback-logo-text" className="block leading-tight">
+                  <span className="text-base sm:text-lg font-black tracking-widest uppercase block text-[#d4af37] font-sans">{settings?.brandName || "TREND ZONE"}</span>
+                  <span className="text-[10px] sm:text-[11px] tracking-widest font-extrabold uppercase text-[#f6f3ed]/80 block font-mono">TREND ZONE.com</span>
                 </div>
               </a>
             </div>
