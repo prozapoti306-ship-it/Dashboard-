@@ -2647,6 +2647,21 @@ export default function CustomerStorefront({
                             onMouseEnter={() => setHoveredRating(star)}
                             onMouseLeave={() => setHoveredRating(0)}
                             onClick={() => {
+                              const currentRating = submittedReviews[viewingProduct.id] || 0;
+                              if (star < currentRating) {
+                                setNotifications(prev => [
+                                  {
+                                    id: `NOTIF-REV-WARN-${Date.now()}`,
+                                    title: 'রেটিং কমানো যাবে না!',
+                                    message: `আপনার পূর্বের রেটিং ছিল ${currentRating} স্টার। রেটিং শুধুমাত্র বাড়ানো সম্ভব!`,
+                                    timestamp: new Date().toISOString(),
+                                    type: 'warning',
+                                    read: false
+                                  },
+                                  ...prev
+                                ]);
+                                return;
+                              }
                               const newReviews = { ...submittedReviews, [viewingProduct.id]: star };
                               setSubmittedReviews(newReviews);
                               localStorage.setItem('cottoon_user_reviews', JSON.stringify(newReviews));
