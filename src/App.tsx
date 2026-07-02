@@ -69,7 +69,8 @@ import {
   PlusSquare,
   PlusCircle,
   Upload,
-  RotateCcw
+  RotateCcw,
+  AlertCircle
 } from 'lucide-react';
 import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb, mapProductToDb } from './lib/supabaseService';
 
@@ -222,6 +223,7 @@ export default function App() {
 
   const [isSeeding, setIsSeeding] = useState(false);
   const [seedingLogs, setSeedingLogs] = useState<string[]>([]);
+  const [settingsSaveStatus, setSettingsSaveStatus] = useState<{ success: boolean; missingColumns?: boolean; error?: string } | null>(null);
 
 
   // --- Filtering & Search ---
@@ -6152,25 +6154,93 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                       </div>
 
                       {/* Brand Settings Save Button under the Logo upload box as requested */}
-                      <div className="pt-3 border-t border-inherit flex justify-end">
+                      <div className="pt-3 border-t border-inherit space-y-3">
                         <button
                           type="button"
-                          onClick={() => {
-                            supabaseService.upsertSettings(settings);
-                            const newNotif = {
-                              id: `notif-${Date.now()}`,
-                              title: `ব্র্যান্ড সেটিংস সফলভাবে সংরক্ষিত`,
-                              message: `আপনার ব্র্যান্ড নাম "${settings.brandName || ''}" এবং কাস্টম লোগোটি ডাটাবেজে লক করা হয়েছে।`,
-                              timestamp: new Date().toISOString(),
-                              read: false
-                            };
-                            setNotifications(prev => [newNotif, ...prev]);
+                          onClick={async () => {
+                            setSettingsSaveStatus(null);
+                            const res = await supabaseService.upsertSettings(settings);
+                            setSettingsSaveStatus(res);
+                            
+                            if (res.success && !res.missingColumns) {
+                              const newNotif = {
+                                id: `notif-${Date.now()}`,
+                                title: `ব্র্যান্ড সেটিংস সফলভাবে সংরক্ষিত`,
+                                message: `আপনার ব্র্যান্ড নাম "${settings.brandName || ''}" এবং কাস্টম লোগোটি গ্লোবাল সুপাবেজ ক্লাউড ডাটাবেজে লক করা হয়েছে।`,
+                                timestamp: new Date().toISOString(),
+                                read: false
+                              };
+                              setNotifications(prev => [newNotif, ...prev]);
+                            } else if (res.missingColumns) {
+                              const newNotif = {
+                                id: `notif-${Date.now()}`,
+                                title: `⚠️ কলাম missing! সুপাবেজে SQL রান করতে হবে`,
+                                message: `আপনার সুপাবেজ টেবিলে brand_logo এবং tagline কলাম যোগ করতে হবে। নিচে দেওয়া SQL রান করুন।`,
+                                timestamp: new Date().toISOString(),
+                                read: false
+                              };
+                              setNotifications(prev => [newNotif, ...prev]);
+                            }
                           }}
                           className="w-full px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] shadow-md shadow-emerald-500/15 transition-all flex items-center justify-center space-x-2"
                         >
                           <CheckCircle2 className="h-4 w-4" />
                           <span>পরিবর্তন সংরক্ষণ করুন (Save Changes)</span>
                         </button>
+
+                        {/* Detailed status feedback with copyable ALTER TABLE code snippet to solve the live site issue */}
+                        {settingsSaveStatus && (
+                          <div className={`p-3.5 rounded-2xl border text-xs leading-normal transition-all duration-300
+                            ${settingsSaveStatus.success && !settingsSaveStatus.missingColumns
+                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+                            }`}
+                          >
+                            {settingsSaveStatus.success && !settingsSaveStatus.missingColumns ? (
+                              <div className="space-y-1">
+                                <p className="font-extrabold flex items-center space-x-1.5 text-[11px] uppercase">
+                                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                  <span>গ্লোবাল ক্লাউড ডেটাবেজে সফলভাবে সংরক্ষিত!</span>
+                                </p>
+                                <p className="text-[10px] opacity-80">
+                                  আপনার ব্র্যান্ড সেটিংস সরাসরি ক্লাউড ডাটাবেজে সিঙ্ক হয়েছে। ভার্সেলের লাইভ সাইটসহ পৃথিবীর যেকোনো প্রান্ত থেকে এটি এখন দেখা যাবে।
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <p className="font-extrabold flex items-center space-x-1.5 text-[11px] uppercase text-rose-500 dark:text-amber-400">
+                                  <AlertCircle className="h-4 w-4 shrink-0 animate-pulse" />
+                                  <span>⚠️ সুপাবেজ ডেটাবেজে কলাম যুক্ত করা প্রয়োজন!</span>
+                                </p>
+                                <p className="text-[10px] leading-relaxed">
+                                  আপনার সুপাবেজের <strong>system_settings</strong> টেবিলে <code>brand_logo</code> এবং <code>tagline</code> কলাম দুটি নেই। এর কারণে পরিবর্তনটি শুধু আপনার ব্রাউজারের LocalStorage-এ দেখা যাচ্ছে, কিন্তু লাইভ সাইটে (ভার্সেলে) আপডেট হচ্ছে না।
+                                </p>
+                                <div className="p-2.5 bg-black rounded-xl border border-neutral-800 space-y-1">
+                                  <p className="text-[9px] text-gray-400 uppercase font-bold">নিচের SQL কোডটি কপি করে Supabase SQL Editor-এ রান করুন:</p>
+                                  <pre className="text-[9px] font-mono text-emerald-400 whitespace-pre overflow-x-auto p-1 bg-neutral-950/50 rounded-lg">
+{`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;
+ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;`}
+                                  </pre>
+                                  <div className="flex justify-end pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;\nALTER TABLE system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;`);
+                                        alert('SQL কোড ক্লিপবোর্ডে কপি হয়েছে!');
+                                      }}
+                                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-[9px] transition-colors"
+                                    >
+                                      কোড কপি করুন
+                                    </button>
+                                  </div>
+                                </div>
+                                <p className="text-[9px] opacity-75">
+                                  কোডটি সুপাবেজ SQL এডিটরে রান করার পর এই পেজটি রিফ্রেশ করে পুনরায় "Save Changes" বাটনে ক্লিক করুন।
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -6483,7 +6553,9 @@ CREATE TABLE IF NOT EXISTS system_settings (
   eye_protection_enabled BOOLEAN,
   blue_light_filter_level INT,
   theme_mode TEXT,
-  brand_name TEXT
+  brand_name TEXT,
+  brand_logo TEXT,
+  tagline TEXT
 );
 
 -- ৬. Collections Data
@@ -6521,7 +6593,7 @@ CREATE TABLE IF NOT EXISTS staff_data (
                           <button
                             type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS products ( id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price NUMERIC NOT NULL, original_price NUMERIC, stock INT NOT NULL, category TEXT, sales_count INT DEFAULT 0, rating NUMERIC DEFAULT 0, image TEXT, sizes JSONB, colors JSONB, fabric TEXT, collection TEXT, sku TEXT, is_new_arrival BOOLEAN DEFAULT false, is_best_seller BOOLEAN DEFAULT false, is_limited_edition BOOLEAN DEFAULT false, size_stock JSONB, color_stock JSONB, season TEXT, brand TEXT, product_cost NUMERIC, delivery_cost NUMERIC, discount NUMERIC DEFAULT 0, marketing_cost NUMERIC, video_url TEXT ); CREATE TABLE IF NOT EXISTS orders ( id TEXT PRIMARY KEY, customer_name TEXT NOT NULL, customer_email TEXT, customer_phone TEXT, customer_address TEXT, date TEXT, items JSONB NOT NULL, total NUMERIC NOT NULL, status TEXT NOT NULL, payment_method TEXT, payment_status TEXT, timeline JSONB, internal_notes TEXT ); CREATE TABLE IF NOT EXISTS customers ( id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, address TEXT, avatar TEXT, join_date TEXT, total_spending NUMERIC DEFAULT 0, orders_count INT DEFAULT 0, segment TEXT, activity_timeline JSONB, gender TEXT, birthday TEXT, preferred_size TEXT, favorite_color TEXT, favorite_category TEXT, last_purchase_date TEXT, average_order_value NUMERIC, marketing_tags JSONB, shirt_size TEXT, pant_size TEXT, shoe_size TEXT, size_history JSONB, customer_value_score NUMERIC, buying_pattern_analysis TEXT, next_purchase_prediction TEXT, membership_tier TEXT, reward_points INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS notifications ( id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL, timestamp TEXT NOT NULL, read BOOLEAN DEFAULT false ); CREATE TABLE IF NOT EXISTS system_settings ( id TEXT PRIMARY KEY, currency TEXT, tax_rate NUMERIC, low_stock_limit INT, eye_protection_enabled BOOLEAN, blue_light_filter_level INT, theme_mode TEXT, brand_name TEXT ); CREATE TABLE IF NOT EXISTS collections_data ( id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, status TEXT, sales NUMERIC, profit NUMERIC, items_count INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS returns_data ( id TEXT PRIMARY KEY, customer_name TEXT, phone TEXT, product_name TEXT, reason TEXT, refund_amount NUMERIC, date TEXT, status TEXT ); CREATE TABLE IF NOT EXISTS staff_data ( email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT, status TEXT, permissions TEXT );`);
+                              navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS products ( id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price NUMERIC NOT NULL, original_price NUMERIC, stock INT NOT NULL, category TEXT, sales_count INT DEFAULT 0, rating NUMERIC DEFAULT 0, image TEXT, sizes JSONB, colors JSONB, fabric TEXT, collection TEXT, sku TEXT, is_new_arrival BOOLEAN DEFAULT false, is_best_seller BOOLEAN DEFAULT false, is_limited_edition BOOLEAN DEFAULT false, size_stock JSONB, color_stock JSONB, season TEXT, brand TEXT, product_cost NUMERIC, delivery_cost NUMERIC, discount NUMERIC DEFAULT 0, marketing_cost NUMERIC, video_url TEXT ); CREATE TABLE IF NOT EXISTS orders ( id TEXT PRIMARY KEY, customer_name TEXT NOT NULL, customer_email TEXT, customer_phone TEXT, customer_address TEXT, date TEXT, items JSONB NOT NULL, total NUMERIC NOT NULL, status TEXT NOT NULL, payment_method TEXT, payment_status TEXT, timeline JSONB, internal_notes TEXT ); CREATE TABLE IF NOT EXISTS customers ( id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, address TEXT, avatar TEXT, join_date TEXT, total_spending NUMERIC DEFAULT 0, orders_count INT DEFAULT 0, segment TEXT, activity_timeline JSONB, gender TEXT, birthday TEXT, preferred_size TEXT, favorite_color TEXT, favorite_category TEXT, last_purchase_date TEXT, average_order_value NUMERIC, marketing_tags JSONB, shirt_size TEXT, pant_size TEXT, shoe_size TEXT, size_history JSONB, customer_value_score NUMERIC, buying_pattern_analysis TEXT, next_purchase_prediction TEXT, membership_tier TEXT, reward_points INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS notifications ( id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL, timestamp TEXT NOT NULL, read BOOLEAN DEFAULT false ); CREATE TABLE IF NOT EXISTS system_settings ( id TEXT PRIMARY KEY, currency TEXT, tax_rate NUMERIC, low_stock_limit INT, eye_protection_enabled BOOLEAN, blue_light_filter_level INT, theme_mode TEXT, brand_name TEXT, brand_logo TEXT, tagline TEXT ); CREATE TABLE IF NOT EXISTS collections_data ( id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, status TEXT, sales NUMERIC, profit NUMERIC, items_count INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS returns_data ( id TEXT PRIMARY KEY, customer_name TEXT, phone TEXT, product_name TEXT, reason TEXT, refund_amount NUMERIC, date TEXT, status TEXT ); CREATE TABLE IF NOT EXISTS staff_data ( email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT, status TEXT, permissions TEXT );`);
                               alert('SQL কোড ক্লিপবোর্ডে কপি হয়েছে!');
                             }}
                             className="absolute top-2 right-2 px-2.5 py-1.5 bg-neutral-800 text-[10px] text-white hover:bg-neutral-700 rounded-lg transition-colors border border-neutral-700 font-sans"

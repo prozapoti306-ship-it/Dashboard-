@@ -512,7 +512,7 @@ export const supabaseService = {
     }
   },
 
-  async upsertSettings(s: SystemSettings): Promise<boolean> {
+  async upsertSettings(s: SystemSettings): Promise<{ success: boolean; error?: string; missingColumns?: boolean }> {
     try {
       // Save logo to local storage first as a quick local fallback
       if (s.brandLogo !== undefined) {
@@ -533,15 +533,17 @@ export const supabaseService = {
           console.warn('Supabase system_settings might be missing columns, retrying without newer columns...');
           const { brand_logo, tagline, ...restMapped } = mapped as any;
           const { error: retryError } = await supabase.from('system_settings').upsert(restMapped);
-          if (retryError) throw retryError;
-          return true;
+          if (retryError) {
+            return { success: false, error: retryError.message };
+          }
+          return { success: true, missingColumns: true };
         }
-        throw error;
+        return { success: false, error: error.message };
       }
-      return true;
-    } catch (e) {
+      return { success: true };
+    } catch (e: any) {
       console.error('Supabase upsertSettings failed:', e);
-      return false;
+      return { success: false, error: e.message || String(e) };
     }
   },
 

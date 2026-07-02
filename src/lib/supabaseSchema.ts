@@ -99,7 +99,8 @@ CREATE TABLE IF NOT EXISTS system_settings (
   blue_light_filter_level INT,
   theme_mode TEXT,
   brand_name TEXT,
-  brand_logo TEXT
+  brand_logo TEXT,
+  tagline TEXT
 );
 
 -- ৬. Collections Data
