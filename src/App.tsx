@@ -7305,7 +7305,7 @@ CREATE TABLE IF NOT EXISTS staff_data (
               <div className="flex justify-between items-center border-b border-[#322822]/10 pb-4">
                 <div>
                   <h2 className="text-2xl font-black tracking-tight">{settings.brandName}</h2>
-                  <p className="text-[10px] opacity-60 mt-0.5">Premium E-commerce and Wearables Store</p>
+                  <p className="text-[10px] opacity-60 mt-0.5">{settings.tagline || "Premium E-commerce and Wearables Store"}</p>
                 </div>
                 <div className="text-right">
                   <span className="font-mono text-xs font-bold block">তারিখ: {selectedOrder.date}</span>

@@ -98,7 +98,9 @@ export default function Sidebar({
             </div>
             <div>
               <span className="font-sans font-bold tracking-tight text-md block">{settings.brandName}</span>
-              <span className="text-[9px] uppercase tracking-widest opacity-60 font-mono">Premium ERP</span>
+              <span className="text-[9px] uppercase tracking-wider opacity-60 font-sans block max-w-[130px] truncate" title={settings.tagline || "Premium ERP"}>
+                {settings.tagline || "Premium ERP"}
+              </span>
             </div>
           </div>
         </div>

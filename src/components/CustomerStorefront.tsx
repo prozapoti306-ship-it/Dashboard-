@@ -916,9 +916,9 @@ export default function CustomerStorefront({
         <header className="transition-colors duration-300 brand-header"
         >
           {/* Line 1: Top Bar */}
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 md:py-0 md:h-20 flex flex-row flex-wrap md:flex-nowrap items-center justify-between gap-3 md:gap-4">
             {/* Left: Logo */}
-            <div className="flex items-center space-x-3 logo-container shrink-0">
+            <div className="flex items-center space-x-3 logo-container shrink-0 order-1">
               <a href="/" className="flex items-center space-x-3">
                 <img 
                   src={settings?.brandLogo || trendZoneLogo} 
@@ -929,13 +929,13 @@ export default function CustomerStorefront({
                 />
                 <div id="fallback-logo-text" className="block leading-tight">
                   <span className="text-base sm:text-lg font-black tracking-widest uppercase block text-[#d4af37] font-sans">{settings?.brandName || "TREND ZONE"}</span>
-                  <span className="text-[10px] sm:text-[11px] tracking-widest font-extrabold uppercase text-[#f6f3ed]/80 block font-mono">TREND ZONE.com</span>
+                  <span className="text-[10px] sm:text-[11px] tracking-wider font-bold uppercase text-[#f6f3ed]/80 block font-sans">{settings?.tagline || "TREND ZONE.com"}</span>
                 </div>
               </a>
             </div>
 
             {/* Middle: Advanced AJAX Search Box with Suggestion Pop-up */}
-            <div className="relative flex-1 max-w-lg mx-2 sm:mx-6">
+            <div className="relative w-full md:flex-1 md:max-w-lg mx-0 md:mx-6 order-3 md:order-2">
               <div className="relative">
                 <input
                   type="text"
@@ -1055,7 +1055,7 @@ export default function CustomerStorefront({
             </div>
 
             {/* Right: Actions (Hotline, Wishlist, Cart, Profile) */}
-            <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+            <div className="flex items-center space-x-2 sm:space-x-3 shrink-0 order-2 md:order-3">
               {/* Support Hotline Link */}
               <a 
                 href="tel:01792572306" 
@@ -1136,9 +1136,9 @@ export default function CustomerStorefront({
           </div>
 
           {/* Line 2: Main Menu Row */}
-          <div className="bg-[#181818]/95 border-t border-white/5 py-2.5 px-4 sm:px-6 lg:px-8 overflow-x-auto scrollbar-none">
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-              <div className="flex items-center space-x-5 sm:space-x-6 text-[10px] sm:text-[11px] font-black uppercase tracking-wider shrink-0">
+          <div className="bg-[#181818]/95 border-t border-white/5 py-2.5 px-4 sm:px-6 lg:px-8 md:overflow-x-auto md:scrollbar-none">
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+              <div className="flex flex-wrap items-center gap-3 md:gap-5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
                 {/* Home Button */}
                 <a 
                   href="#products" 
@@ -1489,12 +1489,12 @@ export default function CustomerStorefront({
           </div>
 
           {/* Filters */}
-          <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none snap-x snap-mandatory flex-nowrap pb-2 gap-2 w-full md:flex-wrap md:overflow-visible">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-2 w-full md:w-auto">
             {storefrontCategories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border shrink-0 snap-center
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border text-center w-full md:w-auto md:shrink-0
                   ${selectedCategory === cat 
                     ? 'bg-teal-500 text-white border-teal-500 shadow-md shadow-teal-500/10' 
                     : 'border-inherit hover:bg-neutral-100 dark:hover:bg-white/5 opacity-80'}`}
@@ -1813,7 +1813,7 @@ export default function CustomerStorefront({
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className={`relative w-full max-w-lg h-full flex flex-col justify-between shadow-2xl overflow-hidden text-left
+              className={`relative w-full max-w-full sm:max-w-lg h-full flex flex-col justify-between shadow-2xl overflow-hidden text-left
                 ${themeMode === 'dark' ? 'bg-[#15110f] text-[#f6f3ed]' : 'bg-white text-[#2c2621]'}`}
             >
               
@@ -1954,8 +1954,8 @@ export default function CustomerStorefront({
                 </div>
               ) : (
                 /* CHECKOUT AND LISTING FLOW */
-                <form onSubmit={handlePlaceCartOrder} className="flex-1 flex flex-col justify-between h-full">
-                  <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+                <form onSubmit={handlePlaceCartOrder} className="flex-1 flex flex-col justify-between min-h-0 overflow-y-auto md:overflow-y-visible">
+                  <div className="p-6 space-y-6 flex-none md:flex-1 overflow-y-visible md:overflow-y-auto">
                     
                     {/* Cart Items List */}
                     <div className="space-y-3">
@@ -2251,7 +2251,7 @@ export default function CustomerStorefront({
                   </div>
 
                   {/* Calculations and submit action details footer */}
-                  <div className="p-5 sm:p-6 border-t border-inherit bg-neutral-50 dark:bg-black/15 space-y-3 sticky bottom-0 z-20 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)] md:relative">
+                  <div className="p-5 sm:p-6 border-t border-inherit bg-neutral-50 dark:bg-black/15 space-y-3 relative pb-safe md:sticky md:bottom-0 md:z-20 md:shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between opacity-70">
                         <span>পণ্যের উপমোট (Subtotal):</span>
@@ -2562,13 +2562,13 @@ export default function CustomerStorefront({
 
         {/* 4K/8K High-Definition Magnifier Product Detail Modal Overlay */}
         {viewingProduct && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`relative w-full max-w-4xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto md:overflow-hidden max-h-[92vh] md:max-h-[640px] border shadow-2xl flex flex-col md:flex-row transition-colors duration-300
+              className={`relative w-full h-full sm:h-auto max-w-full sm:max-w-4xl rounded-none sm:rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto md:overflow-hidden max-h-screen sm:max-h-[92vh] md:max-h-[640px] border-0 sm:border shadow-2xl flex flex-col md:flex-row transition-colors duration-300
                 ${themeMode === 'dark' ? 'bg-[#181412] border-[#28211c] text-[#f6f3ed]' : 'bg-[#fcfbfa] border-[#eae5de] text-[#111111]'}`}
             >
               {/* Floating Close button for mobile and desktop, highly visible, in thumb zone */}
@@ -2730,7 +2730,7 @@ export default function CustomerStorefront({
                 {/* Description info */}
                 <div className="space-y-1">
                   <h4 className="text-[11px] font-extrabold uppercase tracking-wider opacity-75">বিস্তারিত বিবরণ:</h4>
-                  <p className="text-xs opacity-70 leading-relaxed bg-neutral-100/40 dark:bg-white/2 p-3 rounded-2xl border border-inherit">
+                  <p className="text-xs font-semibold leading-relaxed bg-neutral-100/70 dark:bg-white/5 p-3.5 rounded-2xl border border-inherit text-black dark:text-white">
                     {viewingProduct.description}
                   </p>
                 </div>

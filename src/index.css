@@ -26,6 +26,11 @@
 }
 
 /* Ensure text on white backgrounds is extremely readable and high contrast */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--bg-light) !important;
   color: var(--text-dark) !important;
