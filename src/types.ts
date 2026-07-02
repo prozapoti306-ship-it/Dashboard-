@@ -128,4 +128,5 @@ export interface SystemSettings {
   themeMode: 'light' | 'dark';
   brandName: string;
   brandLogo?: string;
+  tagline?: string;
 }

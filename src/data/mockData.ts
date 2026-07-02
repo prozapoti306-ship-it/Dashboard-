@@ -550,5 +550,6 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   blueLightFilterLevel: 0, 
   themeMode: "light", // Elegant default light mode for premium SaaS
   brandName: "TREND ZONE",
-  brandLogo: ""
+  brandLogo: "",
+  tagline: ""
 };

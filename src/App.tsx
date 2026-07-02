@@ -6047,7 +6047,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                         <label className="block text-[10px] font-bold opacity-75 mb-1.5">ব্র্যান্ড নাম (Brand Name - লাইভ আপডেট!)</label>
                         <input 
                           type="text"
-                          value={settings.brandName}
+                          value={settings.brandName || ""}
                           onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))}
                           className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
                         />
@@ -6056,7 +6056,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                         <label className="block text-[10px] font-bold opacity-75 mb-1.5">ব্র্যান্ড স্লোগান / ট্যাগলাইন (Tagline)</label>
                         <input 
                           type="text"
-                          value={settings.tagline}
+                          value={settings.tagline || ""}
                           onChange={(e) => setSettings(prev => ({ ...prev, tagline: e.target.value }))}
                           className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
                         />
@@ -6093,7 +6093,37 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                                       const reader = new FileReader();
                                       reader.onload = (event) => {
                                         if (event.target?.result) {
-                                          setSettings(prev => ({ ...prev, brandLogo: event.target!.result as string }));
+                                          const img = new Image();
+                                          img.src = event.target.result as string;
+                                          img.onload = () => {
+                                            const canvas = document.createElement('canvas');
+                                            const MAX_WIDTH = 256;
+                                            const MAX_HEIGHT = 256;
+                                            let width = img.width;
+                                            let height = img.height;
+                                            
+                                            if (width > height) {
+                                              if (width > MAX_WIDTH) {
+                                                height *= MAX_WIDTH / width;
+                                                width = MAX_WIDTH;
+                                              }
+                                            } else {
+                                              if (height > MAX_HEIGHT) {
+                                                width *= MAX_HEIGHT / height;
+                                                height = MAX_HEIGHT;
+                                              }
+                                            }
+                                            canvas.width = width;
+                                            canvas.height = height;
+                                            const ctx = canvas.getContext('2d');
+                                            if (ctx) {
+                                              ctx.drawImage(img, 0, 0, width, height);
+                                              const compressedBase64 = canvas.toDataURL('image/webp', 0.8) || canvas.toDataURL('image/jpeg', 0.85);
+                                              setSettings(prev => ({ ...prev, brandLogo: compressedBase64 }));
+                                            } else {
+                                              setSettings(prev => ({ ...prev, brandLogo: event.target!.result as string }));
+                                            }
+                                          };
                                         }
                                       };
                                       reader.readAsDataURL(file);
@@ -6119,6 +6149,28 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                             </p>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Brand Settings Save Button under the Logo upload box as requested */}
+                      <div className="pt-3 border-t border-inherit flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            supabaseService.upsertSettings(settings);
+                            const newNotif = {
+                              id: `notif-${Date.now()}`,
+                              title: `ব্র্যান্ড সেটিংস সফলভাবে সংরক্ষিত`,
+                              message: `আপনার ব্র্যান্ড নাম "${settings.brandName || ''}" এবং কাস্টম লোগোটি ডাটাবেজে লক করা হয়েছে।`,
+                              timestamp: new Date().toISOString(),
+                              read: false
+                            };
+                            setNotifications(prev => [newNotif, ...prev]);
+                          }}
+                          className="w-full px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] shadow-md shadow-emerald-500/15 transition-all flex items-center justify-center space-x-2"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>পরিবর্তন সংরক্ষণ করুন (Save Changes)</span>
+                        </button>
                       </div>
                     </div>
                   </div>

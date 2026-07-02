@@ -264,6 +264,7 @@ export const mapSettingsToDb = (s: SystemSettings) => ({
   theme_mode: s.themeMode,
   brand_name: s.brandName,
   brand_logo: s.brandLogo,
+  tagline: s.tagline,
 });
 
 export const mapSettingsFromDb = (db: any): SystemSettings => ({
@@ -275,6 +276,7 @@ export const mapSettingsFromDb = (db: any): SystemSettings => ({
   themeMode: (db.theme_mode as any) || 'dark',
   brandName: db.brand_name || 'TREND ZONE',
   brandLogo: db.brand_logo || '',
+  tagline: db.tagline || '',
 });
 
 // ==========================================
@@ -482,7 +484,13 @@ export const supabaseService = {
       const { data, error } = await supabase.from('system_settings').select('*').eq('id', 'global').maybeSingle();
       if (error) throw error;
       
-      const localLogo = localStorage.getItem('trend_zone_brand_logo') || '';
+      let localLogo = '';
+      try {
+        localLogo = localStorage.getItem('trend_zone_brand_logo') || '';
+      } catch (e) {
+        console.warn('Failed to read from localStorage:', e);
+      }
+      
       if (!data) {
         return { ...fallback, brandLogo: localLogo || fallback.brandLogo };
       }
@@ -494,7 +502,12 @@ export const supabaseService = {
       return mapped;
     } catch (e) {
       console.warn('Supabase getSettings failed, using local fallback:', e);
-      const localLogo = localStorage.getItem('trend_zone_brand_logo') || '';
+      let localLogo = '';
+      try {
+        localLogo = localStorage.getItem('trend_zone_brand_logo') || '';
+      } catch (err) {
+        console.warn('Failed to read from localStorage in fallback:', err);
+      }
       return { ...fallback, brandLogo: localLogo || fallback.brandLogo };
     }
   },
@@ -503,17 +516,22 @@ export const supabaseService = {
     try {
       // Save logo to local storage first as a quick local fallback
       if (s.brandLogo !== undefined) {
-        localStorage.setItem('trend_zone_brand_logo', s.brandLogo);
+        try {
+          localStorage.setItem('trend_zone_brand_logo', s.brandLogo);
+        } catch (storageErr) {
+          console.warn('LocalStorage quota exceeded, skipping local brand logo storage:', storageErr);
+        }
       }
       
       const mapped = mapSettingsToDb(s);
       const { error } = await supabase.from('system_settings').upsert(mapped);
       
       if (error) {
-        // If the error suggests that the brand_logo column doesn't exist yet, retry without it
-        if (error.message?.includes('brand_logo') || error.message?.includes('column')) {
-          console.warn('Supabase system_settings might not have brand_logo column yet, retrying without brand_logo...');
-          const { brand_logo, ...restMapped } = mapped as any;
+        // If the error suggests that columns are missing (e.g. brand_logo or tagline doesn't exist yet), retry without them
+        const isColumnError = error.message?.includes('column') || error.message?.includes('not found') || error.message?.includes('brand_logo') || error.message?.includes('tagline');
+        if (isColumnError) {
+          console.warn('Supabase system_settings might be missing columns, retrying without newer columns...');
+          const { brand_logo, tagline, ...restMapped } = mapped as any;
           const { error: retryError } = await supabase.from('system_settings').upsert(restMapped);
           if (retryError) throw retryError;
           return true;
