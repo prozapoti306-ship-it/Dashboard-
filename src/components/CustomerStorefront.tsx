@@ -41,6 +41,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Order, Notification, Customer, CustomerActivity, CustomerSegment, SystemSettings } from '../types';
 import { formatCurrency } from '../App';
+import { supabase, mapProductFromDb } from '../lib/supabaseService';
 
 interface CustomerStorefrontProps {
   products: Product[];
@@ -139,6 +140,42 @@ export default function CustomerStorefront({
   settings,
   loading
 }: CustomerStorefrontProps) {
+  const [localProducts, setLocalProducts] = useState<Product[]>(products);
+
+  React.useEffect(() => {
+    setLocalProducts(products);
+  }, [products]);
+
+  React.useEffect(() => {
+    const channel = supabase
+      .channel('storefront:products')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload: any) => {
+        const { eventType, new: newRow, old: oldRow } = payload;
+        
+        if (eventType === 'INSERT' || eventType === 'UPDATE') {
+          const product = mapProductFromDb(newRow);
+          setLocalProducts(prev => {
+            const index = prev.findIndex(p => p.id === product.id);
+            if (index > -1) {
+              if (JSON.stringify(prev[index]) === JSON.stringify(product)) return prev;
+              const next = [...prev];
+              next[index] = product;
+              return next;
+            } else {
+              return [...prev, product];
+            }
+          });
+        } else if (eventType === 'DELETE') {
+          setLocalProducts(prev => prev.filter(p => p.id !== oldRow.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [cartProduct, setCartProduct] = useState<any | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('M');
@@ -372,7 +409,7 @@ export default function CustomerStorefront({
   // Merge default premium jerseys with sports/apparel products created from Dashboard to show everything
   const allStoreProducts = useMemo(() => {
     // Convert current products to storefront schema format
-    const formattedDashboardProducts = products
+    const formattedDashboardProducts = localProducts
       .map(p => ({
         id: p.id,
         name: p.name,
@@ -397,7 +434,7 @@ export default function CustomerStorefront({
     // The storefront catalog is now 100% driven from the dashboard/database products,
     // which initially includes all original premium items and the 11 jerseys/combos.
     return formattedDashboardProducts;
-  }, [products]);
+  }, [localProducts]);
 
   // Categories list
   const storefrontCategories = useMemo(() => {

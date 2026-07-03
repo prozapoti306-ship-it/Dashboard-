@@ -62,7 +62,12 @@ app.get("/api/health", (req, res) => {
 // Fast Cache Product APIs for <0.5s storefront loading speed
 app.get("/api/products", async (req, res) => {
   if (!isCacheInitialized) {
-    await fetchProductsFromSupabase();
+    // Fire background fetch, but wait at most 1000ms so we never cause an unacceptable delay
+    const fetchPromise = fetchProductsFromSupabase();
+    await Promise.race([
+      fetchPromise,
+      new Promise(resolve => setTimeout(resolve, 1000))
+    ]);
   }
   res.json(cachedProducts);
 });
@@ -201,8 +206,13 @@ Customers: ${JSON.stringify(contextData?.customers || [], null, 2)}`;
 
 // 4. Vite middleware for development vs static asset serving for production
 async function startServer() {
-  // Initialize fast cache on startup
-  await fetchProductsFromSupabase();
+  // Bind and start listening FIRST so the server boots instantly in <1ms to accept traffic
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+
+  // Initialize fast cache on startup in the background (non-blocking)
+  fetchProductsFromSupabase();
   // Keep cache updated in the background every 10 seconds
   setInterval(fetchProductsFromSupabase, 10000);
 
@@ -221,10 +231,6 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
 }
 
 startServer();

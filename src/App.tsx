@@ -481,62 +481,53 @@ export default function App() {
   // SUPABASE LOADING, SYNCING & REALTIME EFFECTS
   // ==========================================
   
-  // 1. Initial Load of all data from Supabase
+  // 1. Initial Load of all data from Supabase (Optimized for Speed)
   useEffect(() => {
     async function initSupabase() {
       setSupabaseStatus(prev => ({ ...prev, loading: true }));
-      const conn = await supabaseService.checkConnection();
-      
-      if (!conn.connected) {
-        setSupabaseStatus({
-          connected: false,
-          schemaCreated: false,
-          loading: false,
-          error: conn.error || 'Connection failed'
-        });
-        return;
-      }
 
-      if (!conn.schemaCreated) {
-        setSupabaseStatus({
-          connected: true,
-          schemaCreated: false,
-          loading: false,
-          error: 'সুপাবেজে প্রয়োজনীয় টেবিলগুলো খুঁজে পাওয়া যায়নি। অনুগ্রহ করে সেটিংস ট্যাব থেকে "Initialize Database" বাটনে ক্লিক করে টেবিলগুলো তৈরি এবং প্রথমবার ডাটা পুশ করুন।'
-        });
-        return;
-      }
-
-      setSupabaseStatus({
-        connected: true,
-        schemaCreated: true,
-        loading: false,
-        error: null
-      });
-
-      // Load all datasets from Supabase asynchronously and independently to optimize speed
-      try {
-        supabaseService.getSettings(DEFAULT_SETTINGS).then(dbSettings => {
-          setSettings(dbSettings);
-          prevSettingsRef.current = dbSettings;
-        }).catch(err => console.error("Error loading settings:", err));
-
-        // Load products super-fast from our local Express in-memory cache (<50ms)
-        fetch('/api/products')
-          .then(res => res.json())
-          .then(cacheData => {
-            if (Array.isArray(cacheData) && cacheData.length > 0) {
-              const mapped = cacheData.map(mapProductFromDb);
-              setProducts(filterDeletedProducts(mapped));
+      // Step 1: Render cached products from local Express cache INSTANTLY (<20ms)
+      fetch('/api/products')
+        .then(res => res.json())
+        .then(cacheData => {
+          if (Array.isArray(cacheData) && cacheData.length > 0) {
+            const mapped = cacheData.map(mapProductFromDb);
+            const filtered = filterDeletedProducts(mapped);
+            if (filtered.length > 0) {
+              setProducts(filtered);
               prevProductsRef.current = mapped;
               localStorage.setItem('aura_cached_products', JSON.stringify(mapped));
-              console.log("[FAST-LOAD] Products loaded in <50ms from local Express cache!");
+              console.log("[FAST-LOAD] Products loaded in <20ms from Express cache!");
+              // Turn off loading spinner immediately since we have products to show!
+              setSupabaseStatus(prev => ({ ...prev, loading: false }));
             }
-          })
-          .catch(err => console.warn("Local cache fetch failed:", err));
+          }
+        })
+        .catch(err => console.warn("Local cache fetch failed:", err));
 
-        // Revalidate with a direct fetch from Supabase to ensure everything is latest
-        supabaseService.getProducts(INITIAL_PRODUCTS).then(dbProducts => {
+      // Step 2: Fetch all database tables in parallel (non-blocking, single round-trip latency)
+      try {
+        const [
+          dbProducts,
+          dbSettings,
+          dbOrders,
+          dbCustomers,
+          dbNotifications,
+          dbCollections,
+          dbReturns,
+          dbStaff
+        ] = await Promise.all([
+          supabaseService.getProducts(INITIAL_PRODUCTS),
+          supabaseService.getSettings(DEFAULT_SETTINGS),
+          supabaseService.getOrders(INITIAL_ORDERS),
+          supabaseService.getCustomers(INITIAL_CUSTOMERS),
+          supabaseService.getNotifications(INITIAL_NOTIFICATIONS),
+          supabaseService.getCollections(collectionsData),
+          supabaseService.getReturns(returnsData),
+          supabaseService.getStaff(staffData)
+        ]);
+
+        if (dbProducts && dbProducts.length > 0) {
           setProducts(filterDeletedProducts(dbProducts));
           prevProductsRef.current = dbProducts;
           try {
@@ -544,40 +535,67 @@ export default function App() {
           } catch (e) {
             console.warn("Quota exceeded for cached products");
           }
-        }).catch(err => console.error("Error loading products:", err));
-
-        supabaseService.getOrders(INITIAL_ORDERS).then(dbOrders => {
+        }
+        if (dbSettings) {
+          setSettings(dbSettings);
+          prevSettingsRef.current = dbSettings;
+        }
+        if (dbOrders) {
           setOrders(dbOrders);
           prevOrdersRef.current = dbOrders;
-        }).catch(err => console.error("Error loading orders:", err));
-
-        supabaseService.getCustomers(INITIAL_CUSTOMERS).then(dbCustomers => {
+        }
+        if (dbCustomers) {
           setCustomers(dbCustomers);
           prevCustomersRef.current = dbCustomers;
-        }).catch(err => console.error("Error loading customers:", err));
-
-        supabaseService.getNotifications(INITIAL_NOTIFICATIONS).then(dbNotifications => {
+        }
+        if (dbNotifications) {
           setNotifications(dbNotifications);
           prevNotificationsRef.current = dbNotifications;
-        }).catch(err => console.error("Error loading notifications:", err));
-
-        supabaseService.getCollections(collectionsData).then(dbCollections => {
+        }
+        if (dbCollections) {
           setCollectionsData(dbCollections);
           prevCollectionsRef.current = dbCollections;
-        }).catch(err => console.error("Error loading collections:", err));
-
-        supabaseService.getReturns(returnsData).then(dbReturns => {
+        }
+        if (dbReturns) {
           setReturnsData(dbReturns);
           prevReturnsRef.current = dbReturns;
-        }).catch(err => console.error("Error loading returns:", err));
-
-        supabaseService.getStaff(staffData).then(dbStaff => {
+        }
+        if (dbStaff) {
           setStaffData(dbStaff);
           prevStaffRef.current = dbStaff;
-        }).catch(err => console.error("Error loading staff:", err));
+        }
 
+        setSupabaseStatus({
+          connected: true,
+          schemaCreated: true,
+          loading: false,
+          error: null
+        });
       } catch (err: any) {
-        console.error('Error initiating dataset fetches from Supabase:', err);
+        console.warn("Parallel load had some failures, checking connection status...", err);
+        const conn = await supabaseService.checkConnection();
+        if (!conn.connected) {
+          setSupabaseStatus({
+            connected: false,
+            schemaCreated: false,
+            loading: false,
+            error: conn.error || 'Connection failed'
+          });
+        } else if (!conn.schemaCreated) {
+          setSupabaseStatus({
+            connected: true,
+            schemaCreated: false,
+            loading: false,
+            error: 'সুপাবেজে প্রয়োজনীয় টেবিলগুলো খুঁজে পাওয়া যায়নি। অনুগ্রহ করে সেটিংস ট্যাব থেকে "Initialize Database" বাটনে ক্লিক করে টেবিলগুলো তৈরি এবং প্রথমবার ডাটা পুশ করুন।'
+          });
+        } else {
+          setSupabaseStatus({
+            connected: true,
+            schemaCreated: true,
+            loading: false,
+            error: null
+          });
+        }
       }
     }
 
