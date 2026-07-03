@@ -3,11 +3,33 @@ import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://ytwgoolesgnkegeykpup.supabase.co';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9Xwy1UomtTTsk-hogHBCaw_7_0Z4FyS';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+let cachedProducts: any[] = [];
+let isCacheInitialized = false;
+
+async function fetchProductsFromSupabase() {
+  try {
+    const { data, error } = await supabase.from('products').select('*');
+    if (error) throw error;
+    if (data) {
+      cachedProducts = data;
+      isCacheInitialized = true;
+      console.log(`[CACHE] Successfully cached ${data.length} products from Supabase.`);
+    }
+  } catch (err) {
+    console.error("[CACHE] Failed to fetch products from Supabase:", err);
+  }
+}
 
 app.use(express.json());
 
@@ -35,6 +57,19 @@ function getAIClient(): GoogleGenAI {
 // 1. Health check API
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Fast Cache Product APIs for <0.5s storefront loading speed
+app.get("/api/products", async (req, res) => {
+  if (!isCacheInitialized) {
+    await fetchProductsFromSupabase();
+  }
+  res.json(cachedProducts);
+});
+
+app.post("/api/products/sync", async (req, res) => {
+  await fetchProductsFromSupabase();
+  res.json({ success: true, count: cachedProducts.length });
 });
 
 // 2. Chat with AI Sales Assistant API
@@ -166,6 +201,11 @@ Customers: ${JSON.stringify(contextData?.customers || [], null, 2)}`;
 
 // 4. Vite middleware for development vs static asset serving for production
 async function startServer() {
+  // Initialize fast cache on startup
+  await fetchProductsFromSupabase();
+  // Keep cache updated in the background every 10 seconds
+  setInterval(fetchProductsFromSupabase, 10000);
+
   if (process.env.NODE_ENV !== "production") {
     console.log("Vite is running in development mode...");
     const vite = await createViteServer({

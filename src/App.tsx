@@ -70,7 +70,9 @@ import {
   PlusCircle,
   Upload,
   RotateCcw,
-  AlertCircle
+  AlertCircle,
+  Menu,
+  X
 } from 'lucide-react';
 import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb, mapProductToDb } from './lib/supabaseService';
 
@@ -206,6 +208,7 @@ export default function App() {
   }, [settings]);
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState<'sales' | 'profit' | 'customers' | 'status'>('sales');
 
   // --- Supabase State ---
@@ -482,6 +485,21 @@ export default function App() {
           prevSettingsRef.current = dbSettings;
         }).catch(err => console.error("Error loading settings:", err));
 
+        // Load products super-fast from our local Express in-memory cache (<50ms)
+        fetch('/api/products')
+          .then(res => res.json())
+          .then(cacheData => {
+            if (Array.isArray(cacheData) && cacheData.length > 0) {
+              const mapped = cacheData.map(mapProductFromDb);
+              setProducts(mapped);
+              prevProductsRef.current = mapped;
+              localStorage.setItem('aura_cached_products', JSON.stringify(mapped));
+              console.log("[FAST-LOAD] Products loaded in <50ms from local Express cache!");
+            }
+          })
+          .catch(err => console.warn("Local cache fetch failed:", err));
+
+        // Revalidate with a direct fetch from Supabase to ensure everything is latest
         supabaseService.getProducts(INITIAL_PRODUCTS).then(dbProducts => {
           setProducts(dbProducts);
           prevProductsRef.current = dbProducts;
@@ -558,6 +576,11 @@ export default function App() {
       supabaseService.upsertProduct(p);
     });
     prevProductsRef.current = products;
+
+    // Trigger fast cache sync if any database mutations occurred
+    if (deleted.length > 0 || changed.length > 0) {
+      fetch('/api/products/sync', { method: 'POST' }).catch(() => {});
+    }
   }, [products, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
 
   // 3. Sync Orders changes to Supabase
@@ -1369,6 +1392,8 @@ export default function App() {
         loading: false,
         error: null
       });
+      // Trigger fast cache sync immediately
+      fetch('/api/products/sync', { method: 'POST' }).catch(() => {});
       // Show success notification
       const newNotif = {
         id: `notif-${Date.now()}`,
@@ -1969,6 +1994,14 @@ export default function App() {
         />
       )}
 
+      {/* Sidebar navigation backdrop overlay for mobile */}
+      {sidebarOpen && (
+        <div 
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+        />
+      )}
+
       {/* Sidebar navigation */}
       <Sidebar 
         activeTab={activeTab} 
@@ -1981,6 +2014,9 @@ export default function App() {
         notificationCount={notifications.filter(n => !n.read).length}
         openNotificationPanel={() => setNotificationPanelOpen(true)}
         openAiAssistant={() => setAiAssistantOpen(true)}
+        isMobileOpen={sidebarOpen}
+        onCloseMobile={() => setSidebarOpen(false)}
+        onGoToStore={() => setView('storefront')}
       />
 
       {/* Main Container */}
@@ -1995,7 +2031,16 @@ export default function App() {
             }`}
         >
           {/* Dashboard Header Bar Title / Interactive Search */}
-          <div className="flex items-center space-x-4 w-96">
+          <div className="flex items-center space-x-3 md:space-x-4 w-full md:w-96">
+            {/* Hamburger Menu Button */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-2 rounded-xl border border-inherit hover:bg-neutral-100 dark:hover:bg-white/5 transition-all cursor-pointer shrink-0"
+              title="Open Menu"
+            >
+              <Menu className="h-4.5 w-4.5 opacity-80" />
+            </button>
+
             <div className={`flex items-center space-x-2 px-3 py-1.5 w-full rounded-xl border text-sm transition-all
               ${settings.themeMode === 'dark' 
                 ? 'bg-[#1a1614] border-[#322822]/60 focus-within:border-amber-500/50' 

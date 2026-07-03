@@ -372,7 +372,19 @@ export const supabaseService = {
     try {
       const { data, error } = await supabase.from('products').select('*');
       if (error) throw error;
-      if (!data || data.length === 0) return fallback;
+      
+      if (!data || data.length === 0) {
+        try {
+          const { data: settingsData } = await supabase.from('system_settings').select('*').eq('id', 'global').maybeSingle();
+          if (!settingsData) {
+            return fallback;
+          }
+        } catch (_) {
+          // If query fails, proceed
+        }
+        return [];
+      }
+      
       return data.map(mapProductFromDb);
     } catch (e) {
       console.warn('Supabase getProducts failed, using local fallback:', e);

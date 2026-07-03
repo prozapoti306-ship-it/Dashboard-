@@ -18,7 +18,10 @@ import {
   FolderHeart,
   Undo2,
   UserCheck,
-  HelpCircle
+  HelpCircle,
+  X,
+  ArrowRight,
+  ExternalLink
 } from 'lucide-react';
 import { SystemSettings } from '../types';
 // @ts-ignore
@@ -32,6 +35,9 @@ interface SidebarProps {
   notificationCount: number;
   openNotificationPanel: () => void;
   openAiAssistant: () => void;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
+  onGoToStore?: () => void;
 }
 
 export default function Sidebar({ 
@@ -41,7 +47,10 @@ export default function Sidebar({
   setSettings, 
   notificationCount,
   openNotificationPanel,
-  openAiAssistant
+  openAiAssistant,
+  isMobileOpen = false,
+  onCloseMobile,
+  onGoToStore
 }: SidebarProps) {
   
   const menuItems = [
@@ -77,10 +86,14 @@ export default function Sidebar({
   return (
     <aside 
       id="sidebar-container" 
-      className={`w-64 border-r flex flex-col justify-between h-screen sticky top-0 transition-all duration-300 z-10
+      className={`w-64 border-r flex flex-col justify-between h-screen transition-all duration-300
+        ${isMobileOpen 
+          ? 'fixed left-0 top-0 h-full z-50 w-64 shadow-2xl translate-x-0 flex' 
+          : 'fixed md:sticky md:top-0 left-0 top-0 -translate-x-full md:translate-x-0 h-full md:h-screen z-50 md:z-10 w-64 hidden md:flex'
+        }
         ${settings.themeMode === 'dark' 
-          ? 'bg-[#1a1614]/80 border-[#322822]/40 text-[#f6f3ed]' 
-          : 'bg-[#fcfbf9]/80 border-[#e8e4dc] text-[#2c2621]'
+          ? 'bg-[#1a1614] border-[#322822]/40 text-[#f6f3ed]' 
+          : 'bg-[#fcfbf9] border-[#e8e4dc] text-[#2c2621]'
         } backdrop-blur-xl`}
     >
       {/* Brand Logo & Header */}
@@ -103,7 +116,37 @@ export default function Sidebar({
               </span>
             </div>
           </div>
+
+          {/* Mobile Close Button */}
+          {onCloseMobile && (
+            <button
+              onClick={onCloseMobile}
+              className="md:hidden p-1.5 rounded-xl border border-inherit hover:bg-neutral-100 dark:hover:bg-white/5 transition-all cursor-pointer"
+              title="Close Menu"
+            >
+              <X className="h-4 w-4 opacity-75" />
+            </button>
+          )}
         </div>
+
+        {/* Visit Live Storefront Action */}
+        {onGoToStore && (
+          <div className="px-5 pt-4 pb-2 border-b border-inherit bg-teal-500/5 dark:bg-teal-500/10 flex-shrink-0">
+            <button
+              onClick={() => {
+                onGoToStore();
+                if (onCloseMobile) onCloseMobile();
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-tr from-teal-600 to-emerald-500 hover:from-teal-500 hover:to-emerald-400 text-white shadow-md shadow-teal-500/15 transition-all duration-200 transform active:scale-95 cursor-pointer group"
+            >
+              <div className="flex items-center space-x-2">
+                <ShoppingBag className="h-4 w-4 animate-pulse" />
+                <span>ই-কমার্স ওয়েবসাইট (Visit Store)</span>
+              </div>
+              <ExternalLink className="h-3.5 w-3.5 opacity-80 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        )}
 
         {/* Navigation Items - Scrollable for luxury UI safety */}
         <nav className="p-3 space-y-1 overflow-y-auto flex-1 custom-scrollbar">
@@ -115,7 +158,10 @@ export default function Sidebar({
               <button
                 key={item.id}
                 id={`sidebar-item-${item.id}`}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  if (onCloseMobile) onCloseMobile();
+                }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 group relative
                   ${isActive 
                     ? settings.themeMode === 'dark'
@@ -154,7 +200,10 @@ export default function Sidebar({
       <div className="p-4 border-t border-inherit space-y-3 bg-inherit">
         {/* Real-time AI Assistant Quick Trigger */}
         <button
-          onClick={openAiAssistant}
+          onClick={() => {
+            openAiAssistant();
+            if (onCloseMobile) onCloseMobile();
+          }}
           className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-tr from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white shadow-lg shadow-orange-600/10 transition-all duration-200 transform active:scale-95"
         >
           <Sparkles className="h-4 w-4" />
@@ -165,7 +214,10 @@ export default function Sidebar({
         <div className="flex items-center justify-between px-2 pt-1">
           {/* Notifications button */}
           <button 
-            onClick={openNotificationPanel}
+            onClick={() => {
+              openNotificationPanel();
+              if (onCloseMobile) onCloseMobile();
+            }}
             className="relative p-2 rounded-lg hover:bg-amber-500/5 transition-colors group"
             title="Notifications"
           >

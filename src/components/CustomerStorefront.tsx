@@ -594,11 +594,9 @@ export default function CustomerStorefront({
         videoUrl: p.videoUrl || ''
       }));
 
-    // Avoid duplicate IDs
-    const dashboardIds = new Set(formattedDashboardProducts.map(p => p.id));
-    const uniqueDefaults = DEFAULT_JERSEYS.filter(dj => !dashboardIds.has(dj.id));
-
-    return [...uniqueDefaults, ...formattedDashboardProducts];
+    // The storefront catalog is now 100% driven from the dashboard/database products,
+    // which initially includes all original premium items and the 11 jerseys/combos.
+    return formattedDashboardProducts;
   }, [products]);
 
   // Categories list
