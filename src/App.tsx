@@ -106,6 +106,25 @@ export const filterDeletedProducts = (prods: Product[]): Product[] => {
   return prods;
 };
 
+// Check if a product is a legacy hardcoded demo product to prevent them from showing
+export const isDemoProduct = (p: Product): boolean => {
+  if (!p) return false;
+  const id = String(p.id || '');
+  const name = String(p.name || '');
+  if (id.startsWith('PROD-00') || id.startsWith('JERSEY-') || id.startsWith('KIDS-COMBO-')) {
+    return true;
+  }
+  const demoTitles = [
+    "Aura Silk Trench Coat", "Monaco Calfskin Handbag", "Chiffon Summer Breeze Gown",
+    "Vanguard Cashmere Knit", "Atelier Champagne Heels", "Monarque Velvet Smoking Blazer",
+    "Bangladesh Premium Cricket Jersey 2026", "Argentina Retro Edition '86 Football Jersey",
+    "Real Madrid Stealth Edition Jersey 26", "Aura Breathable Vent-Air Training Tee",
+    "Brazil Classic Gold Samba Kit 2026", "Aura Strike-Force Compression Longsleeve",
+    "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo"
+  ];
+  return demoTitles.some(title => name.includes(title));
+};
+
 export default function App() {
   // --- Customer Storefront & Login State ---
   const [view, setView] = useState<'storefront' | 'login' | 'admin'>(() => {
@@ -123,13 +142,13 @@ export default function App() {
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return filterDeletedProducts(parsed);
+          return filterDeletedProducts(parsed).filter(p => !isDemoProduct(p));
         }
       }
     } catch (e) {
       console.warn("Error reading cached products:", e);
     }
-    return filterDeletedProducts(INITIAL_PRODUCTS);
+    return [];
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -1983,6 +2002,7 @@ export default function App() {
         onGoToLogin={() => setView('login')}
         themeMode={settings.themeMode}
         settings={settings}
+        loading={supabaseStatus.loading}
       />
     );
   }

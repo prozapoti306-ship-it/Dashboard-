@@ -51,209 +51,8 @@ interface CustomerStorefrontProps {
   onGoToLogin: () => void;
   themeMode: 'light' | 'dark';
   settings?: SystemSettings;
+  loading?: boolean;
 }
-
-// 6 Premium curated sports jerseys for the instant storefront
-const DEFAULT_JERSEYS = [
-  {
-    id: "JERSEY-001",
-    name: "Bangladesh Premium Cricket Jersey 2026",
-    description: "জাতীয় দলের অফিশিয়াল ক্রিকেট জার্সি। প্রিমিয়াম ডাবল-মেস ড্রাই-ফিট ফেব্রিক, চমৎকার সাব্লিমেশন প্রিন্ট এবং আরামদায়ক অ্যাথলেটিক ফিট। ঘাম শোষণ ক্ষমতা সম্পন্ন এবং খেলা বা পরার জন্য অত্যন্ত উপযোগী।",
-    price: 1150,
-    originalPrice: 1500,
-    stock: 45,
-    category: "Cricket",
-    rating: 4.9,
-    image: "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=600",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    colors: ["Green-Red"],
-    fabric: "Premium Micro-Mesh Polyester",
-    sku: "BD-CRIC-JRS-26",
-    isBestSeller: true,
-    isNewArrival: false,
-    brand: "Aura Lux Sports"
-  },
-  {
-    id: "JERSEY-002",
-    name: "Argentina Retro Edition '86 Football Jersey",
-    description: "কিংবদন্তি ম্যারাডোনার ১৯৮৬ বিশ্বকাপের স্মারক জার্সি। চমৎকার ফেব্রিক কোয়ালিটি, এমব্রয়ডারি করা লোগো এবং ঐতিহ্যবাহী আকাশী-সাদা স্ট্রাইপ ডিজাইন। ফুটবল প্রেমীদের জন্য সেরা কালেকশন।",
-    price: 1390,
-    originalPrice: 1800,
-    stock: 20,
-    category: "Football",
-    rating: 4.8,
-    image: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=600",
-    sizes: ["M", "L", "XL"],
-    colors: ["Sky Blue-White"],
-    fabric: "Bespoke Soft-Weave Cotton-Poly",
-    sku: "ARG-RET-86",
-    isBestSeller: true,
-    isNewArrival: true,
-    brand: "Aura Lux Vintage"
-  },
-  {
-    id: "JERSEY-003",
-    name: "Real Madrid Stealth Edition Jersey 26",
-    description: "রিয়াল মাদ্রিদের অল-ব্ল্যাক স্পেশাল লিমিটেড এডিশন কিট। ম্যাট ব্ল্যাক এমবস করা লোগো, গোল্ডেন কার্বন ফাইবার প্যাটার্ন অ্যাকসেন্ট এবং সম্পূর্ণ ঘাম নিরোধক অ্যাক্টিভ-কুল প্রযুক্তি।",
-    price: 1290,
-    originalPrice: 1650,
-    stock: 35,
-    category: "Football",
-    rating: 4.9,
-    image: "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=600",
-    sizes: ["S", "M", "L", "XL"],
-    colors: ["Stealth Black"],
-    fabric: "Aeroready Sweat-Wick Mesh",
-    sku: "RM-STL-BLK-26",
-    isBestSeller: false,
-    isNewArrival: true,
-    brand: "Aura Lux Sports"
-  },
-  {
-    id: "JERSEY-004",
-    name: "Aura Breathable Vent-Air Training Tee",
-    description: "অফিস বা জিম ওয়ার্কআউটের জন্য বেস্ট পারফরম্যান্স স্পোর্টস টি-শার্ট। অতি-হালকা ড্রাই-ফিট সুতা, থার্মাল রেগুলেশন সাইড প্যানেল এবং নিখুঁত স্ট্রেচেবল কমফোর্ট।",
-    price: 790,
-    originalPrice: 990,
-    stock: 60,
-    category: "Activewear",
-    rating: 4.7,
-    image: "https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=600",
-    sizes: ["M", "L", "XL", "XXL"],
-    colors: ["Cool Grey", "Active Navy", "Carbon Black"],
-    fabric: "Ultra-Lightweight Vent-Air Mesh",
-    sku: "AURA-VNT-TEE-04",
-    isBestSeller: true,
-    isNewArrival: false,
-    brand: "Aura Active"
-  },
-  {
-    id: "JERSEY-005",
-    name: "Brazil Classic Gold Samba Kit 2026",
-    description: "ব্রাজিলের ঐতিহ্যবাহী ক্যানারি হলুদ ফুটবল জার্সি। ঐতিহ্যবাহী সবুজ কলার ফিনিশিং, থ্রি-ডি এমবসড লোগো এবং সর্বোচ্চ আরামদায়ক ড্রাই-ফিট প্রযুক্তির ব্যবহার।",
-    price: 1190,
-    originalPrice: 1450,
-    stock: 15,
-    category: "Football",
-    rating: 4.6,
-    image: "https://images.unsplash.com/photo-1518063319789-7217e6706b04?auto=format&fit=crop&q=80&w=600",
-    sizes: ["S", "M", "L", "XL"],
-    colors: ["Canary Yellow"],
-    fabric: "Dry-Fit Polyester Jacquard",
-    sku: "BR-GOLD-26",
-    isBestSeller: false,
-    isNewArrival: false,
-    brand: "Aura Lux Sports"
-  },
-  {
-    id: "JERSEY-006",
-    name: "Aura Strike-Force Compression Longsleeve",
-    description: "অ্যাথলেটদের জন্য ফুল স্লিভ স্পোর্টস ইনার এবং ট্রেনিং টি-শার্ট। মাংসপেশি সচল রাখতে মৃদু কম্প্রেশন প্রযুক্তি, ইউভি সূর্যরশ্মি সুরক্ষা এবং ফোর-ওয়ে সুপার স্ট্রেচ ফেব্রিক।",
-    price: 890,
-    originalPrice: 1150,
-    stock: 28,
-    category: "Activewear",
-    rating: 4.8,
-    image: "https://images.unsplash.com/photo-1506152983158-b4a74a01c721?auto=format&fit=crop&q=80&w=600",
-    sizes: ["M", "L", "XL"],
-    colors: ["Pitch Black", "Steel Blue"],
-    fabric: "Premium Lycra-Spandex Active Blend",
-    sku: "AURA-STK-LS-06",
-    isBestSeller: false,
-    isNewArrival: true,
-    brand: "Aura Active"
-  },
-  {
-    id: "KIDS-COMBO-01",
-    name: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo (Set A)",
-    description: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo\n\nFabric: 100% Cotton\nGSM: 160-170\nPrint: DTF\nSet Includes: 4 piece Tank Top\nNeckline: Crewneck\nSleeves: Sleeveless\nPockets: None\nFeatures: Super-Soft Feel\nCare: Machine Washable\n\nবিবরণ: প্রিমিয়াম ১০০% কটন দিয়ে তৈরি আমাদের ৪ পিসের এই স্টাইলিশ ট্যাংক টপ কম্বো সেটটি আপনার আদরের সোনামণির জন্য গরমে অত্যন্ত আরামদায়ক। এর সফট ফেব্রিক বাচ্চার ত্বকের জন্য খুবই নিরাপদ ও মসৃণ। আকর্ষণীয় কিউট কার্টুন এবং স্পেস থিম ডিটিএফ প্রিন্ট করা রয়েছে।",
-    price: 690,
-    originalPrice: 950,
-    stock: 50,
-    category: "Baby Category",
-    rating: 4.9,
-    image: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&q=80&w=600",
-    sizes: ["1-2 Years", "3-4 Years", "5-6 Years", "7-8 Years", "9-10 Years", "11-12 Years", "13-14 Years"],
-    colors: ["Cute Bear & Astronaut Theme Combo"],
-    fabric: "100% Cotton (GSM 160-170)",
-    sku: "BB-SUM-TT-C1",
-    isBestSeller: true,
-    isNewArrival: true,
-    brand: "Trend Zone Baby"
-  },
-  {
-    id: "KIDS-COMBO-02",
-    name: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo (Set B)",
-    description: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo\n\nFabric: 100% Cotton\nGSM: 160-170\nPrint: DTF\nSet Includes: 4 piece Tank Top\nNeckline: Crewneck\nSleeves: Sleeveless\nPockets: None\nFeatures: Super-Soft Feel\nCare: Machine Washable\n\nবিবরণ: গরমে বাচ্চাদের দৈনিক ব্যবহারের জন্য ১০০% সুতি ৪ পিসের ট্যাংক টপ স্লিভলেস কম্বো সেট। আরামদায়ক সাইজ ফিটিং এবং কিউট অ্যানিমেলস ও সুপারহিরো স্পাইডারম্যান প্রিন্টসহ পাওয়া যাচ্ছে। প্রতিটি টপ অত্যন্ত মসৃণ ফিনিশিংযুক্ত।",
-    price: 690,
-    originalPrice: 950,
-    stock: 40,
-    category: "Baby Category",
-    rating: 4.8,
-    image: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&q=80&w=600",
-    sizes: ["1-2 Years", "3-4 Years", "5-6 Years", "7-8 Years", "9-10 Years", "11-12 Years", "13-14 Years"],
-    colors: ["Samba Animals & Spiderman Combo"],
-    fabric: "100% Cotton (GSM 160-170)",
-    sku: "BB-SUM-TT-C2",
-    isBestSeller: false,
-    isNewArrival: true,
-    brand: "Trend Zone Baby"
-  },
-  {
-    id: "KIDS-COMBO-03",
-    name: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo (Set C)",
-    description: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo\n\nFabric: 100% Cotton\nGSM: 160-170\nPrint: DTF\nSet Includes: 4 piece Tank Top\nNeckline: Crewneck\nSleeves: Sleeveless\nPockets: None\nFeatures: Super-Soft Feel\nCare: Machine Washable\n\nবিবরণ: ১০০% প্রিমিয়াম সুতি কাপড়ে তৈরি ৪টি চমৎকার ডিজাইনের বেবি স্লিভলেস কম্বো প্যাক। চমত্কার কার ও ট্রাক প্রিন্ট সমৃদ্ধ যা আপনার সোনামণির প্রিয় থিম। কোমল স্পর্শ ও সর্বোচ্চ আরাম নিশ্চিত করে।",
-    price: 690,
-    originalPrice: 950,
-    stock: 35,
-    category: "Baby Category",
-    rating: 4.9,
-    image: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&q=80&w=600",
-    sizes: ["1-2 Years", "3-4 Years", "5-6 Years", "7-8 Years", "9-10 Years", "11-12 Years", "13-14 Years"],
-    colors: ["Heavy Duty Trucks Yellow/Black Combo"],
-    fabric: "100% Cotton (GSM 160-170)",
-    sku: "BB-SUM-TT-C3",
-    isBestSeller: true,
-    isNewArrival: false,
-    brand: "Trend Zone Baby"
-  },
-  {
-    id: "KIDS-COMBO-04",
-    name: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo (Set D - Streetwear Cities)",
-    description: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo (Streetwear Cities Edition)\n\nFabric: 100% Cotton\nGSM: 160-170\nPrint: Premium DTF\nSet Includes: 4 piece Tank Top Combo\nNeckline: Crewneck\nSleeves: Sleeveless\nFeatures: Super-Soft Feel, Anti-Shrinkage, High-Color Fastness\nCare: Machine Washable\n\nবিবরণ: প্রিমিয়াম ১০০% কটন দিয়ে তৈরি ৪ পিসের এই স্টাইলিশ ট্যাংক টপ কম্বো সেটটি আপনার আদরের সোনামণির জন্য গরমে অত্যন্ত আরামদায়ক। এর সফট ফেব্রিক বাচ্চার ত্বকের জন্য খুবই নিরাপদ ও মসৃণ। হলুদ, সাদা, কালো ও লাল কালারের ট্যাংকের উপর আকর্ষণীয় পাম অ্যাঞ্জেলস (Palm Angels), নিউ ইয়র্ক (New York), লস অ্যাঞ্জেলেস (Los Angeles) এবং প্যারিস (Paris) থিম প্রিমিয়াম প্রিন্ট করা রয়েছে যা আপনার সোনামণিকে দেবে আকর্ষণীয় ও ট্রেন্ডি ক্যাজুয়াল লুক।",
-    price: 690,
-    originalPrice: 950,
-    stock: 60,
-    category: "Baby Category",
-    rating: 4.9,
-    image: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&q=80&w=600",
-    sizes: ["1-2 Years", "3-4 Years", "5-6 Years", "7-8 Years", "9-10 Years", "11-12 Years", "13-14 Years"],
-    colors: ["Yellow/White/Black/Red Cities Combo"],
-    fabric: "100% Cotton (GSM 160-170)",
-    sku: "BB-SUM-TT-C4",
-    isBestSeller: true,
-    isNewArrival: true,
-    brand: "Trend Zone Baby"
-  },
-  {
-    id: "KIDS-COMBO-05",
-    name: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo (Set E - California Retro Cars)",
-    description: "Baby Boys Summer Cotton Sleeveless Tank Top 4 Pcs Combo (California Retro Cars Edition)\n\nFabric: 100% Cotton\nGSM: 160-170\nPrint: Premium DTF\nSet Includes: 4 piece Tank Top Combo\nNeckline: Crewneck\nSleeves: Sleeveless\nFeatures: Super-Soft Feel, Maximum Ventilation\nCare: Machine Washable\n\nবিবরণ: গরমে বাচ্চাদের দৈনিক ব্যবহারের জন্য ১০০% সুতি ৪ পিসের ট্যাংক টপ স্লিভলেস কম্বো সেট। আরামদায়ক সাইজ ফিটিং এবং আকর্ষণীয় রেট্রো কার রেসিং ও ক্যালিফোর্নিয়া (California Retro Cars) প্রিমিয়াম প্রিন্টসহ পাওয়া যাচ্ছে। প্রতিটি টপ অত্যন্ত মসৃণ ফিনিশিংযুক্ত এবং কোমল স্পর্শ ও সর্বোচ্চ আরাম নিশ্চিত করে। হলুদ, সাদা, কালো ও অ্যাশ গ্রে কালারের চমৎকার কম্বিনেশন।",
-    price: 690,
-    originalPrice: 950,
-    stock: 45,
-    category: "Baby Category",
-    rating: 4.8,
-    image: "https://images.unsplash.com/photo-1519242220831-09410926fbff?auto=format&fit=crop&q=80&w=600",
-    sizes: ["1-2 Years", "3-4 Years", "5-6 Years", "7-8 Years", "9-10 Years", "11-12 Years", "13-14 Years"],
-    colors: ["Yellow/White/Black/Grey California Combo"],
-    fabric: "100% Cotton (GSM 160-170)",
-    sku: "BB-SUM-TT-C5",
-    isBestSeller: false,
-    isNewArrival: true,
-    brand: "Trend Zone Baby"
-  }
-];
 
 // Helper to scale up Unsplash images for a pure 4K/8K ultra-definition zoom look on hover!
 const getHighResImage = (url: string) => {
@@ -337,7 +136,8 @@ export default function CustomerStorefront({
   supabaseService,
   onGoToLogin,
   themeMode,
-  settings
+  settings,
+  loading
 }: CustomerStorefrontProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [cartProduct, setCartProduct] = useState<any | null>(null);
@@ -1566,119 +1366,133 @@ export default function CustomerStorefront({
         )}
 
         {/* Catalog Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
-          {filteredProducts.map((p) => {
-            const hasDiscount = p.originalPrice && p.originalPrice > p.price;
-            const discountPct = hasDiscount ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
-            
-            return (
-              <div 
-                key={p.id}
-                className={`rounded-[1.2rem] sm:rounded-[1.8rem] border transition-all duration-300 group overflow-hidden flex flex-col justify-between text-left
-                  ${themeMode === 'dark' ? 'bg-[#181412]/65 border-[#28211c] hover:border-[#3a3028]' : 'bg-white border-[#eae5de] hover:border-teal-500/40 shadow-sm hover:shadow-lg'}`}
-              >
-                {/* Visual Area */}
+        {loading && filteredProducts.length === 0 ? (
+          <div className="py-20 flex flex-col items-center justify-center space-y-4 text-center">
+            <div className="h-10 w-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-xs sm:text-sm opacity-70 max-w-md font-medium leading-relaxed">
+              সুপাবেজ ডেটাবেজ থেকে রিয়েল-টাইম লাইভ প্রোডাক্ট ক্যাটালগ লোড করা হচ্ছে... অনুগ্রহ করে এক মুহূর্ত অপেক্ষা করুন।
+            </p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="py-20 flex flex-col items-center justify-center space-y-3 text-center opacity-60">
+            <ShoppingBag className="h-10 w-10 text-neutral-400" />
+            <p className="text-xs sm:text-sm font-medium">বর্তমানে কোনো প্রোডাক্ট ডিরেক্টরি পাওয়া যায়নি।</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
+            {filteredProducts.map((p) => {
+              const hasDiscount = p.originalPrice && p.originalPrice > p.price;
+              const discountPct = hasDiscount ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
+              
+              return (
                 <div 
-                  className="relative aspect-square overflow-hidden bg-neutral-100 dark:bg-white/2 border-b border-inherit"
+                  key={p.id}
+                  className={`rounded-[1.2rem] sm:rounded-[1.8rem] border transition-all duration-300 group overflow-hidden flex flex-col justify-between text-left
+                    ${themeMode === 'dark' ? 'bg-[#181412]/65 border-[#28211c] hover:border-[#3a3028]' : 'bg-white border-[#eae5de] hover:border-teal-500/40 shadow-sm hover:shadow-lg'}`}
                 >
-                  <img 
-                    src={p.image} 
-                    alt={p.name}
-                    onClick={() => { setViewingProduct(p); setSelectedDetailSize(p.sizes?.[0] || 'M'); }}
-                    className="w-full h-full object-cover cursor-pointer transition-transform duration-700 group-hover:scale-105"
-                    referrerPolicy="no-referrer"
-                  />
-                  
-                  {/* Absolute Wishlist heart icon button on top right of card visual area */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleWishlist(p.id);
-                    }}
-                    className="absolute top-2.5 sm:top-4 right-2.5 sm:right-4 h-7 sm:h-9 w-7 sm:w-9 rounded-full bg-black/50 hover:bg-black/75 backdrop-blur-md flex items-center justify-center border border-white/10 text-white hover:text-rose-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-10 shadow-lg"
-                    title="পছন্দের তালিকায় রাখুন"
+                  {/* Visual Area */}
+                  <div 
+                    className="relative aspect-square overflow-hidden bg-neutral-100 dark:bg-white/2 border-b border-inherit"
                   >
-                    <Heart 
-                      className="h-3.5 sm:h-4 w-3.5 sm:w-4 transition-colors" 
-                    />
-                  </button>
-                  
-                  {/* Badges */}
-                  <div className="absolute top-2 sm:top-4 left-2 sm:left-4 flex flex-col space-y-1 sm:space-y-2">
-                    {p.isBestSeller && (
-                      <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-amber-500 text-neutral-900 shadow-md">
-                        Best Seller
-                      </span>
-                    )}
-                    {p.isNewArrival && (
-                      <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-teal-500 text-white shadow-md">
-                        New
-                      </span>
-                    )}
-                    {hasDiscount && (
-                      <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-md">
-                        -{discountPct}% OFF
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Material rating tag bottom right */}
-                  <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-white text-[8px] sm:text-[10px] font-bold flex items-center space-x-1">
-                    <span>⭐</span>
-                    <span>{p.rating.toFixed(1)}</span>
-                  </div>
-                </div>
-
-                {/* Info and button */}
-                <div className="p-2.5 sm:p-4 flex-1 flex flex-col justify-between space-y-2">
-                  <div>
-                    <h3 
+                    <img 
+                      src={p.image} 
+                      alt={p.name}
                       onClick={() => { setViewingProduct(p); setSelectedDetailSize(p.sizes?.[0] || 'M'); }}
-                      className="font-extrabold text-xs sm:text-sm tracking-tight leading-tight group-hover:text-teal-500 transition-colors line-clamp-1 truncate cursor-pointer"
-                      title={p.name}
+                      className="w-full h-full object-cover cursor-pointer transition-transform duration-700 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+                    
+                    {/* Absolute Wishlist heart icon button on top right of card visual area */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleWishlist(p.id);
+                      }}
+                      className="absolute top-2.5 sm:top-4 right-2.5 sm:right-4 h-7 sm:h-9 w-7 sm:w-9 rounded-full bg-black/50 hover:bg-black/75 backdrop-blur-md flex items-center justify-center border border-white/10 text-white hover:text-rose-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-10 shadow-lg"
+                      title="পছন্দের তালিকায় রাখুন"
                     >
-                      {p.name}
-                    </h3>
-                  </div>
-
-                  {/* Price and Action row */}
-                  <div className="pt-2 border-t border-dashed border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <span className="text-sm sm:text-base font-black text-teal-500 block leading-none">
-                        {formatCurrency(p.price)}
-                      </span>
+                      <Heart 
+                        className="h-3.5 sm:h-4 w-3.5 sm:w-4 transition-colors" 
+                      />
+                    </button>
+                    
+                    {/* Badges */}
+                    <div className="absolute top-2 sm:top-4 left-2 sm:left-4 flex flex-col space-y-1 sm:space-y-2">
+                      {p.isBestSeller && (
+                        <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-amber-500 text-neutral-900 shadow-md">
+                          Best Seller
+                        </span>
+                      )}
+                      {p.isNewArrival && (
+                        <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-teal-500 text-white shadow-md">
+                          New
+                        </span>
+                      )}
                       {hasDiscount && (
-                        <span className="text-[9px] sm:text-[10px] opacity-40 line-through leading-none block mt-0.5">
-                          {formatCurrency(p.originalPrice)}
+                        <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-md">
+                          -{discountPct}% OFF
                         </span>
                       )}
                     </div>
 
-                    <div className="flex gap-1 shrink-0 w-full sm:w-auto">
-                      {/* Add to Cart Button */}
-                      <button
-                        onClick={() => handleAddToCart(p, undefined, false)}
-                        className="flex-1 sm:flex-initial px-2 py-1.5 bg-neutral-100 dark:bg-white/5 hover:bg-teal-500 hover:text-white dark:hover:bg-teal-500 text-teal-600 dark:text-teal-400 font-extrabold rounded-md sm:rounded-lg text-[9px] sm:text-[11px] uppercase tracking-wider transition-all flex items-center justify-center space-x-1 cursor-pointer border border-inherit/10"
-                      >
-                        <Plus className="h-3 w-3" />
-                        <span>কার্ট</span>
-                      </button>
+                    {/* Material rating tag bottom right */}
+                    <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-white text-[8px] sm:text-[10px] font-bold flex items-center space-x-1">
+                      <span>⭐</span>
+                      <span>{p.rating.toFixed(1)}</span>
+                    </div>
+                  </div>
 
-                      {/* Instant Buy Button */}
-                      <button
-                        onClick={() => handleAddToCart(p, undefined, true)}
-                        className="flex-1 sm:flex-initial px-2.5 py-1.5 bg-teal-500 hover:bg-teal-600 text-white font-black rounded-md sm:rounded-lg text-[9px] sm:text-[11px] uppercase tracking-wider transition-all flex items-center justify-center space-x-1 shadow-md shadow-teal-500/15 cursor-pointer"
+                  {/* Info and button */}
+                  <div className="p-2.5 sm:p-4 flex-1 flex flex-col justify-between space-y-2">
+                    <div>
+                      <h3 
+                        onClick={() => { setViewingProduct(p); setSelectedDetailSize(p.sizes?.[0] || 'M'); }}
+                        className="font-extrabold text-xs sm:text-sm tracking-tight leading-tight group-hover:text-teal-500 transition-colors line-clamp-1 truncate cursor-pointer"
+                        title={p.name}
                       >
-                        <ShoppingBag className="h-3 w-3" />
-                        <span>কিনুন</span>
-                      </button>
+                        {p.name}
+                      </h3>
+                    </div>
+
+                    {/* Price and Action row */}
+                    <div className="pt-2 border-t border-dashed border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="text-sm sm:text-base font-black text-teal-500 block leading-none">
+                          {formatCurrency(p.price)}
+                        </span>
+                        {hasDiscount && (
+                          <span className="text-[9px] sm:text-[10px] opacity-40 line-through leading-none block mt-0.5">
+                            {formatCurrency(p.originalPrice)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex gap-1 shrink-0 w-full sm:w-auto">
+                        {/* Add to Cart Button */}
+                        <button
+                          onClick={() => handleAddToCart(p, undefined, false)}
+                          className="flex-1 sm:flex-initial px-2 py-1.5 bg-neutral-100 dark:bg-white/5 hover:bg-teal-500 hover:text-white dark:hover:bg-teal-500 text-teal-600 dark:text-teal-400 font-extrabold rounded-md sm:rounded-lg text-[9px] sm:text-[11px] uppercase tracking-wider transition-all flex items-center justify-center space-x-1 cursor-pointer border border-inherit/10"
+                        >
+                          <Plus className="h-3 w-3" />
+                          <span>কার্ট</span>
+                        </button>
+
+                        {/* Instant Buy Button */}
+                        <button
+                          onClick={() => handleAddToCart(p, undefined, true)}
+                          className="flex-1 sm:flex-initial px-2.5 py-1.5 bg-teal-500 hover:bg-teal-600 text-white font-black rounded-md sm:rounded-lg text-[9px] sm:text-[11px] uppercase tracking-wider transition-all flex items-center justify-center space-x-1 shadow-md shadow-teal-500/15 cursor-pointer"
+                        >
+                          <ShoppingBag className="h-3 w-3" />
+                          <span>কিনুন</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* Premium Quality / Fabric details section */}
