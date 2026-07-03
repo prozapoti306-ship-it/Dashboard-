@@ -80,6 +80,7 @@ app.get("/api/health", (req, res) => {
 
 // Fast Cache Product APIs for <0.5s storefront loading speed
 app.get("/api/products", async (req, res) => {
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30');
   if (!isCacheInitialized) {
     // Fire background fetch, but wait at most 1000ms so we never cause an unacceptable delay
     const fetchPromise = fetchProductsFromSupabase();
@@ -89,6 +90,30 @@ app.get("/api/products", async (req, res) => {
     ]);
   }
   res.json(cachedProducts);
+});
+
+// Orders API routes to support dashboard order sync
+app.get("/api/orders", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('orders').select('*');
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err: any) {
+    console.error("[ORDERS] Failed to fetch orders from Supabase:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/orders", async (req, res) => {
+  try {
+    const order = req.body;
+    const { error } = await supabase.from('orders').upsert(order);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("[ORDERS] Failed to save order to Supabase:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post("/api/products/sync", async (req, res) => {

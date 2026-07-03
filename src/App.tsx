@@ -602,6 +602,38 @@ export default function App() {
     initSupabase();
   }, []);
 
+  // Real-time Order & Notification Polling (every 8 seconds) to receive storefront updates instantly in the dashboard
+  useEffect(() => {
+    if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || view !== 'admin') return;
+
+    const interval = setInterval(async () => {
+      try {
+        const [dbOrders, dbNotifications, dbCustomers] = await Promise.all([
+          supabaseService.getOrders(prevOrdersRef.current),
+          supabaseService.getNotifications(prevNotificationsRef.current),
+          supabaseService.getCustomers(prevCustomersRef.current)
+        ]);
+
+        if (dbOrders && JSON.stringify(dbOrders) !== JSON.stringify(prevOrdersRef.current)) {
+          setOrders(dbOrders);
+          prevOrdersRef.current = dbOrders;
+        }
+        if (dbNotifications && JSON.stringify(dbNotifications) !== JSON.stringify(prevNotificationsRef.current)) {
+          setNotifications(dbNotifications);
+          prevNotificationsRef.current = dbNotifications;
+        }
+        if (dbCustomers && JSON.stringify(dbCustomers) !== JSON.stringify(prevCustomersRef.current)) {
+          setCustomers(dbCustomers);
+          prevCustomersRef.current = dbCustomers;
+        }
+      } catch (e) {
+        console.warn("Background polling for orders and notifications had some issues:", e);
+      }
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [supabaseStatus.connected, supabaseStatus.schemaCreated, view]);
+
   // Refs to prevent recursive loops between local updates and DB triggers
   const prevProductsRef = useRef<Product[]>([]);
   const prevOrdersRef = useRef<Order[]>([]);
