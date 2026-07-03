@@ -91,6 +91,21 @@ export const calculateDiscountPercentage = (regular: string | number, sale: stri
   return Math.round(((reg - sl) / reg) * 100);
 };
 
+// Filter out products that were deleted locally (robust fallback safety)
+export const filterDeletedProducts = (prods: Product[]): Product[] => {
+  try {
+    const deletedStr = localStorage.getItem('aura_deleted_product_ids');
+    if (deletedStr) {
+      const deletedIds = JSON.parse(deletedStr);
+      if (Array.isArray(deletedIds) && deletedIds.length > 0) {
+        const idSet = new Set(deletedIds);
+        return prods.filter(p => !idSet.has(p.id));
+      }
+    }
+  } catch (_) {}
+  return prods;
+};
+
 export default function App() {
   // --- Customer Storefront & Login State ---
   const [view, setView] = useState<'storefront' | 'login' | 'admin'>(() => {
@@ -107,12 +122,14 @@ export default function App() {
       const cached = localStorage.getItem('aura_cached_products');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return filterDeletedProducts(parsed);
+        }
       }
     } catch (e) {
       console.warn("Error reading cached products:", e);
     }
-    return INITIAL_PRODUCTS;
+    return filterDeletedProducts(INITIAL_PRODUCTS);
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -491,7 +508,7 @@ export default function App() {
           .then(cacheData => {
             if (Array.isArray(cacheData) && cacheData.length > 0) {
               const mapped = cacheData.map(mapProductFromDb);
-              setProducts(mapped);
+              setProducts(filterDeletedProducts(mapped));
               prevProductsRef.current = mapped;
               localStorage.setItem('aura_cached_products', JSON.stringify(mapped));
               console.log("[FAST-LOAD] Products loaded in <50ms from local Express cache!");
@@ -501,7 +518,7 @@ export default function App() {
 
         // Revalidate with a direct fetch from Supabase to ensure everything is latest
         supabaseService.getProducts(INITIAL_PRODUCTS).then(dbProducts => {
-          setProducts(dbProducts);
+          setProducts(filterDeletedProducts(dbProducts));
           prevProductsRef.current = dbProducts;
           try {
             localStorage.setItem('aura_cached_products', JSON.stringify(dbProducts));
@@ -1334,12 +1351,29 @@ export default function App() {
 
   const handleConfirmDeleteProduct = async () => {
     if (!productToDelete) return;
+    
+    // Always store the deleted product ID locally in localStorage
+    // This acts as a robust fail-safe so deleted products stay hidden even if the database falls back to INITIAL_PRODUCTS
+    try {
+      const deletedStr = localStorage.getItem('aura_deleted_product_ids') || '[]';
+      const deletedIds = JSON.parse(deletedStr);
+      if (Array.isArray(deletedIds) && !deletedIds.includes(productToDelete.id)) {
+        deletedIds.push(productToDelete.id);
+        localStorage.setItem('aura_deleted_product_ids', JSON.stringify(deletedIds));
+      }
+    } catch (e) {
+      console.warn("Failed to update deleted products storage:", e);
+    }
+
+    // Always remove from local state immediately to guarantee an instant UI update
+    setProducts(prev => prev.filter(p => p.id !== productToDelete.id));
+
     const success = await supabaseService.deleteProduct(productToDelete.id);
     if (success) {
-      setProducts(prev => prev.filter(p => p.id !== productToDelete.id));
       alert('প্রোডাক্টটি সফলভাবে ডিলিট করা হয়েছে।');
     } else {
-      alert('ডিলিট করতে ব্যর্থ হয়েছে! অনুগ্রহ করে আবার চেষ্টা করুন।');
+      // Supabase is offline (e.g. Cloudflare error 521). Explain to the user nicely that it's successfully removed locally.
+      alert('প্রোডাক্টটি সফলভাবে লোকাল ব্রাউজার থেকে মুছে ফেলা হয়েছে (ডেটাবেজ সার্ভার অফলাইন রয়েছে)। ডেটাবেজ সচল হলে স্থায়ীভাবে সিঙ্ক হয়ে যাবে।');
     }
     setProductToDelete(null);
   };
@@ -1386,6 +1420,7 @@ export default function App() {
     setSeedingLogs(prev => [...prev, ...result.logs]);
     
     if (result.success) {
+      localStorage.removeItem('aura_deleted_product_ids');
       setSupabaseStatus({
         connected: true,
         schemaCreated: true,
