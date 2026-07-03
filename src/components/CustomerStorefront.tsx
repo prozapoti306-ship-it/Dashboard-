@@ -53,6 +53,9 @@ interface CustomerStorefrontProps {
   themeMode: 'light' | 'dark';
   settings?: SystemSettings;
   loading?: boolean;
+  categoriesList?: string[];
+  collectionsList?: string[];
+  brandsList?: string[];
 }
 
 // Helper to scale up Unsplash images for a pure 4K/8K ultra-definition zoom look on hover!
@@ -138,7 +141,10 @@ export default function CustomerStorefront({
   onGoToLogin,
   themeMode,
   settings,
-  loading
+  loading,
+  categoriesList,
+  collectionsList,
+  brandsList
 }: CustomerStorefrontProps) {
   const [localProducts, setLocalProducts] = useState<Product[]>(products);
 
@@ -438,9 +444,13 @@ export default function CustomerStorefront({
 
   // Categories list
   const storefrontCategories = useMemo(() => {
+    if (categoriesList && categoriesList.length > 0) {
+      const set = new Set([...categoriesList, ...allStoreProducts.map(p => p.category)]);
+      return ['All', ...Array.from(set)];
+    }
     const list = new Set(allStoreProducts.map(p => p.category));
     return ['All', ...Array.from(list)];
-  }, [allStoreProducts]);
+  }, [allStoreProducts, categoriesList]);
 
   // Dynamic Banner Image URL for the active category
   const categoryBannerUrl = useMemo(() => {
@@ -476,6 +486,81 @@ export default function CustomerStorefront({
     }
     return result;
   }, [allStoreProducts, selectedCategory, searchQuery]);
+
+  // Group filtered products by category for section-based layout
+  const groupedProducts = useMemo(() => {
+    const groups: { [category: string]: typeof filteredProducts } = {};
+    filteredProducts.forEach(p => {
+      const cat = p.category || 'Apparel';
+      if (!groups[cat]) {
+        groups[cat] = [];
+      }
+      groups[cat].push(p);
+    });
+    return groups;
+  }, [filteredProducts]);
+
+  const getCategoryBanner = (catName: string) => {
+    const prodWithBanner = allStoreProducts.find(
+      p => p.category === catName && p.season && (p.season.startsWith('http://') || p.season.startsWith('https://') || p.season.startsWith('/') || p.season.startsWith('data:'))
+    );
+    if (prodWithBanner) return prodWithBanner.season;
+    
+    // Beautiful default category banner Fallbacks
+    const lowerCat = catName.toLowerCase();
+    if (lowerCat.includes('foot') || lowerCat.includes('ফুটবল')) {
+      return "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=1200";
+    }
+    if (lowerCat.includes('crick') || lowerCat.includes('ক্রিকেট')) {
+      return "https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&q=80&w=1200";
+    }
+    if (lowerCat.includes('baby') || lowerCat.includes('বেবি') || lowerCat.includes('kid')) {
+      return "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=1200";
+    }
+    return "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?auto=format&fit=crop&q=80&w=1200";
+  };
+
+  const getCategoryDetails = (catName: string) => {
+    const lowerCat = catName.toLowerCase();
+    if (lowerCat.includes('foot') || lowerCat.includes('ফুটবল')) {
+      return {
+        title: "প্রিমিয়াম ফুটবল জার্সি কালেকশন ⚽",
+        subtitle: "ফুটবলপ্রেমীদের জন্য সেরা মানের প্লেয়ার সংস্করণ ও ফ্যান সংস্করণ জার্সি। আরামদায়ক ও ড্রায়-ফিট ফেব্রিক।",
+        badge: "⚽ Football Premium",
+        accentColor: "teal",
+        bgClass: "bg-teal-500/5 border-teal-500/10",
+        textClass: "text-teal-600 dark:text-teal-400"
+      };
+    }
+    if (lowerCat.includes('crick') || lowerCat.includes('ক্রিকেট')) {
+      return {
+        title: "প্রিমিয়াম ক্রিকেট জার্সি কালেকশন 🏏",
+        subtitle: "বাংলাদেশ দল ও বিভিন্ন ফ্র্যাঞ্চাইজি লিগের প্রিমিয়াম সাব্লিমেশন প্রিন্টেড ক্রিকেট জার্সি।",
+        badge: "🏏 Cricket Professional",
+        accentColor: "emerald",
+        bgClass: "bg-emerald-500/5 border-emerald-500/10",
+        textClass: "text-emerald-600 dark:text-emerald-400"
+      };
+    }
+    if (lowerCat.includes('baby') || lowerCat.includes('বেবি') || lowerCat.includes('kid')) {
+      return {
+        title: "শিশুদের রঙিন ও আরামদায়ক কালেকশন! 🧸",
+        subtitle: "১০০% প্রিমিয়াম সুতি কাপড়ে তৈরি আমাদের বেবি ট্যাংক টপ কম্বো সেটগুলো অত্যন্ত সফট এবং গরমে আরামদায়ক।",
+        badge: "🧸 Kids & Baby Summer Special",
+        accentColor: "rose",
+        bgClass: "bg-rose-500/5 border-rose-500/10",
+        textClass: "text-rose-600 dark:text-rose-400"
+      };
+    }
+    return {
+      title: `${catName} কালেকশন! ✨`,
+      subtitle: "সরাসরি আমাদের কারখানায় তৈরি প্রিমিয়াম কোয়ালিটি পণ্য দিয়ে সাজানো হয়েছে এই বিশেষ ডায়নামিক কালেকশনটি।",
+      badge: `✨ ${catName} Special`,
+      accentColor: "teal",
+      bgClass: "bg-teal-500/5 border-teal-500/10",
+      textClass: "text-teal-600 dark:text-teal-400"
+    };
+  };
 
   const generateTrackingCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -1340,69 +1425,7 @@ export default function CustomerStorefront({
           </div>
         </div>
 
-        {/* Banner for Kids/Baby category */}
-        {selectedCategory === 'Baby Category' && (
-          <div className="mb-12 relative rounded-[2.2rem] overflow-hidden border border-[#eae5de] dark:border-[#28211c] bg-neutral-100/60 dark:bg-[#181412]/60 shadow-xl p-6 sm:p-10 flex flex-col md:flex-row items-center gap-6">
-            <div className="absolute inset-0 bg-cover bg-center opacity-5 pointer-events-none" style={{ backgroundImage: `url(${categoryBannerUrl || 'https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=1200'})` }} />
-            <div className="flex-1 space-y-4 text-left relative z-10">
-              <span className="inline-block px-3 py-1 rounded-full bg-rose-500/15 text-rose-500 text-[10px] font-black uppercase tracking-wider">
-                🧸 Kids & Baby Summer Special
-              </span>
-              <h3 className="text-2xl sm:text-4xl font-black tracking-tight text-teal-600 dark:text-teal-400">
-                শিশুদের রঙিন ও আরামদায়ক কালেকশন!
-              </h3>
-              <p className="text-xs sm:text-sm opacity-85 leading-relaxed max-w-xl">
-                ১০০% প্রিমিয়াম সুতি কাপড়ে তৈরি আমাদের বেবি ট্যাংক টপ কম্বো সেটগুলো অত্যন্ত সফট এবং গরমে শিশুদের আরামের কথা চিন্তা করে ডিজাইন করা। একাধিক বৈচিত্র্যময় এবং কিউট ডিজাইনে উপলব্ধ।
-              </p>
-              <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-[11px] font-black text-neutral-600 dark:text-neutral-400">
-                <span className="flex items-center space-x-1"><span className="text-rose-500 text-sm">✔</span> <span>১০০% প্রিমিয়াম সুতি (GSM: 160-170)</span></span>
-                <span className="flex items-center space-x-1"><span className="text-rose-500 text-sm">✔</span> <span>সফট প্রিমিয়াম প্রিন্টিং (DTF)</span></span>
-                <span className="flex items-center space-x-1"><span className="text-rose-500 text-sm">✔</span> <span>৭টি সাইজ ভ্যারিয়েশন (১ থেকে ১৪ বছর)</span></span>
-              </div>
-            </div>
-            <div className="w-full md:w-1/3 max-w-[280px] shrink-0 relative z-10">
-              <img 
-                src={categoryBannerUrl || "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=600"} 
-                alt="Kids playing happily" 
-                className="rounded-3xl object-cover shadow-lg aspect-[4/3] w-full border border-inherit bg-neutral-200"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Dynamic Custom Category Banner */}
-        {selectedCategory !== 'All' && selectedCategory !== 'Baby Category' && categoryBannerUrl && (
-          <div className="mb-12 relative rounded-[2.2rem] overflow-hidden border border-[#eae5de] dark:border-[#28211c] bg-[#1a1614]/40 backdrop-blur-md shadow-xl p-6 sm:p-10 flex flex-col md:flex-row items-center gap-6">
-            <div className="absolute inset-0 bg-cover bg-center opacity-10 pointer-events-none" style={{ backgroundImage: `url(${categoryBannerUrl})` }} />
-            <div className="flex-1 space-y-4 text-left relative z-10">
-              <span className="inline-block px-3 py-1 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-wider">
-                ✨ {selectedCategory} Special Collection
-              </span>
-              <h3 className="text-2xl sm:text-4xl font-black tracking-tight text-teal-600 dark:text-teal-400">
-                {selectedCategory} কালেকশন!
-              </h3>
-              <p className="text-xs sm:text-sm opacity-85 leading-relaxed max-w-xl">
-                সরাসরি আমাদের কারখানায় তৈরি প্রিমিয়াম কোয়ালিটি পণ্য দিয়ে সাজানো হয়েছে এই বিশেষ ডায়নামিক কালেকশনটি। এখনই এক্সপ্লোর করুন!
-              </p>
-              <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-[11px] font-black text-neutral-600 dark:text-neutral-400">
-                <span className="flex items-center space-x-1"><span className="text-teal-500 text-sm">✔</span> <span>রিয়েল-টাইম লাইভ ডাটা কানেক্টেড</span></span>
-                <span className="flex items-center space-x-1"><span className="text-teal-500 text-sm">✔</span> <span>১০০% প্রিমিয়াম সুতি কোয়ালিটি</span></span>
-                <span className="flex items-center space-x-1"><span className="text-teal-500 text-sm">✔</span> <span>সারা বাংলাদেশে হোম ডেলিভারি</span></span>
-              </div>
-            </div>
-            <div className="w-full md:w-1/3 max-w-[280px] shrink-0 relative z-10">
-              <img 
-                src={categoryBannerUrl} 
-                alt={`${selectedCategory} Banner`} 
-                className="rounded-3xl object-cover shadow-lg aspect-[16/9] md:aspect-[4/3] w-full border border-inherit bg-neutral-200"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Catalog Grid */}
+        {/* Catalog Sections */}
         {loading && filteredProducts.length === 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
             {[1, 2, 3, 4].map((n) => (
@@ -1423,114 +1446,171 @@ export default function CustomerStorefront({
             <p className="text-xs sm:text-sm font-medium">বর্তমানে কোনো প্রোডাক্ট ডিরেক্টরি পাওয়া যায়নি।</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
-            {filteredProducts.map((p) => {
-              const hasDiscount = p.originalPrice && p.originalPrice > p.price;
-              const discountPct = hasDiscount ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
+          <div className="space-y-16">
+            {Object.keys(groupedProducts).map((catName) => {
+              const catProducts = groupedProducts[catName];
+              if (!catProducts || catProducts.length === 0) return null;
+              
+              const bannerUrl = getCategoryBanner(catName);
+              const details = getCategoryDetails(catName);
               
               return (
-                <div 
-                  key={p.id}
-                  className={`rounded-[1.2rem] sm:rounded-[1.8rem] border transition-all duration-300 group overflow-hidden flex flex-col justify-between text-left
-                    ${themeMode === 'dark' ? 'bg-[#181412]/65 border-[#28211c] hover:border-[#3a3028]' : 'bg-white border-[#eae5de] hover:border-teal-500/40 shadow-sm hover:shadow-lg'}`}
-                >
-                  {/* Visual Area */}
-                  <div 
-                    className="relative aspect-square overflow-hidden bg-neutral-100 dark:bg-white/2 border-b border-inherit"
-                  >
-                    <img 
-                      src={p.image} 
-                      alt={p.name}
-                      onClick={() => { setViewingProduct(p); setSelectedDetailSize(p.sizes?.[0] || 'M'); }}
-                      className="w-full h-full object-cover cursor-pointer transition-transform duration-700 group-hover:scale-105"
-                      referrerPolicy="no-referrer"
-                    />
-                    
-                    {/* Absolute Wishlist heart icon button on top right of card visual area */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleWishlist(p.id);
-                      }}
-                      className="absolute top-2.5 sm:top-4 right-2.5 sm:right-4 h-7 sm:h-9 w-7 sm:w-9 rounded-full bg-black/50 hover:bg-black/75 backdrop-blur-md flex items-center justify-center border border-white/10 text-white hover:text-rose-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-10 shadow-lg"
-                      title="পছন্দের তালিকায় রাখুন"
-                    >
-                      <Heart 
-                        className="h-3.5 sm:h-4 w-3.5 sm:w-4 transition-colors" 
-                      />
-                    </button>
-                    
-                    {/* Badges */}
-                    <div className="absolute top-2 sm:top-4 left-2 sm:left-4 flex flex-col space-y-1 sm:space-y-2">
-                      {p.isBestSeller && (
-                        <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-amber-500 text-neutral-900 shadow-md">
-                          Best Seller
+                <div key={catName} className="space-y-8 animate-fade-in">
+                  {/* Category Section Banner */}
+                  <div className={`relative rounded-[2.2rem] overflow-hidden border shadow-xl p-6 sm:p-10 flex flex-col md:flex-row items-center gap-6
+                    ${themeMode === 'dark' ? 'bg-[#1a1614]/40 border-[#28211c]' : 'bg-[#faf8f5]/80 border-[#eae5de]'}`}>
+                    <div className="absolute inset-0 bg-cover bg-center opacity-5 pointer-events-none" style={{ backgroundImage: `url(${bannerUrl})` }} />
+                    <div className="flex-1 space-y-4 text-left relative z-10">
+                      <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
+                        ${details.accentColor === 'rose' ? 'bg-rose-500/15 text-rose-500' : details.accentColor === 'emerald' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-teal-500/15 text-teal-600 dark:text-teal-400'}`}>
+                        {details.badge}
+                      </span>
+                      <h3 className="text-2xl sm:text-3.5xl font-black tracking-tight text-teal-600 dark:text-teal-400">
+                        {details.title}
+                      </h3>
+                      <p className="text-xs sm:text-sm opacity-85 leading-relaxed max-w-xl">
+                        {details.subtitle}
+                      </p>
+                      <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1 text-[11px] font-black text-neutral-600 dark:text-neutral-400">
+                        <span className="flex items-center space-x-1">
+                          <span className={`${details.accentColor === 'rose' ? 'text-rose-500' : details.accentColor === 'emerald' ? 'text-emerald-500' : 'text-teal-500'} text-sm`}>✔</span> 
+                          <span>১০০% প্রিমিয়াম কোয়ালিটি ফেব্রিক</span>
                         </span>
-                      )}
-                      {p.isNewArrival && (
-                        <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-teal-500 text-white shadow-md">
-                          New
+                        <span className="flex items-center space-x-1">
+                          <span className={`${details.accentColor === 'rose' ? 'text-rose-500' : details.accentColor === 'emerald' ? 'text-emerald-500' : 'text-teal-500'} text-sm`}>✔</span> 
+                          <span>সফট ও টেকসই লাইভ প্রিন্টিং</span>
                         </span>
-                      )}
-                      {hasDiscount && (
-                        <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-md">
-                          -{discountPct}% OFF
+                        <span className="flex items-center space-x-1">
+                          <span className={`${details.accentColor === 'rose' ? 'text-rose-500' : details.accentColor === 'emerald' ? 'text-emerald-500' : 'text-teal-500'} text-sm`}>✔</span> 
+                          <span>সারা বাংলাদেশে হোম ডেলিভারি</span>
                         </span>
-                      )}
+                      </div>
                     </div>
-
-                    {/* Material rating tag bottom right */}
-                    <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-white text-[8px] sm:text-[10px] font-bold flex items-center space-x-1">
-                      <span>⭐</span>
-                      <span>{p.rating.toFixed(1)}</span>
-                    </div>
+                    {bannerUrl && (
+                      <div className="w-full md:w-1/3 max-w-[280px] shrink-0 relative z-10">
+                        <img 
+                          src={bannerUrl} 
+                          alt={`${catName} Showcase`} 
+                          className="rounded-3xl object-cover shadow-lg aspect-[4/3] w-full border border-inherit bg-neutral-200"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  {/* Info and button */}
-                  <div className="p-2.5 sm:p-4 flex-1 flex flex-col justify-between space-y-2">
-                    <div>
-                      <h3 
-                        onClick={() => { setViewingProduct(p); setSelectedDetailSize(p.sizes?.[0] || 'M'); }}
-                        className="font-extrabold text-xs sm:text-sm tracking-tight leading-tight group-hover:text-teal-500 transition-colors line-clamp-1 truncate cursor-pointer"
-                        title={p.name}
-                      >
-                        {p.name}
-                      </h3>
-                    </div>
-
-                    {/* Price and Action row */}
-                    <div className="pt-2 border-t border-dashed border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div>
-                        <span className="text-sm sm:text-base font-black text-teal-500 block leading-none">
-                          {formatCurrency(p.price)}
-                        </span>
-                        {hasDiscount && (
-                          <span className="text-[9px] sm:text-[10px] opacity-40 line-through leading-none block mt-0.5">
-                            {formatCurrency(p.originalPrice)}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex gap-1 shrink-0 w-full sm:w-auto">
-                        {/* Add to Cart Button */}
-                        <button
-                          onClick={() => handleAddToCart(p, undefined, false)}
-                          className="flex-1 sm:flex-initial px-2 py-1.5 bg-neutral-100 dark:bg-white/5 hover:bg-teal-500 hover:text-white dark:hover:bg-teal-500 text-teal-600 dark:text-teal-400 font-extrabold rounded-md sm:rounded-lg text-[9px] sm:text-[11px] uppercase tracking-wider transition-all flex items-center justify-center space-x-1 cursor-pointer border border-inherit/10"
+                  {/* Grid of Products in Category */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
+                    {catProducts.map((p) => {
+                      const hasDiscount = p.originalPrice && p.originalPrice > p.price;
+                      const discountPct = hasDiscount ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
+                      
+                      return (
+                        <div 
+                          key={p.id}
+                          className={`rounded-[1.2rem] sm:rounded-[1.8rem] border transition-all duration-300 group overflow-hidden flex flex-col justify-between text-left
+                            ${themeMode === 'dark' ? 'bg-[#181412]/65 border-[#28211c] hover:border-[#3a3028]' : 'bg-white border-[#eae5de] hover:border-teal-500/40 shadow-sm hover:shadow-lg'}`}
                         >
-                          <Plus className="h-3 w-3" />
-                          <span>কার্ট</span>
-                        </button>
+                          {/* Visual Area */}
+                          <div 
+                            className="relative aspect-square overflow-hidden bg-neutral-100 dark:bg-white/2 border-b border-inherit"
+                          >
+                            <img 
+                              src={p.image} 
+                              alt={p.name}
+                              onClick={() => { setViewingProduct(p); setSelectedDetailSize(p.sizes?.[0] || 'M'); }}
+                              className="w-full h-full object-cover cursor-pointer transition-transform duration-700 group-hover:scale-105"
+                              referrerPolicy="no-referrer"
+                            />
+                            
+                            {/* Absolute Wishlist heart icon button on top right of card visual area */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleWishlist(p.id);
+                              }}
+                              className="absolute top-2.5 sm:top-4 right-2.5 sm:right-4 h-7 sm:h-9 w-7 sm:w-9 rounded-full bg-black/50 hover:bg-black/75 backdrop-blur-md flex items-center justify-center border border-white/10 text-white hover:text-rose-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-10 shadow-lg"
+                              title="পছন্দের তালিকায় রাখুন"
+                            >
+                              <Heart 
+                                className="h-3.5 sm:h-4 w-3.5 sm:w-4 transition-colors" 
+                              />
+                            </button>
+                            
+                            {/* Badges */}
+                            <div className="absolute top-2 sm:top-4 left-2 sm:left-4 flex flex-col space-y-1 sm:space-y-2">
+                              {p.isBestSeller && (
+                                <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-amber-500 text-neutral-900 shadow-md">
+                                  Best Seller
+                                </span>
+                              )}
+                              {p.isNewArrival && (
+                                <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-teal-500 text-white shadow-md">
+                                  New
+                                </span>
+                              )}
+                              {hasDiscount && (
+                                <span className="px-1.5 sm:px-3 py-0.5 sm:py-1 rounded sm:rounded-lg text-[7px] sm:text-[9px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-md">
+                                  -{discountPct}% OFF
+                                </span>
+                              )}
+                            </div>
 
-                        {/* Instant Buy Button */}
-                        <button
-                          onClick={() => handleAddToCart(p, undefined, true)}
-                          className="flex-1 sm:flex-initial px-2.5 py-1.5 bg-teal-500 hover:bg-teal-600 text-white font-black rounded-md sm:rounded-lg text-[9px] sm:text-[11px] uppercase tracking-wider transition-all flex items-center justify-center space-x-1 shadow-md shadow-teal-500/15 cursor-pointer"
-                        >
-                          <ShoppingBag className="h-3 w-3" />
-                          <span>কিনুন</span>
-                        </button>
-                      </div>
-                    </div>
+                            {/* Material rating tag bottom right */}
+                            <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-md px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-white text-[8px] sm:text-[10px] font-bold flex items-center space-x-1">
+                              <span>⭐</span>
+                              <span>{p.rating.toFixed(1)}</span>
+                            </div>
+                          </div>
+
+                          {/* Info and button */}
+                          <div className="p-2.5 sm:p-4 flex-1 flex flex-col justify-between space-y-2">
+                            <div>
+                              <h3 
+                                onClick={() => { setViewingProduct(p); setSelectedDetailSize(p.sizes?.[0] || 'M'); }}
+                                className="font-extrabold text-xs sm:text-sm tracking-tight leading-tight group-hover:text-teal-500 transition-colors line-clamp-1 truncate cursor-pointer"
+                                title={p.name}
+                              >
+                                {p.name}
+                              </h3>
+                            </div>
+
+                            {/* Price and Action row */}
+                            <div className="pt-2 border-t border-dashed border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <div>
+                                <span className="text-sm sm:text-base font-black text-teal-500 block leading-none">
+                                  {formatCurrency(p.price)}
+                                </span>
+                                {hasDiscount && (
+                                  <span className="text-[9px] sm:text-[10px] opacity-40 line-through leading-none block mt-0.5">
+                                    {formatCurrency(p.originalPrice)}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex gap-1 shrink-0 w-full sm:w-auto">
+                                {/* Add to Cart Button */}
+                                <button
+                                  onClick={() => handleAddToCart(p, undefined, false)}
+                                  className="flex-1 sm:flex-initial px-2 py-1.5 bg-neutral-100 dark:bg-white/5 hover:bg-teal-500 hover:text-white dark:hover:bg-teal-500 text-teal-600 dark:text-teal-400 font-extrabold rounded-md sm:rounded-lg text-[9px] sm:text-[11px] uppercase tracking-wider transition-all flex items-center justify-center space-x-1 cursor-pointer border border-inherit/10"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  <span>কার্ট</span>
+                                </button>
+
+                                {/* Instant Buy Button */}
+                                <button
+                                  onClick={() => handleAddToCart(p, undefined, true)}
+                                  className="flex-1 sm:flex-initial px-2.5 py-1.5 bg-teal-500 hover:bg-teal-600 text-white font-black rounded-md sm:rounded-lg text-[9px] sm:text-[11px] uppercase tracking-wider transition-all flex items-center justify-center space-x-1 shadow-md shadow-teal-500/15 cursor-pointer"
+                                >
+                                  <ShoppingBag className="h-3 w-3" />
+                                  <span>কিনুন</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );

@@ -7,7 +7,6 @@ import {
   ArrowLeft, 
   ShieldCheck, 
   Sparkles, 
-  Info,
   RefreshCcw,
   LayoutDashboard
 } from 'lucide-react';
@@ -160,18 +159,6 @@ export default function LoginPage({
               )}
             </button>
           </form>
-
-          {/* Explicit Credentials Box (Helpful in Development mode to avoid getting locked out) */}
-          <div className="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10 text-left space-y-2 text-[10px] leading-relaxed text-teal-600 dark:text-teal-400">
-            <p className="font-bold flex items-center space-x-1 mb-0.5">
-              <Info className="h-3.5 w-3.5" />
-              <span>সহজে ডেমো লগইন করতে নিচের তথ্য ব্যবহার করুন:</span>
-            </p>
-            <div className="font-mono space-y-1 text-[9px] bg-teal-500/5 p-2 rounded-xl border border-teal-500/5">
-              <div><span className="opacity-60">Username:</span> <strong className="font-bold">admin</strong></div>
-              <div><span className="opacity-60">Password:</span> <strong className="font-bold">admin-auralux</strong></div>
-            </div>
-          </div>
         </div>
 
         <p className="text-[10px] opacity-40 text-center font-bold">© {new Date().getFullYear()} Aura Lux Sports. Secure Admin Terminal.</p>

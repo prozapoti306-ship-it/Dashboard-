@@ -515,7 +515,10 @@ export default function App() {
           dbNotifications,
           dbCollections,
           dbReturns,
-          dbStaff
+          dbStaff,
+          dbCategories,
+          dbBrands,
+          dbCollectionsList
         ] = await Promise.all([
           supabaseService.getProducts(INITIAL_PRODUCTS),
           supabaseService.getSettings(DEFAULT_SETTINGS),
@@ -524,7 +527,10 @@ export default function App() {
           supabaseService.getNotifications(INITIAL_NOTIFICATIONS),
           supabaseService.getCollections(collectionsData),
           supabaseService.getReturns(returnsData),
-          supabaseService.getStaff(staffData)
+          supabaseService.getStaff(staffData),
+          supabaseService.getCategories(categoriesList),
+          supabaseService.getBrands(brandsList),
+          supabaseService.getCollectionsList(collectionsList)
         ]);
 
         if (dbProducts && dbProducts.length > 0) {
@@ -563,6 +569,15 @@ export default function App() {
         if (dbStaff) {
           setStaffData(dbStaff);
           prevStaffRef.current = dbStaff;
+        }
+        if (dbCategories) {
+          setCategoriesList(dbCategories);
+        }
+        if (dbBrands) {
+          setBrandsList(dbBrands);
+        }
+        if (dbCollectionsList) {
+          setCollectionsList(dbCollectionsList);
         }
 
         setSupabaseStatus({
@@ -2059,6 +2074,9 @@ export default function App() {
         themeMode={settings.themeMode}
         settings={settings}
         loading={supabaseStatus.loading}
+        categoriesList={categoriesList}
+        collectionsList={collectionsList}
+        brandsList={brandsList}
       />
     );
   }
@@ -3705,11 +3723,15 @@ export default function App() {
                         className="flex-1 text-xs p-2.5 rounded-xl border border-[#322822]/50 bg-[#120e0c] outline-none"
                       />
                       <button 
-                        onClick={() => {
-                          if (newCategoryName.trim()) {
-                            if (!categoriesList.includes(newCategoryName.trim())) {
-                              setCategoriesList(prev => [...prev, newCategoryName.trim()]);
+                        onClick={async () => {
+                          const trimmed = newCategoryName.trim();
+                          if (trimmed) {
+                            if (!categoriesList.includes(trimmed)) {
+                              setCategoriesList(prev => [...prev, trimmed]);
                               setNewCategoryName('');
+                              if (supabaseStatus.connected) {
+                                await supabaseService.insertCategory(trimmed);
+                              }
                             } else {
                               alert('ক্যাটাগরি আগে থেকেই বিদ্যমান আছে!');
                             }
@@ -3730,12 +3752,15 @@ export default function App() {
                           <div key={cat} className="flex justify-between items-center text-xs p-3 bg-white/[0.02] border border-white/5 rounded-xl">
                             <span className="font-medium">{cat}</span>
                             <button
-                              onClick={() => {
+                              onClick={async () => {
                                 if (inUse) {
                                   alert(`এই ক্যাটাগরিটি ডিলেট করা যাবে না। ${products.filter(p => p.category === cat).length}টি প্রোডাক্ট এতে রেজিস্টার্ড রয়েছে।`);
                                   return;
                                 }
                                 setCategoriesList(prev => prev.filter(c => c !== cat));
+                                if (supabaseStatus.connected) {
+                                  await supabaseService.deleteCategory(cat);
+                                }
                               }}
                               className={`p-1 rounded ${inUse ? 'opacity-20 cursor-not-allowed' : 'text-rose-500 hover:bg-rose-500/10'}`}
                               disabled={inUse}
@@ -3769,11 +3794,15 @@ export default function App() {
                         className="flex-1 text-xs p-2.5 rounded-xl border border-[#322822]/50 bg-[#120e0c] outline-none"
                       />
                       <button 
-                        onClick={() => {
-                          if (newBrandName.trim()) {
-                            if (!brandsList.includes(newBrandName.trim())) {
-                              setBrandsList(prev => [...prev, newBrandName.trim()]);
+                        onClick={async () => {
+                          const trimmed = newBrandName.trim();
+                          if (trimmed) {
+                            if (!brandsList.includes(trimmed)) {
+                              setBrandsList(prev => [...prev, trimmed]);
                               setNewBrandName('');
+                              if (supabaseStatus.connected) {
+                                await supabaseService.insertBrand(trimmed);
+                              }
                             } else {
                               alert('ব্র্যান্ড আগে থেকেই বিদ্যমান আছে!');
                             }
@@ -3794,12 +3823,15 @@ export default function App() {
                           <div key={brand} className="flex justify-between items-center text-xs p-3 bg-white/[0.02] border border-white/5 rounded-xl">
                             <span className="font-medium">{brand}</span>
                             <button
-                              onClick={() => {
+                              onClick={async () => {
                                 if (inUse) {
                                   alert(`এই ব্র্যান্ড ডিলেট করা যাবে না। প্রোডাক্টে ব্যবহার হচ্ছে।`);
                                   return;
                                 }
                                 setBrandsList(prev => prev.filter(b => b !== brand));
+                                if (supabaseStatus.connected) {
+                                  await supabaseService.deleteBrand(brand);
+                                }
                               }}
                               className={`p-1 rounded ${inUse ? 'opacity-20 cursor-not-allowed' : 'text-rose-500 hover:bg-rose-500/10'}`}
                               disabled={inUse}
@@ -3833,11 +3865,15 @@ export default function App() {
                         className="flex-1 text-xs p-2.5 rounded-xl border border-[#322822]/50 bg-[#120e0c] outline-none"
                       />
                       <button 
-                        onClick={() => {
-                          if (newCollectionName.trim()) {
-                            if (!collectionsList.includes(newCollectionName.trim())) {
-                              setCollectionsList(prev => [...prev, newCollectionName.trim()]);
+                        onClick={async () => {
+                          const trimmed = newCollectionName.trim();
+                          if (trimmed) {
+                            if (!collectionsList.includes(trimmed)) {
+                              setCollectionsList(prev => [...prev, trimmed]);
                               setNewCollectionName('');
+                              if (supabaseStatus.connected) {
+                                await supabaseService.insertCollectionList(trimmed);
+                              }
                             } else {
                               alert('কালেকশন আগে থেকেই বিদ্যমান আছে!');
                             }
@@ -3858,12 +3894,15 @@ export default function App() {
                           <div key={col} className="flex justify-between items-center text-xs p-3 bg-white/[0.02] border border-white/5 rounded-xl">
                             <span className="font-medium">{col}</span>
                             <button
-                              onClick={() => {
+                              onClick={async () => {
                                 if (inUse) {
                                   alert(`এই কালেকশন ডিলেট করা যাবে না। প্রোডাক্টে ব্যবহার হচ্ছে।`);
                                   return;
                                 }
                                 setCollectionsList(prev => prev.filter(c => c !== col));
+                                if (supabaseStatus.connected) {
+                                  await supabaseService.deleteCollectionList(col);
+                                }
                               }}
                               className={`p-1 rounded ${inUse ? 'opacity-20 cursor-not-allowed' : 'text-rose-500 hover:bg-rose-500/10'}`}
                               disabled={inUse}
@@ -6744,12 +6783,27 @@ CREATE TABLE IF NOT EXISTS staff_data (
   role TEXT,
   status TEXT,
   permissions TEXT
+);
+
+-- ৯. Categories List
+CREATE TABLE IF NOT EXISTS categories_list (
+  name TEXT PRIMARY KEY
+);
+
+-- ১০. Brands List
+CREATE TABLE IF NOT EXISTS brands_list (
+  name TEXT PRIMARY KEY
+);
+
+-- ১১. Collections List
+CREATE TABLE IF NOT EXISTS collections_list (
+  name TEXT PRIMARY KEY
 );`}
                           </pre>
                           <button
                             type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS products ( id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price NUMERIC NOT NULL, original_price NUMERIC, stock INT NOT NULL, category TEXT, sales_count INT DEFAULT 0, rating NUMERIC DEFAULT 0, image TEXT, sizes JSONB, colors JSONB, fabric TEXT, collection TEXT, sku TEXT, is_new_arrival BOOLEAN DEFAULT false, is_best_seller BOOLEAN DEFAULT false, is_limited_edition BOOLEAN DEFAULT false, size_stock JSONB, color_stock JSONB, season TEXT, brand TEXT, product_cost NUMERIC, delivery_cost NUMERIC, discount NUMERIC DEFAULT 0, marketing_cost NUMERIC, video_url TEXT ); CREATE TABLE IF NOT EXISTS orders ( id TEXT PRIMARY KEY, customer_name TEXT NOT NULL, customer_email TEXT, customer_phone TEXT, customer_address TEXT, date TEXT, items JSONB NOT NULL, total NUMERIC NOT NULL, status TEXT NOT NULL, payment_method TEXT, payment_status TEXT, timeline JSONB, internal_notes TEXT ); CREATE TABLE IF NOT EXISTS customers ( id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, address TEXT, avatar TEXT, join_date TEXT, total_spending NUMERIC DEFAULT 0, orders_count INT DEFAULT 0, segment TEXT, activity_timeline JSONB, gender TEXT, birthday TEXT, preferred_size TEXT, favorite_color TEXT, favorite_category TEXT, last_purchase_date TEXT, average_order_value NUMERIC, marketing_tags JSONB, shirt_size TEXT, pant_size TEXT, shoe_size TEXT, size_history JSONB, customer_value_score NUMERIC, buying_pattern_analysis TEXT, next_purchase_prediction TEXT, membership_tier TEXT, reward_points INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS notifications ( id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL, timestamp TEXT NOT NULL, read BOOLEAN DEFAULT false ); CREATE TABLE IF NOT EXISTS system_settings ( id TEXT PRIMARY KEY, currency TEXT, tax_rate NUMERIC, low_stock_limit INT, eye_protection_enabled BOOLEAN, blue_light_filter_level INT, theme_mode TEXT, brand_name TEXT, brand_logo TEXT, tagline TEXT ); CREATE TABLE IF NOT EXISTS collections_data ( id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, status TEXT, sales NUMERIC, profit NUMERIC, items_count INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS returns_data ( id TEXT PRIMARY KEY, customer_name TEXT, phone TEXT, product_name TEXT, reason TEXT, refund_amount NUMERIC, date TEXT, status TEXT ); CREATE TABLE IF NOT EXISTS staff_data ( email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT, status TEXT, permissions TEXT );`);
+                              navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS products ( id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price NUMERIC NOT NULL, original_price NUMERIC, stock INT NOT NULL, category TEXT, sales_count INT DEFAULT 0, rating NUMERIC DEFAULT 0, image TEXT, sizes JSONB, colors JSONB, fabric TEXT, collection TEXT, sku TEXT, is_new_arrival BOOLEAN DEFAULT false, is_best_seller BOOLEAN DEFAULT false, is_limited_edition BOOLEAN DEFAULT false, size_stock JSONB, color_stock JSONB, season TEXT, brand TEXT, product_cost NUMERIC, delivery_cost NUMERIC, discount NUMERIC DEFAULT 0, marketing_cost NUMERIC, video_url TEXT ); CREATE TABLE IF NOT EXISTS orders ( id TEXT PRIMARY KEY, customer_name TEXT NOT NULL, customer_email TEXT, customer_phone TEXT, customer_address TEXT, date TEXT, items JSONB NOT NULL, total NUMERIC NOT NULL, status TEXT NOT NULL, payment_method TEXT, payment_status TEXT, timeline JSONB, internal_notes TEXT ); CREATE TABLE IF NOT EXISTS customers ( id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, address TEXT, avatar TEXT, join_date TEXT, total_spending NUMERIC DEFAULT 0, orders_count INT DEFAULT 0, segment TEXT, activity_timeline JSONB, gender TEXT, birthday TEXT, preferred_size TEXT, favorite_color TEXT, favorite_category TEXT, last_purchase_date TEXT, average_order_value NUMERIC, marketing_tags JSONB, shirt_size TEXT, pant_size TEXT, shoe_size TEXT, size_history JSONB, customer_value_score NUMERIC, buying_pattern_analysis TEXT, next_purchase_prediction TEXT, membership_tier TEXT, reward_points INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS notifications ( id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL, timestamp TEXT NOT NULL, read BOOLEAN DEFAULT false ); CREATE TABLE IF NOT EXISTS system_settings ( id TEXT PRIMARY KEY, currency TEXT, tax_rate NUMERIC, low_stock_limit INT, eye_protection_enabled BOOLEAN, blue_light_filter_level INT, theme_mode TEXT, brand_name TEXT, brand_logo TEXT, tagline TEXT ); CREATE TABLE IF NOT EXISTS collections_data ( id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, status TEXT, sales NUMERIC, profit NUMERIC, items_count INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS returns_data ( id TEXT PRIMARY KEY, customer_name TEXT, phone TEXT, product_name TEXT, reason TEXT, refund_amount NUMERIC, date TEXT, status TEXT ); CREATE TABLE IF NOT EXISTS staff_data ( email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT, status TEXT, permissions TEXT ); CREATE TABLE IF NOT EXISTS categories_list ( name TEXT PRIMARY KEY ); CREATE TABLE IF NOT EXISTS brands_list ( name TEXT PRIMARY KEY ); CREATE TABLE IF NOT EXISTS collections_list ( name TEXT PRIMARY KEY );`);
                               alert('SQL কোড ক্লিপবোর্ডে কপি হয়েছে!');
                             }}
                             className="absolute top-2 right-2 px-2.5 py-1.5 bg-neutral-800 text-[10px] text-white hover:bg-neutral-700 rounded-lg transition-colors border border-neutral-700 font-sans"

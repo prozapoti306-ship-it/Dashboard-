@@ -656,6 +656,111 @@ export const supabaseService = {
     }
   },
 
+  // 9. CATEGORIES
+  async getCategories(fallback: string[]): Promise<string[]> {
+    try {
+      const { data, error } = await supabase.from('categories_list').select('name');
+      if (error) throw error;
+      if (!data || data.length === 0) return fallback;
+      return data.map((d: any) => d.name);
+    } catch (e) {
+      console.warn('Supabase getCategories failed, using fallback:', e);
+      return fallback;
+    }
+  },
+
+  async insertCategory(name: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('categories_list').insert({ name });
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase insertCategory failed:', e);
+      return false;
+    }
+  },
+
+  async deleteCategory(name: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('categories_list').delete().eq('name', name);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase deleteCategory failed:', e);
+      return false;
+    }
+  },
+
+  // 10. BRANDS
+  async getBrands(fallback: string[]): Promise<string[]> {
+    try {
+      const { data, error } = await supabase.from('brands_list').select('name');
+      if (error) throw error;
+      if (!data || data.length === 0) return fallback;
+      return data.map((d: any) => d.name);
+    } catch (e) {
+      console.warn('Supabase getBrands failed, using fallback:', e);
+      return fallback;
+    }
+  },
+
+  async insertBrand(name: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('brands_list').insert({ name });
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase insertBrand failed:', e);
+      return false;
+    }
+  },
+
+  async deleteBrand(name: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('brands_list').delete().eq('name', name);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase deleteBrand failed:', e);
+      return false;
+    }
+  },
+
+  // 11. COLLECTIONS
+  async getCollectionsList(fallback: string[]): Promise<string[]> {
+    try {
+      const { data, error } = await supabase.from('collections_list').select('name');
+      if (error) throw error;
+      if (!data || data.length === 0) return fallback;
+      return data.map((d: any) => d.name);
+    } catch (e) {
+      console.warn('Supabase getCollectionsList failed, using fallback:', e);
+      return fallback;
+    }
+  },
+
+  async insertCollectionList(name: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('collections_list').insert({ name });
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase insertCollectionList failed:', e);
+      return false;
+    }
+  },
+
+  async deleteCollectionList(name: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('collections_list').delete().eq('name', name);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase deleteCollectionList failed:', e);
+      return false;
+    }
+  },
+
   // Initialize/Seed Supabase tables with current local data
   async seedTables(data: {
     products: Product[];
@@ -715,6 +820,27 @@ export const supabaseService = {
       logs.push(`৮. স্টাফ মেম্বার সিডিং (${data.staff.length} টি)...`);
       for (const s of data.staff) {
         await supabase.from('staff_data').upsert(mapStaffToDb(s));
+      }
+
+      // Seed Categories List
+      logs.push(`৯. ক্যাটাগরি তালিকা সিডিং...`);
+      const initialCats = ['Apparel', 'Leather Goods', 'Footwear', 'Accessories', 'Eyewear'];
+      for (const name of initialCats) {
+        await supabase.from('categories_list').upsert({ name });
+      }
+
+      // Seed Brands List
+      logs.push(`১০. ব্র্যান্ড তালিকা সিডিং...`);
+      const initialBrands = ['Aura Lux', 'Monaco Atelier', 'Breeze Couture', 'Vanguard Knit', 'Atelier Luxe', 'Monarque Premium'];
+      for (const name of initialBrands) {
+        await supabase.from('brands_list').upsert({ name });
+      }
+
+      // Seed Collections List
+      logs.push(`১১. কালেকশন তালিকা সিডিং...`);
+      const initialCollections = ['Eid Collection', 'Winter Collection', 'Summer Collection', 'New Arrival', 'Premium Collection'];
+      for (const name of initialCollections) {
+        await supabase.from('collections_list').upsert({ name });
       }
 
       logs.push('✅ সুপাবেজে সকল ডাটা সফলভাবে পুশ করা হয়েছে!');

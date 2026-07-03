@@ -92,6 +92,29 @@ app.get("/api/products", async (req, res) => {
   res.json(cachedProducts);
 });
 
+// Grouped products API by category for section-based homepage with cache headers
+app.get("/api/products/grouped", async (req, res) => {
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30');
+  if (!isCacheInitialized) {
+    // Fire background fetch, but wait at most 1000ms so we never cause an unacceptable delay
+    const fetchPromise = fetchProductsFromSupabase();
+    await Promise.race([
+      fetchPromise,
+      new Promise(resolve => setTimeout(resolve, 1000))
+    ]);
+  }
+  
+  const grouped: { [category: string]: any[] } = {};
+  for (const product of cachedProducts) {
+    const cat = product.category || "Apparel";
+    if (!grouped[cat]) {
+      grouped[cat] = [];
+    }
+    grouped[cat].push(product);
+  }
+  res.json(grouped);
+});
+
 // Orders API routes to support dashboard order sync
 app.get("/api/orders", async (req, res) => {
   try {

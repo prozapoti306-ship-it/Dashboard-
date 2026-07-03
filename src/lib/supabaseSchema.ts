@@ -135,7 +135,25 @@ CREATE TABLE IF NOT EXISTS staff_data (
   permissions TEXT
 );
 
+-- ৯. Categories List
+CREATE TABLE IF NOT EXISTS categories_list (
+  name TEXT PRIMARY KEY
+);
+
+-- ১০. Brands List
+CREATE TABLE IF NOT EXISTS brands_list (
+  name TEXT PRIMARY KEY
+);
+
+-- ১১. Collections List
+CREATE TABLE IF NOT EXISTS collections_list (
+  name TEXT PRIMARY KEY
+);
+
 -- Enable Replication for real-time tracking
 ALTER PUBLICATION supabase_realtime ADD TABLE products;
 ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+ALTER PUBLICATION supabase_realtime ADD TABLE categories_list;
+ALTER PUBLICATION supabase_realtime ADD TABLE brands_list;
+ALTER PUBLICATION supabase_realtime ADD TABLE collections_list;
 `;
