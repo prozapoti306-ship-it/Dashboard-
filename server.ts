@@ -18,6 +18,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const CACHE_FILE_PATH = path.join(process.cwd(), "products_cache.json");
 let cachedProducts: any[] = [];
 let isCacheInitialized = false;
+let isFetchingProducts = false;
 
 // Eagerly load persistent file cache on startup to ensure instant (<1ms) response times
 try {
@@ -32,6 +33,11 @@ try {
 }
 
 async function fetchProductsFromSupabase() {
+  if (isFetchingProducts) {
+    console.log("[CACHE] A fetch request is already in progress. Skipping to prevent overlap.");
+    return;
+  }
+  isFetchingProducts = true;
   try {
     const { data, error } = await supabase.from('products').select('*');
     if (error) throw error;
@@ -42,12 +48,23 @@ async function fetchProductsFromSupabase() {
         fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(data, null, 2));
         console.log(`[FILE CACHE] Successfully wrote ${data.length} products to persistent local file.`);
       } catch (fileErr) {
-        console.error("[FILE CACHE] Failed to write to local file:", fileErr);
+        console.warn("[FILE CACHE] Failed to write to local file:", fileErr);
       }
       console.log(`[CACHE] Successfully cached ${data.length} products from Supabase.`);
     }
-  } catch (err) {
-    console.error("[CACHE] Failed to fetch products from Supabase:", err);
+  } catch (err: any) {
+    let errMsg = err?.message || err?.details || (typeof err === "object" ? JSON.stringify(err) : String(err));
+    const errCode = err?.code ? `(Code: ${err.code})` : "";
+    if (errMsg.includes("<!DOCTYPE html") || errMsg.includes("<html") || errMsg.includes("Cloudflare") || errMsg.includes("521")) {
+      errMsg = "Supabase database service is currently unreachable (HTTP 521 / Cloudflare gateway error).";
+    } else if (errMsg.includes("canceling statement") || errMsg.includes("statement timeout") || err?.code === "57014") {
+      errMsg = "Query cancelled due to statement timeout (heavy database load or massive payload).";
+    } else if (errMsg.length > 200) {
+      errMsg = errMsg.substring(0, 200) + "... (truncated)";
+    }
+    console.warn(`[CACHE] Failed to fetch products from Supabase ${errCode}: ${errMsg} Using local file cache backup.`);
+  } finally {
+    isFetchingProducts = false;
   }
 }
 
@@ -250,8 +267,9 @@ async function startServer() {
 
   // Initialize fast cache on startup in the background (non-blocking)
   fetchProductsFromSupabase();
-  // Keep cache updated in the background every 10 seconds
-  setInterval(fetchProductsFromSupabase, 10000);
+  // Keep cache updated in the background every 10 minutes (600,000ms).
+  // Realtime updates are instantly pushed via /api/products/sync when changes occur in the Admin UI.
+  setInterval(fetchProductsFromSupabase, 600000);
 
   if (process.env.NODE_ENV !== "production") {
     console.log("Vite is running in development mode...");
