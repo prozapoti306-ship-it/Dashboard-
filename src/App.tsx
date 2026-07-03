@@ -633,7 +633,13 @@ export default function App() {
 
     // Trigger fast cache sync if any database mutations occurred
     if (deleted.length > 0 || changed.length > 0) {
-      fetch('/api/products/sync', { method: 'POST' }).catch(() => {});
+      fetch('/api/products/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ products: products.map(mapProductToDb) })
+      }).catch(() => {});
     }
   }, [products, supabaseStatus.connected, supabaseStatus.schemaCreated, supabaseStatus.loading, isSeeding]);
 

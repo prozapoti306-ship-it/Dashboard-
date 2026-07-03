@@ -1404,11 +1404,18 @@ export default function CustomerStorefront({
 
         {/* Catalog Grid */}
         {loading && filteredProducts.length === 0 ? (
-          <div className="py-20 flex flex-col items-center justify-center space-y-4 text-center">
-            <div className="h-10 w-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-xs sm:text-sm opacity-70 max-w-md font-medium leading-relaxed">
-              সুপাবেজ ডেটাবেজ থেকে রিয়েল-টাইম লাইভ প্রোডাক্ট ক্যাটালগ লোড করা হচ্ছে... অনুগ্রহ করে এক মুহূর্ত অপেক্ষা করুন।
-            </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
+            {[1, 2, 3, 4].map((n) => (
+              <div 
+                key={n}
+                className={`rounded-[1.2rem] sm:rounded-[1.8rem] border p-4 flex flex-col justify-between space-y-4 animate-pulse
+                  ${themeMode === 'dark' ? 'bg-[#181412]/65 border-[#28211c]' : 'bg-white border-[#eae5de]'}`}
+              >
+                <div className="aspect-square bg-neutral-200 dark:bg-neutral-800 rounded-xl w-full"></div>
+                <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4"></div>
+                <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-1/2"></div>
+              </div>
+            ))}
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-3 text-center opacity-60">
