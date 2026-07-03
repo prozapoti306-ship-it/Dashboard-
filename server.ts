@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
+import compression from "compression"; // এক্সপ্রেসের রেসপন্স কম্প্রেশনের জন্য
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
@@ -8,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 dotenv.config();
 
 const app = express();
+app.use(compression()); // সব ডেটা কম্প্রেস হয়ে দ্রুত কাস্টমারের কাছে পৌঁছানোর জন্য
 const PORT = 3000;
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://ytwgoolesgnkegeykpup.supabase.co';
