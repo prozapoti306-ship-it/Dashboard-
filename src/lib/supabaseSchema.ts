@@ -150,10 +150,20 @@ CREATE TABLE IF NOT EXISTS collections_list (
   name TEXT PRIMARY KEY
 );
 
+-- ১২. Homepage Settings (Hero Banner)
+CREATE TABLE IF NOT EXISTS homepage_settings (
+  id TEXT PRIMARY KEY,
+  hero_title TEXT,
+  hero_subtitle TEXT,
+  hero_description TEXT,
+  hero_image_url TEXT
+);
+
 -- Enable Replication for real-time tracking
 ALTER PUBLICATION supabase_realtime ADD TABLE products;
 ALTER PUBLICATION supabase_realtime ADD TABLE orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE categories_list;
 ALTER PUBLICATION supabase_realtime ADD TABLE brands_list;
 ALTER PUBLICATION supabase_realtime ADD TABLE collections_list;
+ALTER PUBLICATION supabase_realtime ADD TABLE homepage_settings;
 `;

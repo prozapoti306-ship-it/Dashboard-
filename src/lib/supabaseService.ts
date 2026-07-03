@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, Order, Customer, Notification, SystemSettings } from '../types';
+import { Product, Order, Customer, Notification, SystemSettings, HomepageSettings } from '../types';
 
 declare global {
   interface ImportMetaEnv {
@@ -757,6 +757,42 @@ export const supabaseService = {
       return true;
     } catch (e) {
       console.error('Supabase deleteCollectionList failed:', e);
+      return false;
+    }
+  },
+
+  // 12. HOMEPAGE SETTINGS (Hero Banner)
+  async getHomepageSettings(fallback: HomepageSettings): Promise<HomepageSettings> {
+    try {
+      const { data, error } = await supabase.from('homepage_settings').select('*').eq('id', 'hero_banner').maybeSingle();
+      if (error) throw error;
+      if (!data) return fallback;
+      return {
+        id: data.id || 'hero_banner',
+        hero_title: data.hero_title || fallback.hero_title,
+        hero_subtitle: data.hero_subtitle || fallback.hero_subtitle,
+        hero_description: data.hero_description || fallback.hero_description,
+        hero_image_url: data.hero_image_url || fallback.hero_image_url,
+      };
+    } catch (e) {
+      console.warn('Supabase getHomepageSettings failed, using fallback:', e);
+      return fallback;
+    }
+  },
+
+  async upsertHomepageSettings(settings: HomepageSettings): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('homepage_settings').upsert({
+        id: 'hero_banner',
+        hero_title: settings.hero_title,
+        hero_subtitle: settings.hero_subtitle,
+        hero_description: settings.hero_description,
+        hero_image_url: settings.hero_image_url,
+      });
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase upsertHomepageSettings failed:', e);
       return false;
     }
   },

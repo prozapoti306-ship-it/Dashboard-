@@ -130,3 +130,12 @@ export interface SystemSettings {
   brandLogo?: string;
   tagline?: string;
 }
+
+export interface HomepageSettings {
+  id: string;
+  hero_title: string;
+  hero_subtitle: string;
+  hero_description: string;
+  hero_image_url: string;
+}
+

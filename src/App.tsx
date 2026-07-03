@@ -14,11 +14,20 @@ import {
   Notification, 
   SystemSettings, 
   OrderStatus, 
-  OrderItem 
+  OrderItem,
+  HomepageSettings
 } from './types';
 import Sidebar from './components/Sidebar';
 import CustomerStorefront from './components/CustomerStorefront';
 import LoginPage from './components/LoginPage';
+
+const DEFAULT_HOMEPAGE_SETTINGS: HomepageSettings = {
+  id: 'hero_banner',
+  hero_title: 'খেলার মাঠের শ্রেষ্ঠত্ব',
+  hero_subtitle: 'Bangladesh Premium Cricket Jersey 2026',
+  hero_description: 'জাতীয় দলের অফিশিয়াল ক্রিকেট জার্সি ২০২৬। চমৎকার সাব্লিমেশন প্রিন্ট এবং প্রিমিয়াম ডাবল-মেস আরামদায়ক অ্যাথলেটিক ফিট। ঘাম শোষণ ক্ষমতা সম্পন্ন এবং খেলা বা পরার জন্য অত্যন্ত উপযোগী।',
+  hero_image_url: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200'
+};
 // @ts-ignore
 import trendZoneLogo from './assets/images/trend_zone_logo_1782968033190.jpg';
 import { 
@@ -202,7 +211,30 @@ export default function App() {
     return DEFAULT_SETTINGS;
   });
 
+  const [homepageSettings, setHomepageSettings] = useState<HomepageSettings>(() => {
+    try {
+      const cached = localStorage.getItem('aura_cached_homepage_settings');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn("Error reading cached homepage settings:", e);
+    }
+    return DEFAULT_HOMEPAGE_SETTINGS;
+  });
+
+  const [isSavingBanner, setIsSavingBanner] = useState(false);
+  const [bannerSaveStatus, setBannerSaveStatus] = useState<{ success: boolean; error?: string } | null>(null);
+
   // Synchronize state changes to localStorage caches
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_cached_homepage_settings', JSON.stringify(homepageSettings));
+    } catch (e) {
+      console.warn("localStorage cache write failed for homepage settings");
+    }
+  }, [homepageSettings]);
+
   useEffect(() => {
     try {
       localStorage.setItem('aura_cached_products', JSON.stringify(products));
@@ -518,7 +550,8 @@ export default function App() {
           dbStaff,
           dbCategories,
           dbBrands,
-          dbCollectionsList
+          dbCollectionsList,
+          dbHomepageSettings
         ] = await Promise.all([
           supabaseService.getProducts(INITIAL_PRODUCTS),
           supabaseService.getSettings(DEFAULT_SETTINGS),
@@ -530,7 +563,8 @@ export default function App() {
           supabaseService.getStaff(staffData),
           supabaseService.getCategories(categoriesList),
           supabaseService.getBrands(brandsList),
-          supabaseService.getCollectionsList(collectionsList)
+          supabaseService.getCollectionsList(collectionsList),
+          supabaseService.getHomepageSettings(DEFAULT_HOMEPAGE_SETTINGS)
         ]);
 
         if (dbProducts && dbProducts.length > 0) {
@@ -578,6 +612,9 @@ export default function App() {
         }
         if (dbCollectionsList) {
           setCollectionsList(dbCollectionsList);
+        }
+        if (dbHomepageSettings) {
+          setHomepageSettings(dbHomepageSettings);
         }
 
         setSupabaseStatus({
@@ -6798,12 +6835,21 @@ CREATE TABLE IF NOT EXISTS brands_list (
 -- ১১. Collections List
 CREATE TABLE IF NOT EXISTS collections_list (
   name TEXT PRIMARY KEY
+);
+
+-- ১২. Homepage Settings (Hero Banner)
+CREATE TABLE IF NOT EXISTS homepage_settings (
+  id TEXT PRIMARY KEY,
+  hero_title TEXT,
+  hero_subtitle TEXT,
+  hero_description TEXT,
+  hero_image_url TEXT
 );`}
                           </pre>
                           <button
                             type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS products ( id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price NUMERIC NOT NULL, original_price NUMERIC, stock INT NOT NULL, category TEXT, sales_count INT DEFAULT 0, rating NUMERIC DEFAULT 0, image TEXT, sizes JSONB, colors JSONB, fabric TEXT, collection TEXT, sku TEXT, is_new_arrival BOOLEAN DEFAULT false, is_best_seller BOOLEAN DEFAULT false, is_limited_edition BOOLEAN DEFAULT false, size_stock JSONB, color_stock JSONB, season TEXT, brand TEXT, product_cost NUMERIC, delivery_cost NUMERIC, discount NUMERIC DEFAULT 0, marketing_cost NUMERIC, video_url TEXT ); CREATE TABLE IF NOT EXISTS orders ( id TEXT PRIMARY KEY, customer_name TEXT NOT NULL, customer_email TEXT, customer_phone TEXT, customer_address TEXT, date TEXT, items JSONB NOT NULL, total NUMERIC NOT NULL, status TEXT NOT NULL, payment_method TEXT, payment_status TEXT, timeline JSONB, internal_notes TEXT ); CREATE TABLE IF NOT EXISTS customers ( id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, address TEXT, avatar TEXT, join_date TEXT, total_spending NUMERIC DEFAULT 0, orders_count INT DEFAULT 0, segment TEXT, activity_timeline JSONB, gender TEXT, birthday TEXT, preferred_size TEXT, favorite_color TEXT, favorite_category TEXT, last_purchase_date TEXT, average_order_value NUMERIC, marketing_tags JSONB, shirt_size TEXT, pant_size TEXT, shoe_size TEXT, size_history JSONB, customer_value_score NUMERIC, buying_pattern_analysis TEXT, next_purchase_prediction TEXT, membership_tier TEXT, reward_points INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS notifications ( id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL, timestamp TEXT NOT NULL, read BOOLEAN DEFAULT false ); CREATE TABLE IF NOT EXISTS system_settings ( id TEXT PRIMARY KEY, currency TEXT, tax_rate NUMERIC, low_stock_limit INT, eye_protection_enabled BOOLEAN, blue_light_filter_level INT, theme_mode TEXT, brand_name TEXT, brand_logo TEXT, tagline TEXT ); CREATE TABLE IF NOT EXISTS collections_data ( id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, status TEXT, sales NUMERIC, profit NUMERIC, items_count INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS returns_data ( id TEXT PRIMARY KEY, customer_name TEXT, phone TEXT, product_name TEXT, reason TEXT, refund_amount NUMERIC, date TEXT, status TEXT ); CREATE TABLE IF NOT EXISTS staff_data ( email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT, status TEXT, permissions TEXT ); CREATE TABLE IF NOT EXISTS categories_list ( name TEXT PRIMARY KEY ); CREATE TABLE IF NOT EXISTS brands_list ( name TEXT PRIMARY KEY ); CREATE TABLE IF NOT EXISTS collections_list ( name TEXT PRIMARY KEY );`);
+                              navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS products ( id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price NUMERIC NOT NULL, original_price NUMERIC, stock INT NOT NULL, category TEXT, sales_count INT DEFAULT 0, rating NUMERIC DEFAULT 0, image TEXT, sizes JSONB, colors JSONB, fabric TEXT, collection TEXT, sku TEXT, is_new_arrival BOOLEAN DEFAULT false, is_best_seller BOOLEAN DEFAULT false, is_limited_edition BOOLEAN DEFAULT false, size_stock JSONB, color_stock JSONB, season TEXT, brand TEXT, product_cost NUMERIC, delivery_cost NUMERIC, discount NUMERIC DEFAULT 0, marketing_cost NUMERIC, video_url TEXT ); CREATE TABLE IF NOT EXISTS orders ( id TEXT PRIMARY KEY, customer_name TEXT NOT NULL, customer_email TEXT, customer_phone TEXT, customer_address TEXT, date TEXT, items JSONB NOT NULL, total NUMERIC NOT NULL, status TEXT NOT NULL, payment_method TEXT, payment_status TEXT, timeline JSONB, internal_notes TEXT ); CREATE TABLE IF NOT EXISTS customers ( id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, phone TEXT, address TEXT, avatar TEXT, join_date TEXT, total_spending NUMERIC DEFAULT 0, orders_count INT DEFAULT 0, segment TEXT, activity_timeline JSONB, gender TEXT, birthday TEXT, preferred_size TEXT, favorite_color TEXT, favorite_category TEXT, last_purchase_date TEXT, average_order_value NUMERIC, marketing_tags JSONB, shirt_size TEXT, pant_size TEXT, shoe_size TEXT, size_history JSONB, customer_value_score NUMERIC, buying_pattern_analysis TEXT, next_purchase_prediction TEXT, membership_tier TEXT, reward_points INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS notifications ( id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT NOT NULL, timestamp TEXT NOT NULL, read BOOLEAN DEFAULT false ); CREATE TABLE IF NOT EXISTS system_settings ( id TEXT PRIMARY KEY, currency TEXT, tax_rate NUMERIC, low_stock_limit INT, eye_protection_enabled BOOLEAN, blue_light_filter_level INT, theme_mode TEXT, brand_name TEXT, brand_logo TEXT, tagline TEXT ); CREATE TABLE IF NOT EXISTS collections_data ( id TEXT PRIMARY KEY, name TEXT NOT NULL, season TEXT, status TEXT, sales NUMERIC, profit NUMERIC, items_count INT DEFAULT 0 ); CREATE TABLE IF NOT EXISTS returns_data ( id TEXT PRIMARY KEY, customer_name TEXT, phone TEXT, product_name TEXT, reason TEXT, refund_amount NUMERIC, date TEXT, status TEXT ); CREATE TABLE IF NOT EXISTS staff_data ( email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT, status TEXT, permissions TEXT ); CREATE TABLE IF NOT EXISTS categories_list ( name TEXT PRIMARY KEY ); CREATE TABLE IF NOT EXISTS brands_list ( name TEXT PRIMARY KEY ); CREATE TABLE IF NOT EXISTS collections_list ( name TEXT PRIMARY KEY ); CREATE TABLE IF NOT EXISTS homepage_settings ( id TEXT PRIMARY KEY, hero_title TEXT, hero_subtitle TEXT, hero_description TEXT, hero_image_url TEXT );`);
                               alert('SQL কোড ক্লিপবোর্ডে কপি হয়েছে!');
                             }}
                             className="absolute top-2 right-2 px-2.5 py-1.5 bg-neutral-800 text-[10px] text-white hover:bg-neutral-700 rounded-lg transition-colors border border-neutral-700 font-sans"
