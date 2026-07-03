@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import fs from "fs";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
@@ -15,22 +14,9 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://ytwgoolesgnkegeykp
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9Xwy1UomtTTsk-hogHBCaw_7_0Z4FyS';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const CACHE_FILE_PATH = path.join(process.cwd(), "products_cache.json");
 let cachedProducts: any[] = [];
 let isCacheInitialized = false;
 let isFetchingProducts = false;
-
-// Eagerly load persistent file cache on startup to ensure instant (<1ms) response times
-try {
-  if (fs.existsSync(CACHE_FILE_PATH)) {
-    const fileData = fs.readFileSync(CACHE_FILE_PATH, 'utf-8');
-    cachedProducts = JSON.parse(fileData);
-    isCacheInitialized = true;
-    console.log(`[FILE CACHE] Successfully preloaded ${cachedProducts.length} products from persistent local file.`);
-  }
-} catch (err) {
-  console.error("[FILE CACHE] Failed to load local file cache on startup:", err);
-}
 
 async function fetchProductsFromSupabase() {
   if (isFetchingProducts) {
@@ -44,13 +30,7 @@ async function fetchProductsFromSupabase() {
     if (data) {
       cachedProducts = data;
       isCacheInitialized = true;
-      try {
-        fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(data, null, 2));
-        console.log(`[FILE CACHE] Successfully wrote ${data.length} products to persistent local file.`);
-      } catch (fileErr) {
-        console.warn("[FILE CACHE] Failed to write to local file:", fileErr);
-      }
-      console.log(`[CACHE] Successfully cached ${data.length} products from Supabase.`);
+      console.log(`[MEMORY CACHE] Successfully cached ${data.length} products in memory.`);
     }
   } catch (err: any) {
     let errMsg = err?.message || err?.details || (typeof err === "object" ? JSON.stringify(err) : String(err));
@@ -115,15 +95,10 @@ app.post("/api/products/sync", async (req, res) => {
     if (Array.isArray(products)) {
       cachedProducts = products;
       isCacheInitialized = true;
-      try {
-        fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(products, null, 2));
-        console.log(`[FILE CACHE] Updated instantly via post sync payload with ${products.length} products.`);
-      } catch (fileErr) {
-        console.error("[FILE CACHE] Failed to write post sync payload to local file:", fileErr);
-      }
+      console.log(`[MEMORY CACHE] Updated instantly via sync payload with ${products.length} products.`);
     }
   } catch (err) {
-    console.error("[FILE CACHE] Error during sync route execution:", err);
+    console.error("[MEMORY CACHE] Error during sync route execution:", err);
   }
 
   // Refresh from Supabase in the background to ensure perfect synchronization
