@@ -15,7 +15,8 @@ import {
   SystemSettings, 
   OrderStatus, 
   OrderItem,
-  HomepageSettings
+  HomepageSettings,
+  CourierSetting
 } from './types';
 import Sidebar from './components/Sidebar';
 import CustomerStorefront from './components/CustomerStorefront';
@@ -82,7 +83,10 @@ import {
   AlertCircle,
   Menu,
   X,
-  QrCode
+  QrCode,
+  Truck,
+  Save,
+  Tag
 } from 'lucide-react';
 import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb, mapProductToDb } from './lib/supabaseService';
 
@@ -372,6 +376,7 @@ export default function App() {
   }, [settings]);
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<string>('brand');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState<'sales' | 'profit' | 'customers' | 'status'>('sales');
 
@@ -420,6 +425,17 @@ export default function App() {
   const [shouldTriggerPrint, setShouldTriggerPrint] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  
+  // Courier selection state
+  const [selectedCourier, setSelectedCourier] = useState<{ courier: string; order: Order } | null>(null);
+  const [showCourierModal, setShowCourierModal] = useState(false);
+  const [showSuccessTick, setShowSuccessTick] = useState(false);
+
+  // Courier API credentials integration states
+  const [courierSettingsList, setCourierSettingsList] = useState<CourierSetting[]>([]);
+  const [newCourierName, setNewCourierName] = useState('Steadfast Courier');
+  const [newCourierApiKey, setNewCourierApiKey] = useState('');
+  const [showAddCourierRow, setShowAddCourierRow] = useState(false);
 
   // Effect to trigger window.print() after order is loaded and DOM updates
   useEffect(() => {
@@ -662,7 +678,8 @@ export default function App() {
           dbCategories,
           dbBrands,
           dbCollectionsList,
-          dbHomepageSettings
+          dbHomepageSettings,
+          dbCourierSettings
         ] = await Promise.all([
           supabaseService.getProducts(INITIAL_PRODUCTS),
           supabaseService.getSettings(DEFAULT_SETTINGS),
@@ -675,7 +692,8 @@ export default function App() {
           supabaseService.getCategories(categoriesList),
           supabaseService.getBrands(brandsList),
           supabaseService.getCollectionsList(collectionsList),
-          supabaseService.getHomepageSettings(DEFAULT_HOMEPAGE_SETTINGS)
+          supabaseService.getHomepageSettings(DEFAULT_HOMEPAGE_SETTINGS),
+          supabaseService.getCourierSettings()
         ]);
 
         if (dbProducts && dbProducts.length > 0) {
@@ -726,6 +744,10 @@ export default function App() {
         }
         if (dbHomepageSettings) {
           setHomepageSettings(dbHomepageSettings);
+        }
+        if (dbCourierSettings) {
+          setCourierSettingsList(dbCourierSettings);
+          localStorage.setItem('aura_cached_courier_settings', JSON.stringify(dbCourierSettings));
         }
 
         setSupabaseStatus({
@@ -1176,25 +1198,42 @@ export default function App() {
   
   // 1. Order Status Transition Handlers
   const updateOrderStatus = (orderId: string, nextStatus: OrderStatus) => {
-    setOrders(prev => prev.map(order => {
-      if (order.id === orderId) {
-        const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
-        return {
-          ...order,
-          status: nextStatus,
-          paymentStatus: nextStatus === 'Delivered' ? 'Paid' : order.paymentStatus,
-          timeline: [
-            ...order.timeline,
-            { 
-              status: nextStatus, 
-              timestamp, 
-              note: `অর্ডার স্ট্যাটাস পরিবর্তন করে '${nextStatus}' করা হয়েছে (Admin Panel দ্বারা)।` 
-            }
-          ]
-        };
+    const orderToUpdate = orders.find(o => o.id === orderId);
+    if (orderToUpdate) {
+      const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      const updatedOrder: Order = {
+        ...orderToUpdate,
+        status: nextStatus,
+        paymentStatus: nextStatus === 'Delivered' ? 'Paid' : orderToUpdate.paymentStatus,
+        timeline: [
+          ...orderToUpdate.timeline,
+          { 
+            status: nextStatus, 
+            timestamp, 
+            note: `অর্ডার স্ট্যাটাস পরিবর্তন করে '${nextStatus}' করা হয়েছে (Admin Panel দ্বারা)।` 
+          }
+        ]
+      };
+
+      setOrders(prev => prev.map(order => order.id === orderId ? updatedOrder : order));
+
+      // Direct write to Supabase Database
+      supabaseService.upsertOrder(updatedOrder).then(success => {
+        if (!success) {
+          console.error("Direct status update to Supabase failed for order", orderId);
+        }
+      });
+
+      // Update in-place for active details modal
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder(updatedOrder);
       }
-      return order;
-    }));
+      
+      // Update in-place for editing modal
+      if (editingOrder && editingOrder.id === orderId) {
+        setEditingOrder(updatedOrder);
+      }
+    }
 
     // Add real-time log notification
     const newNotif: Notification = {
@@ -1206,22 +1245,6 @@ export default function App() {
       read: false
     };
     setNotifications(prev => [newNotif, ...prev]);
-
-    // Update in-place for active details modal
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          status: nextStatus,
-          paymentStatus: nextStatus === 'Delivered' ? 'Paid' : prev.paymentStatus,
-          timeline: [
-            ...prev.timeline,
-            { status: nextStatus, timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16), note: `স্ট্যাটাস আপডেট করা হয়েছে` }
-          ]
-        };
-      });
-    }
   };
 
   // Bulk operations
@@ -6413,350 +6436,568 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                 <p className="text-xs opacity-60">স্টোর ব্র্যান্ডিং, ওউ-কমার্স কানেকশন প্যারামিটার এবং রিঅ্যাক্টিভ ব্লু-লাইট আই প্রটেকশন টিউন করার কন্ট্রোল প্যানেল।</p>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                {/* Brand and safety col */}
-                <div className="lg:col-span-6 space-y-6">
-                  {/* Brand Branding Card */}
-                  <div className={`p-6 rounded-[2.5rem] border space-y-4
-                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
-                  >
-                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
-                      <Settings className="h-4.5 w-4.5 text-[#e07a5f]" />
-                      <span>১. ব্রান্ড পরিচিতি সেটিংস (Brand Slogan Settings)</span>
-                    </h3>
-                    <div className="space-y-3.5">
-                      <div>
-                        <label className="block text-[10px] font-bold opacity-75 mb-1.5">ব্র্যান্ড নাম (Brand Name - লাইভ আপডেট!)</label>
-                        <input 
-                          type="text"
-                          value={settings.brandName || ""}
-                          onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))}
-                          className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold opacity-75 mb-1.5">ব্র্যান্ড স্লোগান / ট্যাগলাইন (Tagline)</label>
-                        <input 
-                          type="text"
-                          value={settings.tagline || ""}
-                          onChange={(e) => setSettings(prev => ({ ...prev, tagline: e.target.value }))}
-                          className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
-                        />
-                      </div>
+              {/* Settings Sub-Menu Navigation Tab Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pb-3 border-b border-inherit w-full">
+                {[
+                  { id: 'brand', label: '১. ব্র্যান্ড পরিচিতি সেটিংস (Brand Slogan)', icon: Tag, color: 'text-amber-500 bg-amber-500/10' },
+                  { id: 'eye', label: '২. আই প্রোটেকশন (Eye Protection Filter)', icon: ShieldAlert, color: 'text-orange-500 bg-orange-500/10' },
+                  { id: 'woocommerce', label: '৩. উ-কমার্স REST API (WooCommerce)', icon: RefreshCcw, color: 'text-indigo-500 bg-indigo-500/10' },
+                  { id: 'inventory', label: '৪. ইনভেন্টরি এলার্ট (Stock Thresholds)', icon: Warehouse, color: 'text-rose-500 bg-rose-500/10' },
+                  { id: 'courier', label: '৫. কুরিয়ার এপিআই সেটিংস (Courier API)', icon: Truck, color: 'text-[#e07a5f] bg-[#e07a5f]/10' },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeSettingsTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveSettingsTab(tab.id)}
+                      className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-[11px] font-extrabold tracking-tight transition-all duration-300 border cursor-pointer
+                        ${isActive
+                          ? 'bg-[#e07a5f] text-white border-[#e07a5f] shadow-md scale-[1.01]'
+                          : settings.themeMode === 'dark'
+                            ? 'bg-[#1a1614]/60 border-[#322822]/40 text-neutral-400 hover:text-white hover:border-neutral-700'
+                            : 'bg-neutral-50 border-[#e8e4dc] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                        }`}
+                    >
+                      <span className={`p-1 rounded-lg shrink-0 ${isActive ? 'bg-white/20 text-white' : tab.color}`}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-                      {/* Brand Logo Upload & Custom Selection (Functional & Dynamic) */}
-                      <div className="pt-3 border-t border-inherit">
-                        <label className="block text-[10px] font-bold opacity-75 mb-2">ব্র্যান্ড লোগো সেটিংস (Store Brand Logo)</label>
-                        <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-3xl bg-neutral-100 dark:bg-white/5 border border-dashed border-inherit">
-                          {/* Logo Preview with premium drop-shadow as requested */}
-                          <div className="relative flex items-center justify-center h-20 w-20 rounded-full bg-black/40 border border-[#d4af37]/40 shrink-0 p-1 overflow-hidden group">
-                            <img 
-                              src={settings.brandLogo || trendZoneLogo} 
-                              alt="Brand Logo" 
-                              className="h-full w-full object-contain rounded-full transition-transform duration-300 group-hover:scale-110"
-                              style={{ filter: 'drop-shadow(0px 0px 8px rgba(212, 175, 55, 0.7))' }}
-                              referrerPolicy="no-referrer"
-                            />
-                          </div>
+              {/* Full Width Settings Sub-tab view with elegant fade-in */}
+              <div className="w-full pt-2">
+                {activeSettingsTab === 'brand' && (
+                  <div className="animate-fade-in duration-300">
+                    {/* Brand Branding Card */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <Settings className="h-4.5 w-4.5 text-[#e07a5f]" />
+                        <span>১. ব্রান্ড পরিচিতি সেটিংস (Brand Slogan Settings)</span>
+                      </h3>
+                      <div className="space-y-3.5">
+                        <div>
+                          <label className="block text-[10px] font-bold opacity-75 mb-1.5">ব্র্যান্ড নাম (Brand Name - লাইভ আপডেট!)</label>
+                          <input 
+                            type="text"
+                            value={settings.brandName || ""}
+                            onChange={(e) => setSettings(prev => ({ ...prev, brandName: e.target.value }))}
+                            className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold opacity-75 mb-1.5">ব্র্যান্ড স্লোগান / ট্যাগলাইন (Tagline)</label>
+                          <input 
+                            type="text"
+                            value={settings.tagline || ""}
+                            onChange={(e) => setSettings(prev => ({ ...prev, tagline: e.target.value }))}
+                            className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit"
+                          />
+                        </div>
 
-                          <div className="flex-1 w-full space-y-2">
-                            <div className="flex flex-wrap gap-2">
-                              {/* Standard Upload File Trigger */}
-                              <label className="cursor-pointer flex items-center space-x-1.5 px-3 py-1.5 bg-[#e07a5f] hover:bg-[#e07a5f]/90 text-white rounded-lg text-[10px] font-bold transition-all shadow-sm">
-                                <Upload className="h-3.5 w-3.5" />
-                                <span>লোগো আপলোড (Upload Logo)</span>
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  className="hidden" 
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      const reader = new FileReader();
-                                      reader.onload = (event) => {
-                                        if (event.target?.result) {
-                                          const img = new Image();
-                                          img.src = event.target.result as string;
-                                          img.onload = () => {
-                                            const canvas = document.createElement('canvas');
-                                            const MAX_WIDTH = 256;
-                                            const MAX_HEIGHT = 256;
-                                            let width = img.width;
-                                            let height = img.height;
-                                            
-                                            if (width > height) {
-                                              if (width > MAX_WIDTH) {
-                                                height *= MAX_WIDTH / width;
-                                                width = MAX_WIDTH;
-                                              }
-                                            } else {
-                                              if (height > MAX_HEIGHT) {
-                                                width *= MAX_HEIGHT / height;
-                                                height = MAX_HEIGHT;
-                                              }
-                                            }
-                                            canvas.width = width;
-                                            canvas.height = height;
-                                            const ctx = canvas.getContext('2d');
-                                            if (ctx) {
-                                              ctx.drawImage(img, 0, 0, width, height);
-                                              const compressedBase64 = canvas.toDataURL('image/webp', 0.8) || canvas.toDataURL('image/jpeg', 0.85);
-                                              setSettings(prev => ({ ...prev, brandLogo: compressedBase64 }));
-                                            } else {
-                                              setSettings(prev => ({ ...prev, brandLogo: event.target!.result as string }));
-                                            }
-                                          };
-                                        }
-                                      };
-                                      reader.readAsDataURL(file);
-                                    }
-                                  }}
-                                />
-                              </label>
-
-                              {/* Reset to Default button */}
-                              {settings.brandLogo && (
-                                <button
-                                  type="button"
-                                  onClick={() => setSettings(prev => ({ ...prev, brandLogo: "" }))}
-                                  className="flex items-center space-x-1 px-3 py-1.5 bg-neutral-300 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg text-[10px] font-bold transition-all hover:bg-neutral-400 dark:hover:bg-neutral-700"
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5" />
-                                  <span>ডিফল্ট রিস্টোর (Reset)</span>
-                                </button>
-                              )}
+                        {/* Brand Logo Upload & Custom Selection (Functional & Dynamic) */}
+                        <div className="pt-3 border-t border-inherit">
+                          <label className="block text-[10px] font-bold opacity-75 mb-2">ব্র্যান্ড লোগো সেটিংস (Store Brand Logo)</label>
+                          <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-3xl bg-neutral-100 dark:bg-white/5 border border-dashed border-inherit">
+                            {/* Logo Preview with premium drop-shadow as requested */}
+                            <div className="relative flex items-center justify-center h-20 w-20 rounded-full bg-black/40 border border-[#d4af37]/40 shrink-0 p-1 overflow-hidden group">
+                              <img 
+                                src={settings.brandLogo || trendZoneLogo} 
+                                alt="Brand Logo" 
+                                className="h-full w-full object-contain rounded-full transition-transform duration-300 group-hover:scale-110"
+                                style={{ filter: 'drop-shadow(0px 0px 8px rgba(212, 175, 55, 0.7))' }}
+                                referrerPolicy="no-referrer"
+                              />
                             </div>
-                            <p className="text-[9px] opacity-60 leading-tight">
-                              সোনালী কয়েন লোগো বা যেকোনো কাস্টম ট্রান্সপারেন্ট লোগো আপলোড করতে পারেন। এটি লাইভ স্টোরফ্রন্ট ও এডমিন ড্যাশবোর্ডে সাথে সাথে আপডেট হবে এবং ডেটাবেজে সংরক্ষিত থাকবে।
-                            </p>
+
+                            <div className="flex-1 w-full space-y-2">
+                              <div className="flex flex-wrap gap-2">
+                                {/* Standard Upload File Trigger */}
+                                <label className="cursor-pointer flex items-center space-x-1.5 px-3 py-1.5 bg-[#e07a5f] hover:bg-[#e07a5f]/90 text-white rounded-lg text-[10px] font-bold transition-all shadow-sm">
+                                  <Upload className="h-3.5 w-3.5" />
+                                  <span>লোগো আপলোড (Upload Logo)</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                          if (event.target?.result) {
+                                            const img = new Image();
+                                            img.src = event.target.result as string;
+                                            img.onload = () => {
+                                              const canvas = document.createElement('canvas');
+                                              const MAX_WIDTH = 256;
+                                              const MAX_HEIGHT = 256;
+                                              let width = img.width;
+                                              let height = img.height;
+                                              
+                                              if (width > height) {
+                                                if (width > MAX_WIDTH) {
+                                                  height *= MAX_WIDTH / width;
+                                                  width = MAX_WIDTH;
+                                                }
+                                              } else {
+                                                if (height > MAX_HEIGHT) {
+                                                  width *= MAX_HEIGHT / height;
+                                                  height = MAX_HEIGHT;
+                                                }
+                                              }
+                                              canvas.width = width;
+                                              canvas.height = height;
+                                              const ctx = canvas.getContext('2d');
+                                              if (ctx) {
+                                                ctx.drawImage(img, 0, 0, width, height);
+                                                const compressedBase64 = canvas.toDataURL('image/webp', 0.8) || canvas.toDataURL('image/jpeg', 0.85);
+                                                setSettings(prev => ({ ...prev, brandLogo: compressedBase64 }));
+                                              } else {
+                                                setSettings(prev => ({ ...prev, brandLogo: event.target!.result as string }));
+                                              }
+                                            };
+                                          }
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                </label>
+
+                                {/* Reset to Default button */}
+                                {settings.brandLogo && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSettings(prev => ({ ...prev, brandLogo: "" }))}
+                                    className="flex items-center space-x-1 px-3 py-1.5 bg-neutral-300 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg text-[10px] font-bold transition-all hover:bg-neutral-400 dark:hover:bg-neutral-700"
+                                  >
+                                    <RotateCcw className="h-3.5 w-3.5" />
+                                    <span>ডিফল্ট রিস্টোর (Reset)</span>
+                                  </button>
+                                )}
+                              </div>
+                              <p className="text-[9px] opacity-60 leading-tight">
+                                সোনালী কয়েন লোগো বা যেকোনো কাস্টম ট্রান্সপারেন্ট লোগো আপলোড করতে পারেন। এটি লাইভ স্টোরফ্রন্ট ও এডমিন ড্যাশবোর্ডে সাথে সাথে আপডেট হবে এবং ডেটাবেজে সংরক্ষিত থাকবে।
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Brand Settings Save Button under the Logo upload box as requested */}
-                      <div className="pt-3 border-t border-inherit space-y-3">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setSettingsSaveStatus(null);
-                            const res = await supabaseService.upsertSettings(settings);
-                            setSettingsSaveStatus(res);
-                            
-                            if (res.success && !res.missingColumns) {
-                              const newNotif = {
-                                id: `notif-${Date.now()}`,
-                                title: `ব্র্যান্ড সেটিংস সফলভাবে সংরক্ষিত`,
-                                message: `আপনার ব্র্যান্ড নাম "${settings.brandName || ''}" এবং কাস্টম লোগোটি গ্লোবাল সুপাবেজ ক্লাউড ডাটাবেজে লক করা হয়েছে।`,
-                                timestamp: new Date().toISOString(),
-                                read: false
-                              };
-                              setNotifications(prev => [newNotif, ...prev]);
-                            } else if (res.missingColumns) {
-                              const newNotif = {
-                                id: `notif-${Date.now()}`,
-                                title: `⚠️ কলাম missing! সুপাবেজে SQL রান করতে হবে`,
-                                message: `আপনার সুপাবেজ টেবিলে brand_logo এবং tagline কলাম যোগ করতে হবে। নিচে দেওয়া SQL রান করুন।`,
-                                timestamp: new Date().toISOString(),
-                                read: false
-                              };
-                              setNotifications(prev => [newNotif, ...prev]);
-                            }
-                          }}
-                          className="w-full px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] shadow-md shadow-emerald-500/15 transition-all flex items-center justify-center space-x-2"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          <span>পরিবর্তন সংরক্ষণ করুন (Save Changes)</span>
-                        </button>
-
-                        {/* Detailed status feedback with copyable ALTER TABLE code snippet to solve the live site issue */}
-                        {settingsSaveStatus && (
-                          <div className={`p-3.5 rounded-2xl border text-xs leading-normal transition-all duration-300
-                            ${settingsSaveStatus.success && !settingsSaveStatus.missingColumns
-                              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                              : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
-                            }`}
+                        {/* Brand Settings Save Button under the Logo upload box as requested */}
+                        <div className="pt-3 border-t border-inherit space-y-3">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setSettingsSaveStatus(null);
+                              const res = await supabaseService.upsertSettings(settings);
+                              setSettingsSaveStatus(res);
+                              
+                              if (res.success && !res.missingColumns) {
+                                const newNotif = {
+                                  id: `notif-${Date.now()}`,
+                                  title: `ব্র্যান্ড সেটিংস সফলভাবে সংরক্ষিত`,
+                                  message: `আপনার ব্র্যান্ড নাম "${settings.brandName || ''}" এবং কাস্টম লোগোটি গ্লোবাল সুপাবেজ ক্লাউড ডাটাবেজে লক করা হয়েছে।`,
+                                  timestamp: new Date().toISOString(),
+                                  read: false
+                                };
+                                setNotifications(prev => [newNotif, ...prev]);
+                              } else if (res.missingColumns) {
+                                const newNotif = {
+                                  id: `notif-${Date.now()}`,
+                                  title: `⚠️ কলাম missing! সুপাবেজে SQL রান করতে হবে`,
+                                  message: `আপনার সুপাবেজ টেবিলে brand_logo এবং tagline কলাম যোগ করতে হবে। নিচে দেওয়া SQL রান করুন।`,
+                                  timestamp: new Date().toISOString(),
+                                  read: false
+                                };
+                                setNotifications(prev => [newNotif, ...prev]);
+                              }
+                            }}
+                            className="w-full px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[11px] shadow-md shadow-emerald-500/15 transition-all flex items-center justify-center space-x-2"
                           >
-                            {settingsSaveStatus.success && !settingsSaveStatus.missingColumns ? (
-                              <div className="space-y-1">
-                                <p className="font-extrabold flex items-center space-x-1.5 text-[11px] uppercase">
-                                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                                  <span>গ্লোবাল ক্লাউড ডেটাবেজে সফলভাবে সংরক্ষিত!</span>
-                                </p>
-                                <p className="text-[10px] opacity-80">
-                                  আপনার ব্র্যান্ড সেটিংস সরাসরি ক্লাউড ডাটাবেজে সিঙ্ক হয়েছে। ভার্সেলের লাইভ সাইটসহ পৃথিবীর যেকোনো প্রান্ত থেকে এটি এখন দেখা যাবে।
-                                </p>
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                <p className="font-extrabold flex items-center space-x-1.5 text-[11px] uppercase text-rose-500 dark:text-amber-400">
-                                  <AlertCircle className="h-4 w-4 shrink-0 animate-pulse" />
-                                  <span>⚠️ সুপাবেজ ডেটাবেজে কলাম যুক্ত করা প্রয়োজন!</span>
-                                </p>
-                                <p className="text-[10px] leading-relaxed">
-                                  আপনার সুপাবেজের <strong>system_settings</strong> টেবিলে <code>brand_logo</code> এবং <code>tagline</code> কলাম দুটি নেই। এর কারণে পরিবর্তনটি শুধু আপনার ব্রাউজারের LocalStorage-এ দেখা যাচ্ছে, কিন্তু লাইভ সাইটে (ভার্সেলে) আপডেট হচ্ছে না।
-                                </p>
-                                <div className="p-2.5 bg-black rounded-xl border border-neutral-800 space-y-1">
-                                  <p className="text-[9px] text-gray-400 uppercase font-bold">নিচের SQL কোডটি কপি করে Supabase SQL Editor-এ রান করুন:</p>
-                                  <pre className="text-[9px] font-mono text-emerald-400 whitespace-pre overflow-x-auto p-1 bg-neutral-950/50 rounded-lg">
-{`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;
-ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;`}
-                                  </pre>
-                                  <div className="flex justify-end pt-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;\nALTER TABLE system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;`);
-                                        alert('SQL কোড ক্লিপবোর্ডে কপি হয়েছে!');
-                                      }}
-                                      className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-[9px] transition-colors"
-                                    >
-                                      কোড কপি করুন
-                                    </button>
-                                  </div>
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>পরিবর্তন সংরক্ষণ করুন (Save Changes)</span>
+                          </button>
+
+                          {/* Detailed status feedback with copyable ALTER TABLE code snippet to solve the live site issue */}
+                          {settingsSaveStatus && (
+                            <div className={`p-3.5 rounded-2xl border text-xs leading-normal transition-all duration-300
+                              ${settingsSaveStatus.success && !settingsSaveStatus.missingColumns
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+                              }`}
+                            >
+                              {settingsSaveStatus.success && !settingsSaveStatus.missingColumns ? (
+                                <div className="space-y-1">
+                                  <p className="font-extrabold flex items-center space-x-1.5 text-[11px] uppercase">
+                                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                    <span>গ্লোবাল ক্লাউড ডেটাবেজে সফলভাবে সংরক্ষিত!</span>
+                                  </p>
+                                  <p className="text-[10px] opacity-80">
+                                    আপনার ব্র্যান্ড সেটিংস সরাসরি ক্লাউড ডাটাবেজে সিঙ্ক হয়েছে। ভার্সেলের লাইভ সাইটসহ পৃথিবীর যেকোনো প্রান্ত থেকে এটি এখন দেখা যাবে।
+                                  </p>
                                 </div>
-                                <p className="text-[9px] opacity-75">
-                                  কোডটি সুপাবেজ SQL এডিটরে রান করার পর এই পেজটি রিফ্রেশ করে পুনরায় "Save Changes" বাটনে ক্লিক করুন।
-                                </p>
-                              </div>
-                            )}
+                              ) : (
+                                <div className="space-y-2">
+                                  <p className="font-extrabold flex items-center space-x-1.5 text-[11px] uppercase text-rose-500 dark:text-amber-400">
+                                    <AlertCircle className="h-4 w-4 shrink-0 animate-pulse" />
+                                    <span>⚠️ সুপাবেজ ডেটাবেজে কলাম যুক্ত করা প্রয়োজন!</span>
+                                  </p>
+                                  <p className="text-[10px] leading-relaxed">
+                                    আপনার সুপাবেজের <strong>system_settings</strong> টেবিলে <code>brand_logo</code> এবং <code>tagline</code> কলাম দুটি নেই। এর কারণে পরিবর্তনটি শুধু আপনার ব্রাউজারের LocalStorage-এ দেখা যাচ্ছে, কিন্তু লাইভ সাইটে (ভার্সেলে) আপডেট হচ্ছে না।
+                                  </p>
+                                  <div className="p-2.5 bg-black rounded-xl border border-neutral-800 space-y-1">
+                                    <p className="text-[9px] text-gray-400 uppercase font-bold">নিচের SQL কোডটি কপি করে Supabase SQL Editor-এ রান করুন:</p>
+                                    <pre className="text-[9px] font-mono text-emerald-400 whitespace-pre overflow-x-auto p-1 bg-neutral-950/50 rounded-lg">
+  {`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;
+  ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;`}
+                                    </pre>
+                                    <div className="flex justify-end pt-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;\nALTER TABLE system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;`);
+                                          alert('SQL কোড ক্লিপবোর্ডে কপি হয়েছে!');
+                                        }}
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-[9px] transition-colors"
+                                      >
+                                        কোড কপি করুন
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <p className="text-[9px] opacity-75">
+                                    কোডটি সুপাবেজ SQL এডিটরে রান করার পর এই পেজটি রিফ্রেশ করে পুনরায় "Save Changes" বাটনে ক্লিক করুন।
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSettingsTab === 'eye' && (
+                  <div className="animate-fade-in duration-300">
+                    {/* Reactive Eye Protection & Blue Light Card */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <ShieldAlert className="h-4.5 w-4.5 text-amber-500" />
+                        <span>২. আই প্রোটেকশন ও স্ক্রিন ওয়ার্মথ (Eye Protection Filter)</span>
+                      </h3>
+                      <p className="text-[11px] opacity-75 leading-relaxed">
+                        রাতে বা দীর্ঘ সময় স্ক্রিনে কাজ করার সময় চোখের সুরক্ষার জন্য আমাদের রিঅ্যাক্টিভ ব্লু-লাইট ফিল্টার চালু করুন। এটি লাইভ স্ক্রিনের তাপমাত্রা পরিবর্তন করে।
+                      </p>
+
+                      <div className="space-y-4 pt-2">
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-100 dark:bg-white/5 rounded-2xl">
+                          <div>
+                            <p className="font-bold text-xs">আই প্রোটেকশন ফিল্টার চালু করুন</p>
+                            <p className="text-[10px] opacity-60">Enable warm blue-light protective overlay</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSettings(prev => ({ ...prev, eyeProtectionEnabled: !prev.eyeProtectionEnabled }))}
+                            className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-300 focus:outline-none
+                              ${settings.eyeProtectionEnabled ? 'bg-amber-500' : 'bg-neutral-300 dark:bg-neutral-700'}`}
+                          >
+                            <div className={`w-5 h-5 rounded-full bg-white transition-transform duration-300 shadow-md
+                              ${settings.eyeProtectionEnabled ? 'translate-x-6' : 'translate-x-0'}`} 
+                            />
+                          </button>
+                        </div>
+
+                        {settings.eyeProtectionEnabled && (
+                          <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-2">
+                            <div className="flex justify-between text-[10px] font-bold">
+                              <span className="text-amber-600">ফিল্টার ওয়ার্মথ লেভেল (Warmth Strength)</span>
+                              <span className="text-amber-600">80% Intensity</span>
+                            </div>
+                            <input 
+                              type="range"
+                              min="10"
+                              max="100"
+                              defaultValue="80"
+                              className="w-full accent-amber-500"
+                            />
+                            <p className="text-[9px] opacity-60 text-amber-600 italic">চোখের ক্লান্তি কমাতে স্ক্রিনকে উষ্ণ হলুদ আভায় রূপান্তর করা হয়েছে।</p>
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
+                )}
 
-                  {/* Reactive Eye Protection & Blue Light Card */}
-                  <div className={`p-6 rounded-[2.5rem] border space-y-4
-                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
-                  >
-                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
-                      <ShieldAlert className="h-4.5 w-4.5 text-amber-500" />
-                      <span>২. আই প্রোটেকশন ও স্ক্রিন ওয়ার্মথ (Eye Protection Filter)</span>
-                    </h3>
-                    <p className="text-[11px] opacity-75 leading-relaxed">
-                      রাতে বা দীর্ঘ সময় স্ক্রিনে কাজ করার সময় চোখের সুরক্ষার জন্য আমাদের রিঅ্যাক্টিভ ব্লু-লাইট ফিল্টার চালু করুন। এটি লাইভ স্ক্রিনের তাপমাত্রা পরিবর্তন করে।
-                    </p>
-
-                    <div className="space-y-4 pt-2">
-                      <div className="flex items-center justify-between p-3.5 bg-neutral-100 dark:bg-white/5 rounded-2xl">
+                {activeSettingsTab === 'woocommerce' && (
+                  <div className="animate-fade-in duration-300">
+                    {/* WooCommerce credentials card */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <RefreshCcw className="h-4.5 w-4.5 text-indigo-500" />
+                        <span>৩. ওউ-কমার্স REST API ক্রেডেনশিয়ালস (WooCommerce Keys)</span>
+                      </h3>
+                      <div className="space-y-3 font-mono text-[11px]">
                         <div>
-                          <p className="font-bold text-xs">আই প্রোটেকশন ফিল্টার চালু করুন</p>
-                          <p className="text-[10px] opacity-60">Enable warm blue-light protective overlay</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSettings(prev => ({ ...prev, eyeProtectionEnabled: !prev.eyeProtectionEnabled }))}
-                          className={`w-12 h-6 rounded-full p-0.5 transition-colors duration-300 focus:outline-none
-                            ${settings.eyeProtectionEnabled ? 'bg-amber-500' : 'bg-neutral-300 dark:bg-neutral-700'}`}
-                        >
-                          <div className={`w-5 h-5 rounded-full bg-white transition-transform duration-300 shadow-md
-                            ${settings.eyeProtectionEnabled ? 'translate-x-6' : 'translate-x-0'}`} 
+                          <label className="block text-[10px] font-sans font-bold opacity-75 mb-1.5">WooCommerce REST API URL</label>
+                          <input 
+                            type="text"
+                            defaultValue="https://auralux-fashion.com/wp-json"
+                            className="w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold text-[10px]"
                           />
-                        </button>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-sans font-bold opacity-75 mb-1.5">Consumer Key (ck_xxxx)</label>
+                          <input 
+                            type="password"
+                            defaultValue="ck_483a99264c12bb9f71ab937d7a126cb3"
+                            className="w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-[10px]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-sans font-bold opacity-75 mb-1.5">Consumer Secret (cs_xxxx)</label>
+                          <input 
+                            type="password"
+                            defaultValue="cs_de72b83c16f23e42a003fdfa2893fcc2"
+                            className="w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-[10px]"
+                          />
+                        </div>
                       </div>
+                    </div>
+                  </div>
+                )}
 
-                      {settings.eyeProtectionEnabled && (
-                        <div className="p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-2xl space-y-2">
-                          <div className="flex justify-between text-[10px] font-bold">
-                            <span className="text-amber-600">ফিল্টার ওয়ার্মথ লেভেল (Warmth Strength)</span>
-                            <span className="text-amber-600">80% Intensity</span>
+                {activeSettingsTab === 'inventory' && (
+                  <div className="animate-fade-in duration-300">
+                    {/* Inventory Limits card */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <Warehouse className="h-4.5 w-4.5 text-rose-500" />
+                        <span>৪. ইনভেন্টরি এলার্ট লেভেল সেটিংস (Stock Thresholds)</span>
+                      </h3>
+                      <div className="space-y-4 text-xs">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-bold">লো-স্টক এলার্ট লিমিট (Low Stock Level)</p>
+                            <p className="text-[10px] opacity-60">স্টকের পরিমাণ এর নিচে নামলে লাল নোটিফিকেশন আসবে</p>
                           </div>
                           <input 
-                            type="range"
-                            min="10"
-                            max="100"
-                            defaultValue="80"
-                            className="w-full accent-amber-500"
+                            type="number"
+                            defaultValue="5"
+                            className="w-16 p-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-center font-bold"
                           />
-                          <p className="text-[9px] opacity-60 text-amber-600 italic">চোখের ক্লান্তি কমাতে স্ক্রিনকে উষ্ণ হলুদ আভায় রূপান্তর করা হয়েছে।</p>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
 
-                {/* API and Inventory col */}
-                <div className="lg:col-span-6 space-y-6">
-                  {/* WooCommerce credentials card */}
-                  <div className={`p-6 rounded-[2.5rem] border space-y-4
-                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
-                  >
-                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
-                      <RefreshCcw className="h-4.5 w-4.5 text-indigo-500" />
-                      <span>৩. ওউ-কমার্স REST API ক্রেডেনশিয়ালস (WooCommerce Keys)</span>
-                    </h3>
-                    <div className="space-y-3 font-mono text-[11px]">
-                      <div>
-                        <label className="block text-[10px] font-sans font-bold opacity-75 mb-1.5">WooCommerce REST API URL</label>
-                        <input 
-                          type="text"
-                          defaultValue="https://auralux-fashion.com/wp-json"
-                          className="w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold text-[10px]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-sans font-bold opacity-75 mb-1.5">Consumer Key (ck_xxxx)</label>
-                        <input 
-                          type="password"
-                          defaultValue="ck_483a99264c12bb9f71ab937d7a126cb3"
-                          className="w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-[10px]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-sans font-bold opacity-75 mb-1.5">Consumer Secret (cs_xxxx)</label>
-                        <input 
-                          type="password"
-                          defaultValue="cs_de72b83c16f23e42a003fdfa2893fcc2"
-                          className="w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-[10px]"
-                        />
+                        <div className="pt-2 border-t border-inherit flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newNotif = {
+                                id: `notif-${Date.now()}`,
+                                title: `সেটিংস সফলভাবে সংরক্ষিত`,
+                                message: `স্টোর গ্লোবাল কনফিগারেশন প্যারামিটার সফলভাবে আপডেট ও ডাটাবেজে লক করা হয়েছে।`,
+                                timestamp: new Date().toISOString(),
+                                read: false
+                              };
+                              setNotifications(prev => [newNotif, ...prev]);
+                            }}
+                            className="px-6 py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl text-xs shadow-lg shadow-orange-500/10 transition-all"
+                          >
+                            সেটিংস সংরক্ষণ করুন (Save Settings)
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
+                )}
 
-                  {/* Inventory Limits card */}
-                  <div className={`p-6 rounded-[2.5rem] border space-y-4
-                    ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
-                  >
-                    <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
-                      <Warehouse className="h-4.5 w-4.5 text-rose-500" />
-                      <span>৪. ইনভেন্টরি এলার্ট লেভেল সেটিংস (Stock Thresholds)</span>
-                    </h3>
-                    <div className="space-y-4 text-xs">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-bold">লো-স্টক এলার্ট লিমিট (Low Stock Level)</p>
-                          <p className="text-[10px] opacity-60">স্টকের পরিমাণ এর নিচে নামলে লাল নোটিফিকেশন আসবে</p>
-                        </div>
-                        <input 
-                          type="number"
-                          defaultValue="5"
-                          className="w-16 p-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-center font-bold"
-                        />
-                      </div>
-
-                      <div className="pt-2 border-t border-inherit flex justify-end">
+                {activeSettingsTab === 'courier' && (
+                  <div className="animate-fade-in duration-300">
+                    {/* Courier API Integration Settings card */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <div className="flex items-center justify-between pb-2 border-b border-inherit">
+                        <h3 className="text-sm font-extrabold flex items-center space-x-2">
+                          <Truck className="h-4.5 w-4.5 text-[#e07a5f]" />
+                          <span>কুরিয়ার এপিআই ইন্টিগ্রেশন সেটিংস (Courier API Integration Settings)</span>
+                        </h3>
                         <button
                           type="button"
-                          onClick={() => {
-                            const newNotif = {
-                              id: `notif-${Date.now()}`,
-                              title: `সেটিংস সফলভাবে সংরক্ষিত`,
-                              message: `স্টোর গ্লোবাল কনফিগারেশন প্যারামিটার সফলভাবে আপডেট ও ডাটাবেজে লক করা হয়েছে।`,
-                              timestamp: new Date().toISOString(),
-                              read: false
-                            };
-                            setNotifications(prev => [newNotif, ...prev]);
-                          }}
-                          className="px-6 py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl text-xs shadow-lg shadow-orange-500/10 transition-all"
+                          onClick={() => setShowAddCourierRow(!showAddCourierRow)}
+                          className="px-3 py-1.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl text-[10px] flex items-center space-x-1.5 transition-all shadow-sm"
                         >
-                          সেটিংস সংরক্ষণ করুন (Save Settings)
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>{showAddCourierRow ? 'বন্ধ করুন' : 'নতুন কুরিয়ার (+ Add)'}</span>
                         </button>
+                      </div>
+
+                      {/* Add New Courier Form Row */}
+                      {showAddCourierRow && (
+                        <div className="p-4 rounded-2xl bg-neutral-100 dark:bg-white/5 space-y-3 border border-inherit">
+                          <div className="text-[10px] font-bold opacity-75 uppercase">নতুন কুরিয়ার ক্রেডেনশিয়াল যোগ করুন</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                            <div className="sm:col-span-5">
+                              <label className="block text-[9px] font-bold mb-1 opacity-60">কুরিয়ার সিলেক্ট করুন</label>
+                              <select
+                                value={newCourierName}
+                                onChange={(e) => setNewCourierName(e.target.value)}
+                                className="w-full p-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-white dark:bg-zinc-800 border-inherit text-xs font-bold"
+                              >
+                                <option value="Steadfast Courier">Steadfast</option>
+                                <option value="Pathao Courier">Pathao</option>
+                                <option value="RedX Courier">RedX</option>
+                                <option value="Sundarban Courier">Sundarban</option>
+                              </select>
+                            </div>
+                            <div className="sm:col-span-7">
+                              <label className="block text-[9px] font-bold mb-1 opacity-60">এপিআই কী (API Key / Secret Token)</label>
+                              <input
+                                type="text"
+                                value={newCourierApiKey}
+                                onChange={(e) => setNewCourierApiKey(e.target.value)}
+                                placeholder="gqp_xxxxxxxxxxxxx_secret_token"
+                                className="w-full p-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-xs font-mono"
+                              />
+                            </div>
+                            <div className="sm:col-span-12 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!newCourierApiKey.trim()) {
+                                    alert('দয়া করে এপিআই কী টাইপ করুন!');
+                                    return;
+                                  }
+                                  const cleanKey = newCourierApiKey.trim();
+                                  const existsIndex = courierSettingsList.findIndex(c => c.courier_name === newCourierName);
+                                  
+                                  const newSetting: CourierSetting = {
+                                    id: existsIndex >= 0 ? courierSettingsList[existsIndex].id : `COURIER-${Date.now()}`,
+                                    courier_name: newCourierName,
+                                    api_key: cleanKey
+                                  };
+
+                                  // Save to DB
+                                  const success = await supabaseService.upsertCourierSetting(newSetting);
+                                  if (success) {
+                                    let updatedList: CourierSetting[] = [];
+                                    if (existsIndex >= 0) {
+                                      updatedList = courierSettingsList.map((item, idx) => idx === existsIndex ? newSetting : item);
+                                    } else {
+                                      updatedList = [...courierSettingsList, newSetting];
+                                    }
+                                    setCourierSettingsList(updatedList);
+                                    localStorage.setItem('aura_cached_courier_settings', JSON.stringify(updatedList));
+                                    setNewCourierApiKey('');
+                                    setShowAddCourierRow(false);
+                                    
+                                    const newNotif = {
+                                      id: `notif-${Date.now()}`,
+                                      title: 'কুরিয়ার সেটিংস সংরক্ষিত',
+                                      message: `${newCourierName} এপিআই কী সফলভাবে ক্লাউড এবং লোকালে সেভ করা হয়েছে।`,
+                                      timestamp: new Date().toISOString(),
+                                      read: false
+                                    };
+                                    setNotifications(prev => [newNotif, ...prev]);
+                                  } else {
+                                    alert('সংরক্ষণ ব্যর্থ হয়েছে! সুপাবেজ কানেকশন চেক করুন।');
+                                  }
+                                }}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all flex items-center space-x-1"
+                              >
+                                <Save className="h-3.5 w-3.5" />
+                                <span>Save Courier Setting</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Saved Courier Credentials List */}
+                      <div className="space-y-2 text-xs">
+                        <div className="text-[10px] font-bold opacity-60 uppercase">সংরক্ষিত কুরিয়ার ক্রেডেনশিয়ালস তালিকা</div>
+                        {courierSettingsList.length === 0 ? (
+                          <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/5 border border-dashed border-inherit text-center opacity-60 italic text-[11px]">
+                            কোনো এপিআই কী এখনো সেভ করা হয়নি। "+ New Courier" বাটন দিয়ে যুক্ত করুন।
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {courierSettingsList.map((item) => (
+                              <div key={item.id || item.courier_name} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-2xl bg-neutral-50 dark:bg-white/5 border border-inherit gap-2">
+                                <div className="flex items-center space-x-2">
+                                  <div className="p-1.5 rounded-lg bg-[#e07a5f]/10 text-[#e07a5f]">
+                                    <Truck className="h-4 w-4" />
+                                  </div>
+                                  <div>
+                                    <p className="font-extrabold">{item.courier_name}</p>
+                                    <p className="text-[9px] font-mono opacity-50 select-all tracking-wider">
+                                      {item.api_key.substring(0, 8)}••••••••••••{item.api_key.substring(Math.max(0, item.api_key.length - 6))}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center space-x-1.5 w-full sm:w-auto justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setNewCourierName(item.courier_name);
+                                      setNewCourierApiKey(item.api_key);
+                                      setShowAddCourierRow(true);
+                                    }}
+                                    className="p-1.5 hover:bg-neutral-200 dark:hover:bg-white/10 rounded-lg text-sky-500 transition-colors"
+                                    title="Edit"
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (confirm(`${item.courier_name} এপিআই ক্রেডেনশিয়াল মুছে ফেলতে চান?`)) {
+                                        const success = await supabaseService.deleteCourierSetting(item.id || '');
+                                        if (success) {
+                                          const updatedList = courierSettingsList.filter(c => c.id !== item.id);
+                                          setCourierSettingsList(updatedList);
+                                          localStorage.setItem('aura_cached_courier_settings', JSON.stringify(updatedList));
+                                          
+                                          const newNotif = {
+                                            id: `notif-${Date.now()}`,
+                                            title: 'কুরিয়ার সেটিংস মুছে ফেলা হয়েছে',
+                                            message: `${item.courier_name} এপিআই কী সফলভাবে মুছে ফেলা হয়েছে।`,
+                                            timestamp: new Date().toISOString(),
+                                            read: false
+                                          };
+                                          setNotifications(prev => [newNotif, ...prev]);
+                                        } else {
+                                          alert('মুছে ফেলা ব্যর্থ হয়েছে!');
+                                        }
+                                      }
+                                    }}
+                                    className="p-1.5 hover:bg-neutral-200 dark:hover:bg-white/10 rounded-lg text-rose-500 transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-
+                )}
               </div>
 
               {/* Supabase Integration Card (Full width under the grid) */}
@@ -7703,11 +7944,39 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                             note: `স্ট্যাটাস পরিবর্তন করে '${selectedStatus}' করা হয়েছে (Quick Action Panel)।`
                           }
                         ];
-                        setEditingOrder(prev => prev ? {
-                          ...prev,
+
+                        const updatedOrder = {
+                          ...editingOrder,
                           status: selectedStatus,
                           timeline: updatedTimeline
-                        } : null);
+                        };
+
+                        if (selectedStatus === 'Confirmed') {
+                          setEditingOrder(updatedOrder);
+                          setShowCourierModal(true);
+                        } else {
+                          setEditingOrder(updatedOrder);
+                          setOrders(prev => prev.map(o => o.id === editingOrder.id ? updatedOrder : o));
+                          if (selectedOrder && selectedOrder.id === editingOrder.id) {
+                            setSelectedOrder(updatedOrder);
+                          }
+                          // Direct write to Supabase Database
+                          supabaseService.upsertOrder(updatedOrder).then(success => {
+                            if (!success) {
+                              console.error("Direct status update to Supabase failed for order", editingOrder.id);
+                            }
+                          });
+                          // Add log notification
+                          const newNotif = {
+                            id: `NOTIF-${Date.now()}`,
+                            title: `Order ${editingOrder.id} Updated`,
+                            message: `Status is now ${selectedStatus}`,
+                            type: 'success' as const,
+                            timestamp: new Date().toISOString(),
+                            read: false
+                          };
+                          setNotifications(prev => [newNotif, ...prev]);
+                        }
                       }
                     }}
                     className={`w-full p-2.5 rounded-xl border text-xs font-black focus:outline-none focus:ring-2 focus:ring-[#e07a5f]/40 cursor-pointer transition-all
@@ -8152,6 +8421,179 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================================
+          COURIER PARTNER SELECTION MODAL
+          ========================================================== */}
+      {showCourierModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-fade-in">
+          <div className={`w-full max-w-sm rounded-3xl p-5 shadow-2xl border relative flex flex-col space-y-4
+            ${settings.themeMode === 'dark' ? 'bg-[#1a1614] border-[#322822] text-[#f6f3ed]' : 'bg-white border-neutral-200 text-neutral-800'}`}
+          >
+            {/* Header / Title */}
+            <div className="flex justify-between items-center pb-2 border-b border-[#322822]/10 dark:border-neutral-800/10">
+              <div className="flex items-center space-x-2">
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                </span>
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#e07a5f]">
+                  কুরিয়ার সিলেক্ট করুন (Courier Select)
+                </h3>
+              </div>
+              {!showSuccessTick && (
+                <button 
+                  type="button"
+                  onClick={() => setShowCourierModal(false)}
+                  className="text-neutral-400 hover:text-[#e07a5f] p-1 rounded-full hover:bg-white/5 transition-all"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {showSuccessTick ? (
+              <div className="flex flex-col items-center justify-center py-6 space-y-4 animate-fade-in text-center">
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute h-16 w-16 rounded-full bg-emerald-500/20 animate-ping" />
+                  <div className="h-14 w-14 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                    <svg className="h-8 w-8 text-white animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-emerald-500 uppercase tracking-wide">
+                    সফলভাবে আপডেট করা হয়েছে!
+                  </h4>
+                  <p className="text-[10px] opacity-70">
+                    অর্ডার স্ট্যাটাস এবং কুরিয়ার ডাটাবেজে সংরক্ষিত হয়েছে।
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Selector Dropdown Input */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-wider opacity-60">
+                    ডেলিভারি কুরিয়ার পার্টনারঃ
+                  </label>
+                  <select
+                    value={selectedCourier && selectedCourier.order?.id === editingOrder?.id ? selectedCourier.courier : "NA"}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (editingOrder) {
+                        setSelectedCourier({ courier: val, order: editingOrder });
+                      }
+                    }}
+                    className={`w-full p-3 rounded-xl border text-xs font-black focus:outline-none focus:ring-2 focus:ring-[#e07a5f]/40 cursor-pointer transition-all
+                      ${settings.themeMode === 'dark' ? 'bg-[#120e0c] text-[#f6f3ed] border-[#322822]' : 'bg-neutral-50 text-neutral-800 border-neutral-200'}`}
+                  >
+                    <option value="NA">NA</option>
+                    <option value="Steadfast Courier">Steadfast Courier</option>
+                    <option value="RedX Courier">RedX Courier</option>
+                    <option value="Pathao Courier">Pathao Courier</option>
+                    <option value="Sundarban Courier">Sundarban Courier</option>
+                    <option value="SA Paribahan">SA Paribahan</option>
+                    <option value="Paperfly">Paperfly</option>
+                    <option value="Carrybee">Carrybee</option>
+                  </select>
+                </div>
+
+                {/* Info and Confirmation Log */}
+                <div className={`p-3 rounded-xl text-[11px] leading-relaxed border
+                  ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/40 border-white/5 text-[#f6f3ed]' : 'bg-neutral-50 border-neutral-100 text-neutral-800'}`}
+                >
+                  <div className="flex justify-between font-medium">
+                    <span className="opacity-60">অর্ডার নম্বরঃ</span>
+                    <span className="font-mono font-bold text-[#e07a5f]">#{editingOrder?.id}</span>
+                  </div>
+                  <div className="flex justify-between font-medium mt-1">
+                    <span className="opacity-60">কাস্টমার নামঃ</span>
+                    <span className="font-extrabold">{editingOrder?.customerName}</span>
+                  </div>
+                  {selectedCourier && selectedCourier.order?.id === editingOrder?.id && selectedCourier.courier !== "NA" && (
+                    <div className="mt-2.5 pt-2 border-t border-dashed border-neutral-200/10 flex items-center justify-between text-emerald-500 font-bold">
+                      <span>সংরক্ষিত কুরিয়ারঃ</span>
+                      <span className="underline decoration-wavy">{selectedCourier.courier}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Confirm action button */}
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (editingOrder) {
+                        const finalCourier = (selectedCourier && selectedCourier.order?.id === editingOrder.id) ? selectedCourier.courier : "NA";
+                        const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+                        
+                        const updatedTimeline = [
+                          ...(editingOrder.timeline || []),
+                          {
+                            status: 'Confirmed' as OrderStatus,
+                            timestamp,
+                            note: `স্ট্যাটাস পরিবর্তন করে 'Confirmed' করা হয়েছে এবং ডেলিভারি কুরিয়ার হিসেবে '${finalCourier}' সিলেক্ট করা হয়েছে।`
+                          }
+                        ];
+
+                        const updatedOrder = {
+                          ...editingOrder,
+                          status: 'Confirmed' as OrderStatus,
+                          timeline: updatedTimeline,
+                          internalNotes: finalCourier !== "NA" 
+                            ? `Courier: ${finalCourier}. ${editingOrder.internalNotes || ""}` 
+                            : editingOrder.internalNotes
+                        };
+
+                        // Trigger checkmark animation
+                        setShowSuccessTick(true);
+
+                        // Save immediately to live React state & database
+                        setOrders(prev => prev.map(o => o.id === editingOrder.id ? updatedOrder : o));
+                        setEditingOrder(updatedOrder);
+                        if (selectedOrder && selectedOrder.id === editingOrder.id) {
+                          setSelectedOrder(updatedOrder);
+                        }
+
+                        // Direct write to Supabase Database
+                        supabaseService.upsertOrder(updatedOrder).then(success => {
+                          if (!success) {
+                            console.error("Direct status update to Supabase failed for order", editingOrder.id);
+                          }
+                        });
+
+                        // Add log notification
+                        const newNotif = {
+                          id: `NOTIF-${Date.now()}`,
+                          title: `Order Confirmed & Courier Set`,
+                          message: `Order #${editingOrder.id} has been set to Confirmed. Courier: ${finalCourier}`,
+                          type: 'success' as const,
+                          timestamp: new Date().toISOString(),
+                          read: false
+                        };
+                        setNotifications(prev => [newNotif, ...prev]);
+
+                        // Wait for animation to finish
+                        setTimeout(() => {
+                          setShowSuccessTick(false);
+                          setShowCourierModal(false);
+                        }, 1500);
+                      } else {
+                        setShowCourierModal(false);
+                      }
+                    }}
+                    className="w-full py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white text-xs font-black rounded-xl transition-all shadow-md shadow-orange-500/10 text-center"
+                  >
+                    কুরিয়ার সিলেক্ট সম্পন্ন করুন
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

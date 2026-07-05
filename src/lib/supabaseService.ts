@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, Order, Customer, Notification, SystemSettings, HomepageSettings } from '../types';
+import { Product, Order, Customer, Notification, SystemSettings, HomepageSettings, CourierSetting } from '../types';
 
 declare global {
   interface ImportMetaEnv {
@@ -793,6 +793,59 @@ export const supabaseService = {
       return true;
     } catch (e) {
       console.error('Supabase upsertHomepageSettings failed:', e);
+      return false;
+    }
+  },
+
+  // 13. COURIER SETTINGS
+  async getCourierSettings(): Promise<CourierSetting[]> {
+    try {
+      const { data, error } = await supabase.from('courier_settings').select('*');
+      if (error) {
+        if (error.code === 'PGRST116' || error.message?.includes('does not exist')) {
+          console.warn('courier_settings table does not exist in Supabase yet.');
+        } else {
+          throw error;
+        }
+        // Fallback to local storage if table doesn't exist
+        const local = localStorage.getItem('aura_cached_courier_settings');
+        return local ? JSON.parse(local) : [];
+      }
+      return data.map(db => ({
+        id: db.id,
+        courier_name: db.courier_name,
+        api_key: db.api_key,
+        created_at: db.created_at
+      }));
+    } catch (e) {
+      console.warn('Supabase getCourierSettings failed, using local fallback:', e);
+      const local = localStorage.getItem('aura_cached_courier_settings');
+      return local ? JSON.parse(local) : [];
+    }
+  },
+
+  async upsertCourierSetting(setting: CourierSetting): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('courier_settings').upsert({
+        id: setting.id || `COURIER-${Date.now()}`,
+        courier_name: setting.courier_name,
+        api_key: setting.api_key,
+      }, { onConflict: 'courier_name' });
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase upsertCourierSetting failed:', e);
+      return false;
+    }
+  },
+
+  async deleteCourierSetting(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('courier_settings').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase deleteCourierSetting failed:', e);
       return false;
     }
   },

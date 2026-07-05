@@ -139,3 +139,11 @@ export interface HomepageSettings {
   hero_image_url: string;
 }
 
+export interface CourierSetting {
+  id?: string;
+  courier_name: string;
+  api_key: string;
+  created_at?: string;
+}
+
+

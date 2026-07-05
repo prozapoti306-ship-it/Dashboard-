@@ -159,6 +159,14 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
   hero_image_url TEXT
 );
 
+-- ১৩. Courier Settings
+CREATE TABLE IF NOT EXISTS courier_settings (
+  id TEXT PRIMARY KEY,
+  courier_name TEXT NOT NULL UNIQUE,
+  api_key TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Enable Replication for real-time tracking
 ALTER PUBLICATION supabase_realtime ADD TABLE products;
 ALTER PUBLICATION supabase_realtime ADD TABLE orders;
@@ -166,4 +174,6 @@ ALTER PUBLICATION supabase_realtime ADD TABLE categories_list;
 ALTER PUBLICATION supabase_realtime ADD TABLE brands_list;
 ALTER PUBLICATION supabase_realtime ADD TABLE collections_list;
 ALTER PUBLICATION supabase_realtime ADD TABLE homepage_settings;
+ALTER PUBLICATION supabase_realtime ADD TABLE courier_settings;
+
 `;
