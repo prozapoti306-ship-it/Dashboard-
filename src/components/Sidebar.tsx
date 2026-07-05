@@ -86,10 +86,10 @@ export default function Sidebar({
   return (
     <aside 
       id="sidebar-container" 
-      className={`w-64 border-r flex flex-col justify-between h-screen transition-all duration-300
+      className={`w-64 border-r flex flex-col justify-between h-screen fixed left-0 top-0 h-full z-50 transition-transform duration-300
         ${isMobileOpen 
-          ? 'fixed left-0 top-0 h-full z-50 w-64 shadow-2xl translate-x-0 flex' 
-          : 'fixed md:sticky md:top-0 left-0 top-0 -translate-x-full md:translate-x-0 h-full md:h-screen z-50 md:z-10 w-64 hidden md:flex'
+          ? 'translate-x-0 shadow-2xl flex' 
+          : '-translate-x-full'
         }
         ${settings.themeMode === 'dark' 
           ? 'bg-[#1a1614] border-[#322822]/40 text-[#f6f3ed]' 
@@ -117,11 +117,11 @@ export default function Sidebar({
             </div>
           </div>
 
-          {/* Mobile Close Button */}
+          {/* Close Button */}
           {onCloseMobile && (
             <button
               onClick={onCloseMobile}
-              className="md:hidden p-1.5 rounded-xl border border-inherit hover:bg-neutral-100 dark:hover:bg-white/5 transition-all cursor-pointer"
+              className="p-1.5 rounded-xl border border-inherit hover:bg-neutral-100 dark:hover:bg-white/5 transition-all cursor-pointer"
               title="Close Menu"
             >
               <X className="h-4 w-4 opacity-75" />

@@ -35,7 +35,7 @@ export interface OrderItem {
   price: number;
 }
 
-export type OrderStatus = 'New Order' | 'Confirmed' | 'Processing' | 'Ready to Ship' | 'Shipped' | 'Delivered' | 'Returned' | 'Cancelled';
+export type OrderStatus = 'New Order' | 'Confirmed' | 'Processing' | 'Ready to Ship' | 'Shipped' | 'Delivered' | 'Returned' | 'Cancelled' | 'Payment Pending (will pay)' | 'Keep Hold' | 'Do Canceled' | 'Pre-Confirmed';
 
 export interface OrderTimeline {
   status: OrderStatus;
