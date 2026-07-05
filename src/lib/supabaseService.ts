@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, Order, Customer, Notification, SystemSettings, HomepageSettings, CourierSetting } from '../types';
+import { Product, Order, Customer, Notification, SystemSettings, HomepageSettings, CourierSetting, TrackingSettings } from '../types';
 
 declare global {
   interface ImportMetaEnv {
@@ -809,27 +809,78 @@ export const supabaseService = {
         }
         // Fallback to local storage if table doesn't exist
         const local = localStorage.getItem('aura_cached_courier_settings');
-        return local ? JSON.parse(local) : [];
+        if (!local) return [];
+        const parsed = JSON.parse(local);
+        return parsed.map((db: any) => {
+          let extra: any = {};
+          try {
+            extra = JSON.parse(db.api_key);
+          } catch (_) {}
+          return {
+            id: db.id,
+            courier_name: db.courier_name,
+            api_key: extra.api_key || db.api_key || '',
+            client_id: extra.client_id || db.client_id || '',
+            secret_key: extra.secret_key || db.secret_key || '',
+            default_weight: extra.default_weight || db.default_weight || '0.5',
+            default_note: extra.default_note || db.default_note || '[INVO_CUSTOMER_NOTE]',
+            created_at: db.created_at
+          };
+        });
       }
-      return data.map(db => ({
-        id: db.id,
-        courier_name: db.courier_name,
-        api_key: db.api_key,
-        created_at: db.created_at
-      }));
+      return data.map(db => {
+        let extra: any = {};
+        try {
+          extra = JSON.parse(db.api_key);
+        } catch (_) {}
+        return {
+          id: db.id,
+          courier_name: db.courier_name,
+          api_key: extra.api_key || db.api_key || '',
+          client_id: extra.client_id || db.client_id || '',
+          secret_key: extra.secret_key || db.secret_key || '',
+          default_weight: extra.default_weight || db.default_weight || '0.5',
+          default_note: extra.default_note || db.default_note || '[INVO_CUSTOMER_NOTE]',
+          created_at: db.created_at
+        };
+      });
     } catch (e) {
       console.warn('Supabase getCourierSettings failed, using local fallback:', e);
       const local = localStorage.getItem('aura_cached_courier_settings');
-      return local ? JSON.parse(local) : [];
+      if (!local) return [];
+      const parsed = JSON.parse(local);
+      return parsed.map((db: any) => {
+        let extra: any = {};
+        try {
+          extra = JSON.parse(db.api_key);
+        } catch (_) {}
+        return {
+          id: db.id,
+          courier_name: db.courier_name,
+          api_key: extra.api_key || db.api_key || '',
+          client_id: extra.client_id || db.client_id || '',
+          secret_key: extra.secret_key || db.secret_key || '',
+          default_weight: extra.default_weight || db.default_weight || '0.5',
+          default_note: extra.default_note || db.default_note || '[INVO_CUSTOMER_NOTE]',
+          created_at: db.created_at
+        };
+      });
     }
   },
 
   async upsertCourierSetting(setting: CourierSetting): Promise<boolean> {
     try {
+      const obj = {
+        api_key: setting.api_key || '',
+        client_id: setting.client_id || '',
+        secret_key: setting.secret_key || '',
+        default_weight: setting.default_weight || '0.5',
+        default_note: setting.default_note || '[INVO_CUSTOMER_NOTE]'
+      };
       const { error } = await supabase.from('courier_settings').upsert({
         id: setting.id || `COURIER-${Date.now()}`,
         courier_name: setting.courier_name,
-        api_key: setting.api_key,
+        api_key: JSON.stringify(obj),
       }, { onConflict: 'courier_name' });
       if (error) throw error;
       return true;
@@ -846,6 +897,65 @@ export const supabaseService = {
       return true;
     } catch (e) {
       console.error('Supabase deleteCourierSetting failed:', e);
+      return false;
+    }
+  },
+
+  async getTrackingSettings(): Promise<TrackingSettings> {
+    const defaultVal: TrackingSettings = {
+      gtmContainerId: '',
+      metaPixelId: '',
+      metaAccessToken: '',
+      metaTestEventCode: '',
+      tiktokPixelId: '',
+      tiktokAccessToken: '',
+      threadsPixelId: '',
+      xPixelId: '',
+      googleAnalyticsId: '',
+    };
+    try {
+      const { data, error } = await supabase.from('system_settings').select('*').eq('id', 'tracking_settings').maybeSingle();
+      if (error) throw error;
+      if (data && data.tagline) {
+        try {
+          const parsed = JSON.parse(data.tagline);
+          return {
+            gtmContainerId: parsed.gtmContainerId || '',
+            metaPixelId: parsed.metaPixelId || '',
+            metaAccessToken: parsed.metaAccessToken || '',
+            metaTestEventCode: parsed.metaTestEventCode || '',
+            tiktokPixelId: parsed.tiktokPixelId || '',
+            tiktokAccessToken: parsed.tiktokAccessToken || '',
+            threadsPixelId: parsed.threadsPixelId || '',
+            xPixelId: parsed.xPixelId || '',
+            googleAnalyticsId: parsed.googleAnalyticsId || '',
+          };
+        } catch (_) {}
+      }
+      const local = localStorage.getItem('aura_tracking_settings');
+      return local ? JSON.parse(local) : defaultVal;
+    } catch (e) {
+      console.warn('Supabase getTrackingSettings failed, using local fallback:', e);
+      const local = localStorage.getItem('aura_tracking_settings');
+      return local ? JSON.parse(local) : defaultVal;
+    }
+  },
+
+  async upsertTrackingSettings(setting: TrackingSettings): Promise<boolean> {
+    try {
+      localStorage.setItem('aura_tracking_settings', JSON.stringify(setting));
+      const { error } = await supabase.from('system_settings').upsert({
+        id: 'tracking_settings',
+        tagline: JSON.stringify(setting),
+        currency: 'BDT',
+        tax_rate: 0,
+        low_stock_limit: 5,
+        theme_mode: 'dark'
+      });
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase upsertTrackingSettings failed:', e);
       return false;
     }
   },

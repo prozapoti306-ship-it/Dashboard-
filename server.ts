@@ -140,6 +140,205 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
+// 1.1 Global Fraud Checker API endpoint
+app.post("/api/courier/fraud-check", async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: "Phone number is required" });
+    }
+
+    const cleanPhone = phone.trim().replace(/\s+/g, '');
+
+    // 1. Fetch courier settings from Supabase to get API credentials
+    const { data: settingsData, error: settingsError } = await supabase
+      .from('courier_settings')
+      .select('*');
+
+    const courierSettings = (settingsData || []).map((db: any) => {
+      let extra: any = {};
+      try {
+        extra = JSON.parse(db.api_key);
+      } catch (_) {}
+      return {
+        id: db.id,
+        courier_name: db.courier_name,
+        api_key: extra.api_key || db.api_key || '',
+        client_id: extra.client_id || db.client_id || '',
+        secret_key: extra.secret_key || db.secret_key || '',
+      };
+    });
+
+    const sfSetting = courierSettings.find(s => s.courier_name.toLowerCase().includes('steadfast'));
+    const ptSetting = courierSettings.find(s => s.courier_name.toLowerCase().includes('pathao'));
+
+    // 2. Fetch live data from SteadFast API if credentials are provided
+    let sfGlobalData = { total: 0, success: 0, cancel: 0 };
+    if (sfSetting && sfSetting.api_key && sfSetting.secret_key) {
+      try {
+        const response = await fetch(`https://portal.steadfast.com.bd/api/v1/check-buyer?phone=${cleanPhone}`, {
+          method: 'GET',
+          headers: {
+            'Api-Key': sfSetting.api_key,
+            'Secret-Key': sfSetting.secret_key,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const resData: any = await response.json();
+          const success = Number(resData.success_delivery || resData.delivery_status?.success || 0);
+          const cancel = Number(resData.failed_delivery || resData.delivery_status?.cancel || 0);
+          const total = Number(resData.total_delivery || resData.delivery_status?.total || (success + cancel));
+          sfGlobalData = { total, success, cancel };
+        }
+      } catch (err) {
+        console.error("Error fetching live SteadFast buyer rating:", err);
+      }
+    }
+
+    // 3. Fetch live data from Pathao API if credentials are provided
+    let ptGlobalData = { total: 0, success: 0, cancel: 0 };
+    if (ptSetting && ptSetting.client_id && ptSetting.secret_key) {
+      try {
+        const tokenResponse = await fetch('https://openapi.pathao.com/aladdin/api/v1/issue-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: ptSetting.client_id,
+            client_secret: ptSetting.secret_key,
+            grant_type: "client_credentials"
+          })
+        });
+        if (tokenResponse.ok) {
+          const tokenData: any = await tokenResponse.json();
+          const accessToken = tokenData.access_token;
+          if (accessToken) {
+            const ratingResponse = await fetch(`https://openapi.pathao.com/aladdin/api/v1/customers/rating?phone=${cleanPhone}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            if (ratingResponse.ok) {
+              const resData: any = await ratingResponse.json();
+              const success = Number(resData.delivered_orders || resData.data?.delivered_orders || 0);
+              const cancel = Number(resData.cancelled_orders || resData.data?.cancelled_orders || 0);
+              const total = Number(resData.total_orders || resData.data?.total_orders || (success + cancel));
+              ptGlobalData = { total, success, cancel };
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching live Pathao buyer rating:", err);
+      }
+    }
+
+    // 4. Fetch local orders from Supabase for this customer to merge!
+    const { data: localOrders, error: ordersError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('customer_phone', phone);
+
+    let localSf = { total: 0, success: 0, cancel: 0 };
+    let localPt = { total: 0, success: 0, cancel: 0 };
+    let localRx = { total: 0, success: 0, cancel: 0 };
+    let localCw = { total: 0, success: 0, cancel: 0 };
+
+    if (localOrders && localOrders.length > 0) {
+      localOrders.forEach((o: any) => {
+        const notes = (o.internal_notes || '').toLowerCase();
+        let courier = 'unknown';
+        if (notes.includes('steadfast')) {
+          courier = 'sf';
+        } else if (notes.includes('pathao')) {
+          courier = 'pt';
+        } else if (notes.includes('redx')) {
+          courier = 'rx';
+        } else if (notes.includes('carrywise')) {
+          courier = 'cw';
+        } else {
+          courier = 'sf';
+        }
+
+        const isSuccess = ['delivered', 'shipped'].includes(o.status.toLowerCase());
+        const isCancel = ['cancelled', 'returned', 'do canceled'].includes(o.status.toLowerCase());
+
+        if (isSuccess) {
+          if (courier === 'sf') { localSf.success++; localSf.total++; }
+          else if (courier === 'pt') { localPt.success++; localPt.total++; }
+          else if (courier === 'rx') { localRx.success++; localRx.total++; }
+          else if (courier === 'cw') { localCw.success++; localCw.total++; }
+        } else if (isCancel) {
+          if (courier === 'sf') { localSf.cancel++; localSf.total++; }
+          else if (courier === 'pt') { localPt.cancel++; localPt.total++; }
+          else if (courier === 'rx') { localRx.cancel++; localRx.total++; }
+          else if (courier === 'cw') { localCw.cancel++; localCw.total++; }
+        }
+      });
+    }
+
+    const mergedSf = {
+      total: sfGlobalData.total + localSf.total,
+      success: sfGlobalData.success + localSf.success,
+      cancel: sfGlobalData.cancel + localSf.cancel
+    };
+
+    const mergedPt = {
+      total: ptGlobalData.total + localPt.total,
+      success: ptGlobalData.success + localPt.success,
+      cancel: ptGlobalData.cancel + localPt.cancel
+    };
+
+    const mergedRx = {
+      total: localRx.total,
+      success: localRx.success,
+      cancel: localRx.cancel
+    };
+
+    const mergedCw = {
+      total: localCw.total,
+      success: localCw.success,
+      cancel: localCw.cancel
+    };
+
+    const totalTotal = mergedSf.total + mergedPt.total + mergedRx.total + mergedCw.total;
+    const totalSuccess = mergedSf.success + mergedPt.success + mergedRx.success + mergedCw.success;
+    const totalCancel = mergedSf.cancel + mergedPt.cancel + mergedRx.cancel + mergedCw.cancel;
+
+    const successPercent = totalTotal > 0 ? Math.round((totalSuccess / totalTotal) * 100) : 0;
+    const cancelPercent = totalTotal > 0 ? Math.round((totalCancel / totalTotal) * 100) : 0;
+
+    let status = 'High Reliability';
+    if (totalTotal > 0) {
+      if (cancelPercent >= 50) {
+        status = 'High Risk';
+      } else if (cancelPercent >= 25) {
+        status = 'Moderate';
+      }
+    } else {
+      status = 'No History';
+    }
+
+    res.json({
+      phone: cleanPhone,
+      sf: mergedSf,
+      pt: mergedPt,
+      rx: mergedRx,
+      cw: mergedCw,
+      total: { total: totalTotal, success: totalSuccess, cancel: totalCancel },
+      successPercent,
+      cancelPercent,
+      status,
+      dataSource: sfGlobalData.total > 0 || ptGlobalData.total > 0 ? 'Live Courier API + local Supabase' : 'local Supabase'
+    });
+
+  } catch (error: any) {
+    console.error("Global Fraud Checker API Error:", error);
+    res.status(500).json({ error: error.message || "Failed to query global fraud checker database" });
+  }
+});
+
 app.post("/api/products/sync", async (req, res) => {
   try {
     const { products } = req.body;

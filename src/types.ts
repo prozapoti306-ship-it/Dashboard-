@@ -143,7 +143,24 @@ export interface CourierSetting {
   id?: string;
   courier_name: string;
   api_key: string;
+  client_id?: string;
+  secret_key?: string;
+  default_weight?: string;
+  default_note?: string;
   created_at?: string;
 }
+
+export interface TrackingSettings {
+  gtmContainerId: string;
+  metaPixelId: string;
+  metaAccessToken: string;
+  metaTestEventCode: string;
+  tiktokPixelId: string;
+  tiktokAccessToken: string;
+  threadsPixelId: string;
+  xPixelId: string;
+  googleAnalyticsId: string;
+}
+
 
 

@@ -16,7 +16,8 @@ import {
   OrderStatus, 
   OrderItem,
   HomepageSettings,
-  CourierSetting
+  CourierSetting,
+  TrackingSettings
 } from './types';
 import Sidebar from './components/Sidebar';
 import CustomerStorefront from './components/CustomerStorefront';
@@ -164,73 +165,15 @@ export const isDemoProduct = (p: Product): boolean => {
 };
 
 const getCourierStats = (phone: string) => {
-  const cleanPhone = phone ? phone.trim().replace(/\s+/g, '') : '';
-  
-  // If it matches the screenshot's number or is default/empty
-  if (cleanPhone === '01705957737' || !cleanPhone) {
-    return {
-      sf: { total: 46, success: 28, cancel: 18 },
-      pt: { total: 46, success: 32, cancel: 14 },
-      rx: { total: 8, success: 5, cancel: 3 },
-      cw: { total: 0, success: 0, cancel: 0 },
-      total: { total: 100, success: 65, cancel: 35 },
-      successPercent: 65,
-      cancelPercent: 35,
-      status: 'Moderate'
-    };
-  }
-
-  // Generate deterministic but realistic values for other phone numbers
-  let seed = 0;
-  for (let i = 0; i < cleanPhone.length; i++) {
-    const num = parseInt(cleanPhone[i], 10);
-    if (!isNaN(num)) {
-      seed += num * (i + 1);
-    } else {
-      seed += cleanPhone.charCodeAt(i);
-    }
-  }
-  if (!seed) seed = 42;
-
-  const sfTotal = (seed % 35) + 15;
-  const sfSuccess = Math.max(0, Math.floor(sfTotal * (0.50 + (seed % 25) / 100)));
-  const sfCancel = Math.max(0, sfTotal - sfSuccess);
-
-  const ptTotal = ((seed * 2) % 30) + 15;
-  const ptSuccess = Math.max(0, Math.floor(ptTotal * (0.55 + (seed % 20) / 100)));
-  const ptCancel = Math.max(0, ptTotal - ptSuccess);
-
-  const rxTotal = (seed % 10) + 2;
-  const rxSuccess = Math.max(0, Math.floor(rxTotal * (0.45 + (seed % 30) / 100)));
-  const rxCancel = Math.max(0, rxTotal - rxSuccess);
-
-  const cwTotal = seed % 4 === 0 ? 0 : (seed % 6);
-  const cwSuccess = Math.max(0, Math.floor(cwTotal * 0.60));
-  const cwCancel = Math.max(0, cwTotal - cwSuccess);
-
-  const totalTotal = sfTotal + ptTotal + rxTotal + cwTotal;
-  const totalSuccess = sfSuccess + ptSuccess + rxSuccess + cwSuccess;
-  const totalCancel = Math.max(0, totalTotal - totalSuccess);
-
-  const successPercent = totalTotal > 0 ? Math.round((totalSuccess / totalTotal) * 100) : 100;
-  const cancelPercent = totalTotal > 0 ? 100 - successPercent : 0;
-
-  let status = 'High Reliability';
-  if (successPercent < 50) {
-    status = 'High Risk';
-  } else if (successPercent < 75) {
-    status = 'Moderate';
-  }
-
   return {
-    sf: { total: sfTotal, success: sfSuccess, cancel: sfCancel },
-    pt: { total: ptTotal, success: ptSuccess, cancel: ptCancel },
-    rx: { total: rxTotal, success: rxSuccess, cancel: rxCancel },
-    cw: { total: cwTotal, success: cwSuccess, cancel: cwCancel },
-    total: { total: totalTotal, success: totalSuccess, cancel: totalCancel },
-    successPercent,
-    cancelPercent,
-    status
+    sf: { total: 0, success: 0, cancel: 0 },
+    pt: { total: 0, success: 0, cancel: 0 },
+    rx: { total: 0, success: 0, cancel: 0 },
+    cw: { total: 0, success: 0, cancel: 0 },
+    total: { total: 0, success: 0, cancel: 0 },
+    successPercent: 0,
+    cancelPercent: 0,
+    status: 'No History'
   };
 };
 
@@ -323,6 +266,31 @@ export default function App() {
     return DEFAULT_HOMEPAGE_SETTINGS;
   });
 
+  const DEFAULT_TRACKING_SETTINGS: TrackingSettings = {
+    gtmContainerId: '',
+    metaPixelId: '',
+    metaAccessToken: '',
+    metaTestEventCode: '',
+    tiktokPixelId: '',
+    tiktokAccessToken: '',
+    threadsPixelId: '',
+    xPixelId: '',
+    googleAnalyticsId: '',
+  };
+
+  const [trackingSettings, setTrackingSettings] = useState<TrackingSettings>(() => {
+    try {
+      const cached = localStorage.getItem('aura_tracking_settings');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn("Error reading cached tracking settings:", e);
+    }
+    return DEFAULT_TRACKING_SETTINGS;
+  });
+  const [isSavingTracking, setIsSavingTracking] = useState(false);
+
   const [isSavingBanner, setIsSavingBanner] = useState(false);
   const [bannerSaveStatus, setBannerSaveStatus] = useState<{ success: boolean; error?: string } | null>(null);
 
@@ -376,7 +344,7 @@ export default function App() {
   }, [settings]);
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [activeSettingsTab, setActiveSettingsTab] = useState<string>('brand');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<string>('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState<'sales' | 'profit' | 'customers' | 'status'>('sales');
 
@@ -431,10 +399,60 @@ export default function App() {
   const [showCourierModal, setShowCourierModal] = useState(false);
   const [showSuccessTick, setShowSuccessTick] = useState(false);
 
+  // Global Fraud Checker state and hook
+  const [fraudCheckResult, setFraudCheckResult] = useState<any>(null);
+  const [isFraudChecking, setIsFraudChecking] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (editingOrder && editingOrder.customerPhone) {
+      setIsFraudChecking(true);
+      setFraudCheckResult(null);
+      
+      fetch("/api/courier/fraud-check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ phone: editingOrder.customerPhone })
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("API call failed");
+          return res.json();
+        })
+        .then(data => {
+          setFraudCheckResult(data);
+        })
+        .catch(err => {
+          console.error("Failed to run global fraud checker:", err);
+          setFraudCheckResult({
+            phone: editingOrder.customerPhone,
+            sf: { total: 0, success: 0, cancel: 0 },
+            pt: { total: 0, success: 0, cancel: 0 },
+            rx: { total: 0, success: 0, cancel: 0 },
+            cw: { total: 0, success: 0, cancel: 0 },
+            total: { total: 0, success: 0, cancel: 0 },
+            successPercent: 0,
+            cancelPercent: 0,
+            status: 'No History'
+          });
+        })
+        .finally(() => {
+          setIsFraudChecking(false);
+        });
+    } else {
+      setFraudCheckResult(null);
+      setIsFraudChecking(false);
+    }
+  }, [editingOrder?.customerPhone]);
+
   // Courier API credentials integration states
   const [courierSettingsList, setCourierSettingsList] = useState<CourierSetting[]>([]);
   const [newCourierName, setNewCourierName] = useState('Steadfast Courier');
   const [newCourierApiKey, setNewCourierApiKey] = useState('');
+  const [newCourierClientId, setNewCourierClientId] = useState('');
+  const [newCourierSecretKey, setNewCourierSecretKey] = useState('');
+  const [newCourierDefaultWeight, setNewCourierDefaultWeight] = useState('0.5');
+  const [newCourierDefaultNote, setNewCourierDefaultNote] = useState('[INVO_CUSTOMER_NOTE]');
   const [showAddCourierRow, setShowAddCourierRow] = useState(false);
 
   // Effect to trigger window.print() after order is loaded and DOM updates
@@ -679,7 +697,8 @@ export default function App() {
           dbBrands,
           dbCollectionsList,
           dbHomepageSettings,
-          dbCourierSettings
+          dbCourierSettings,
+          dbTrackingSettings
         ] = await Promise.all([
           supabaseService.getProducts(INITIAL_PRODUCTS),
           supabaseService.getSettings(DEFAULT_SETTINGS),
@@ -693,7 +712,8 @@ export default function App() {
           supabaseService.getBrands(brandsList),
           supabaseService.getCollectionsList(collectionsList),
           supabaseService.getHomepageSettings(DEFAULT_HOMEPAGE_SETTINGS),
-          supabaseService.getCourierSettings()
+          supabaseService.getCourierSettings(),
+          supabaseService.getTrackingSettings()
         ]);
 
         if (dbProducts && dbProducts.length > 0) {
@@ -748,6 +768,10 @@ export default function App() {
         if (dbCourierSettings) {
           setCourierSettingsList(dbCourierSettings);
           localStorage.setItem('aura_cached_courier_settings', JSON.stringify(dbCourierSettings));
+        }
+        if (dbTrackingSettings) {
+          setTrackingSettings(dbTrackingSettings);
+          localStorage.setItem('aura_tracking_settings', JSON.stringify(dbTrackingSettings));
         }
 
         setSupabaseStatus({
@@ -6430,44 +6454,89 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
           {activeTab === 'settings' && (
             <div className="space-y-6 animate-fade-in text-xs">
               {/* Header */}
-              <div className="pb-4 border-b border-inherit">
-                <span className="text-[10px] font-bold text-[#e07a5f] uppercase tracking-wider">Aura Lux Preferences</span>
-                <h1 className="text-2xl font-extrabold tracking-tight mt-0.5">গ্লোবাল সেটিংস (System Settings)</h1>
-                <p className="text-xs opacity-60">স্টোর ব্র্যান্ডিং, ওউ-কমার্স কানেকশন প্যারামিটার এবং রিঅ্যাক্টিভ ব্লু-লাইট আই প্রটেকশন টিউন করার কন্ট্রোল প্যানেল।</p>
-              </div>
+              {activeSettingsTab === 'grid' && (
+                <div className="pb-4 border-b border-inherit">
+                  <span className="text-[10px] font-bold text-[#e07a5f] uppercase tracking-wider">Aura Lux Preferences</span>
+                  <h1 className="text-2xl font-extrabold tracking-tight mt-0.5">গ্লোবাল সেটিংস (System Settings)</h1>
+                  <p className="text-xs opacity-60">স্টোর ব্র্যান্ডিং, ওউ-কমার্স কানেকশন প্যারামিটার এবং রিঅ্যাক্টিভ ব্লু-লাইট আই প্রটেকশন টিউন করার কন্ট্রোল প্যানেল।</p>
+                </div>
+              )}
 
-              {/* Settings Sub-Menu Navigation Tab Bar */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pb-3 border-b border-inherit w-full">
-                {[
-                  { id: 'brand', label: '১. ব্র্যান্ড পরিচিতি সেটিংস (Brand Slogan)', icon: Tag, color: 'text-amber-500 bg-amber-500/10' },
-                  { id: 'eye', label: '২. আই প্রোটেকশন (Eye Protection Filter)', icon: ShieldAlert, color: 'text-orange-500 bg-orange-500/10' },
-                  { id: 'woocommerce', label: '৩. উ-কমার্স REST API (WooCommerce)', icon: RefreshCcw, color: 'text-indigo-500 bg-indigo-500/10' },
-                  { id: 'inventory', label: '৪. ইনভেন্টরি এলার্ট (Stock Thresholds)', icon: Warehouse, color: 'text-rose-500 bg-rose-500/10' },
-                  { id: 'courier', label: '৫. কুরিয়ার এপিআই সেটিংস (Courier API)', icon: Truck, color: 'text-[#e07a5f] bg-[#e07a5f]/10' },
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeSettingsTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveSettingsTab(tab.id)}
-                      className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-[11px] font-extrabold tracking-tight transition-all duration-300 border cursor-pointer
-                        ${isActive
-                          ? 'bg-[#e07a5f] text-white border-[#e07a5f] shadow-md scale-[1.01]'
-                          : settings.themeMode === 'dark'
-                            ? 'bg-[#1a1614]/60 border-[#322822]/40 text-neutral-400 hover:text-white hover:border-neutral-700'
-                            : 'bg-neutral-50 border-[#e8e4dc] text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
-                        }`}
-                    >
-                      <span className={`p-1 rounded-lg shrink-0 ${isActive ? 'bg-white/20 text-white' : tab.color}`}>
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Back to Settings Button Header when a form is active */}
+              {activeSettingsTab !== 'grid' && (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-inherit gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSettingsTab('grid')}
+                    className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-[11px] font-extrabold tracking-tight transition-all duration-300 border cursor-pointer hover:scale-[1.01] shadow-sm
+                      ${settings.themeMode === 'dark'
+                        ? 'bg-[#1a1614]/80 border-[#322822]/60 text-neutral-300 hover:text-white hover:border-[#e07a5f]/40'
+                        : 'bg-white border-[#e8e4dc] text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 hover:border-[#e07a5f]/40'
+                      }`}
+                  >
+                    <span className="text-[#e07a5f] font-extrabold">←</span>
+                    <span>সেটিংস তালিকায় ফিরে যান (Back to Settings)</span>
+                  </button>
+                  <div className="text-left sm:text-right">
+                    <span className="text-[10px] font-bold text-[#e07a5f] uppercase tracking-wider">Aura Lux Preferences</span>
+                    <p className="text-xs font-extrabold opacity-60">
+                      {activeSettingsTab === 'courier' && '📦 কুরিয়ার এপিআই সেটিংস (Courier API Settings)'}
+                      {activeSettingsTab === 'brand' && '🏷️ ব্র্যান্ড পরিচিতি সেটিংস (Brand Slogan Settings)'}
+                      {activeSettingsTab === 'eye' && '🛡️ আই প্রোটেকশন ফিল্টার (Eye Protection Filter)'}
+                      {activeSettingsTab === 'woocommerce' && '🔄 উ-কমার্স REST API (WooCommerce)'}
+                      {activeSettingsTab === 'inventory' && '📋 ইনভেন্টরি অ্যালার্ট লেভেল (Stock Thresholds)'}
+                      {activeSettingsTab === 'gtm' && '📊 GTM4 Data Layer (Google Tag Manager)'}
+                      {activeSettingsTab === 'meta_tracking' && '🔵 FB & Instagram Server-Side Tracking'}
+                      {activeSettingsTab === 'tiktok_tracking' && '🖤 TikTok Server-Side Tracking'}
+                      {activeSettingsTab === 'ga4' && '📈 Google Analytics (GA4) Tracking'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Grid Interface */}
+              {activeSettingsTab === 'grid' && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 w-full py-2 animate-fade-in">
+                  {[
+                    { id: 'courier', label: '📦 কুরিয়ার এপিআই সেটিংস', sub: 'Courier API Settings', icon: Truck, color: 'text-rose-500', bgColor: 'bg-rose-500/10', hoverColor: 'hover:border-rose-500/50 hover:shadow-rose-500/5' },
+                    { id: 'brand', label: '🏷️ ব্র্যান্ড পরিচিতি সেটিংস', sub: 'Brand Slogan Settings', icon: Tag, color: 'text-amber-500', bgColor: 'bg-amber-500/10', hoverColor: 'hover:border-amber-500/50 hover:shadow-amber-500/5' },
+                    { id: 'eye', label: '🛡️ আই প্রোটেকশন ফিল্টার', sub: 'Eye Protection Filter', icon: ShieldAlert, color: 'text-orange-500', bgColor: 'bg-orange-500/10', hoverColor: 'hover:border-orange-500/50 hover:shadow-orange-500/5' },
+                    { id: 'woocommerce', label: '🔄 উ-কমার্স REST API', sub: 'WooCommerce Keys', icon: RefreshCcw, color: 'text-indigo-500', bgColor: 'bg-indigo-500/10', hoverColor: 'hover:border-indigo-500/50 hover:shadow-indigo-500/5' },
+                    { id: 'inventory', label: '📋 ইনভেন্টরি অ্যালার্ট লেভেল', sub: 'Stock Thresholds', icon: Warehouse, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', hoverColor: 'hover:border-emerald-500/50 hover:shadow-emerald-500/5' },
+                    { id: 'gtm', label: '📊 GTM4 Data Layer', sub: 'GTM Container ID', icon: Layers, color: 'text-blue-500', bgColor: 'bg-blue-500/10', hoverColor: 'hover:border-blue-500/50 hover:shadow-blue-500/5' },
+                    { id: 'meta_tracking', label: '🔵 FB & Instagram Server-Side', sub: 'Meta Pixel & Server API', icon: Activity, color: 'text-sky-600', bgColor: 'bg-sky-600/10', hoverColor: 'hover:border-sky-600/50 hover:shadow-sky-600/5' },
+                    { id: 'tiktok_tracking', label: '🖤 TikTok Server-Side', sub: 'TikTok Pixel & Event API', icon: Code, color: 'text-zinc-500', bgColor: 'bg-zinc-500/10', hoverColor: 'hover:border-zinc-500/50 hover:shadow-zinc-500/5' },
+                    { id: 'ga4', label: '📈 Google Analytics (GA4)', sub: 'Google Tag ID (G-XXXXXX)', icon: PieChart, color: 'text-amber-500', bgColor: 'bg-amber-500/10', hoverColor: 'hover:border-amber-500/50 hover:shadow-amber-500/5' },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setActiveSettingsTab(item.id)}
+                        className={`group relative flex flex-col items-center justify-center text-center p-6 rounded-[2.5rem] border transition-all duration-300 cursor-pointer aspect-square hover:-translate-y-1 hover:shadow-lg
+                          ${settings.themeMode === 'dark'
+                            ? 'bg-[#1a1614]/80 border-[#322822]/60 hover:bg-[#221c19] text-neutral-200'
+                            : 'bg-white border-[#e8e4dc] hover:bg-neutral-50/50 text-neutral-800'
+                          } ${item.hoverColor}`}
+                      >
+                        {/* Centered Large Icon */}
+                        <div className={`p-4 rounded-3xl ${item.bgColor} ${item.color} mb-4 transition-transform duration-300 group-hover:scale-110`}>
+                          <Icon className="h-7 w-7" />
+                        </div>
+
+                        {/* Text */}
+                        <h4 className="text-[11px] font-extrabold tracking-tight line-clamp-2 px-1 mb-1">
+                          {item.label}
+                        </h4>
+                        <p className="text-[9px] font-bold opacity-45 font-mono tracking-wide uppercase">
+                          {item.sub}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Full Width Settings Sub-tab view with elegant fade-in */}
               <div className="w-full pt-2">
@@ -6836,7 +6905,14 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                         </h3>
                         <button
                           type="button"
-                          onClick={() => setShowAddCourierRow(!showAddCourierRow)}
+                          onClick={() => {
+                            setNewCourierClientId('');
+                            setNewCourierApiKey('');
+                            setNewCourierSecretKey('');
+                            setNewCourierDefaultWeight('0.5');
+                            setNewCourierDefaultNote('[INVO_CUSTOMER_NOTE]');
+                            setShowAddCourierRow(!showAddCourierRow);
+                          }}
                           className="px-3 py-1.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl text-[10px] flex items-center space-x-1.5 transition-all shadow-sm"
                         >
                           <Plus className="h-3.5 w-3.5" />
@@ -6846,33 +6922,116 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
 
                       {/* Add New Courier Form Row */}
                       {showAddCourierRow && (
-                        <div className="p-4 rounded-2xl bg-neutral-100 dark:bg-white/5 space-y-3 border border-inherit">
-                          <div className="text-[10px] font-bold opacity-75 uppercase">নতুন কুরিয়ার ক্রেডেনশিয়াল যোগ করুন</div>
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                            <div className="sm:col-span-5">
-                              <label className="block text-[9px] font-bold mb-1 opacity-60">কুরিয়ার সিলেক্ট করুন</label>
+                        <div className="p-8 rounded-[2rem] bg-neutral-100/50 dark:bg-[#1a1614]/40 border border-inherit space-y-6 max-w-2xl mx-auto shadow-sm">
+                          {/* Form Title & Subtitle */}
+                          <div className="text-center space-y-1">
+                            <h4 className="text-xl md:text-2xl font-extrabold text-[#c05a3e] dark:text-[#e07a5f] tracking-tight">
+                              {newCourierName} Booking Automation
+                            </h4>
+                            <p className="text-[11px] font-bold opacity-50 uppercase tracking-wider font-sans">
+                              Connect Your Website To {newCourierName}
+                            </p>
+                          </div>
+
+                          <div className="space-y-4 pt-2">
+                            {/* Courier selector */}
+                            <div>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">১. কুরিয়ার সিলেক্ট করুন (Courier Service)</label>
                               <select
                                 value={newCourierName}
                                 onChange={(e) => setNewCourierName(e.target.value)}
-                                className="w-full p-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-white dark:bg-zinc-800 border-inherit text-xs font-bold"
+                                className={`w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] text-xs font-bold cursor-pointer
+                                  ${settings.themeMode === 'dark' ? 'bg-[#120e0c] text-white border-[#322822]' : 'bg-white text-neutral-800 border-neutral-200'}`}
                               >
-                                <option value="Steadfast Courier">Steadfast</option>
-                                <option value="Pathao Courier">Pathao</option>
-                                <option value="RedX Courier">RedX</option>
-                                <option value="Sundarban Courier">Sundarban</option>
+                                <option value="Steadfast Courier">Steadfast Courier</option>
+                                <option value="Pathao Courier">Pathao Courier</option>
+                                <option value="RedX Courier">RedX Courier</option>
+                                <option value="Sundarban Courier">Sundarban Courier</option>
                               </select>
                             </div>
-                            <div className="sm:col-span-7">
-                              <label className="block text-[9px] font-bold mb-1 opacity-60">এপিআই কী (API Key / Secret Token)</label>
+
+                            {/* Client ID Field */}
+                            <div>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">Client ID</label>
+                              <input
+                                type="text"
+                                value={newCourierClientId}
+                                onChange={(e) => setNewCourierClientId(e.target.value)}
+                                placeholder="যেমন: 1392697"
+                                className={`w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] text-xs font-mono
+                                  ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/50 text-white border-[#322822]' : 'bg-white text-neutral-800 border-neutral-200'}`}
+                              />
+                            </div>
+
+                            {/* API Key Field */}
+                            <div>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">API Key</label>
                               <input
                                 type="text"
                                 value={newCourierApiKey}
                                 onChange={(e) => setNewCourierApiKey(e.target.value)}
-                                placeholder="gqp_xxxxxxxxxxxxx_secret_token"
-                                className="w-full p-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit text-xs font-mono"
+                                placeholder="কুরিয়ারের মেইন টোকেন ইনপুট ফিল্ড"
+                                className={`w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] text-xs font-mono
+                                  ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/50 text-white border-[#322822]' : 'bg-white text-neutral-800 border-neutral-200'}`}
                               />
                             </div>
-                            <div className="sm:col-span-12 flex justify-end">
+
+                            {/* Secret Key Field */}
+                            <div>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">Secret Key</label>
+                              <input
+                                type="text"
+                                value={newCourierSecretKey}
+                                onChange={(e) => setNewCourierSecretKey(e.target.value)}
+                                placeholder="কুরিয়ারের সিক্রেট টোকেন ইনপুট ফিল্ড"
+                                className={`w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] text-xs font-mono
+                                  ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/50 text-white border-[#322822]' : 'bg-white text-neutral-800 border-neutral-200'}`}
+                              />
+                            </div>
+
+                            {/* Default Weight Field */}
+                            <div>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">Default Weight (Parcel Weight)</label>
+                              <input
+                                type="text"
+                                value={newCourierDefaultWeight}
+                                onChange={(e) => setNewCourierDefaultWeight(e.target.value)}
+                                placeholder="0.5"
+                                className={`w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] text-xs font-mono
+                                  ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/50 text-white border-[#322822]' : 'bg-white text-neutral-800 border-neutral-200'}`}
+                              />
+                            </div>
+
+                            {/* Default Note Field */}
+                            <div>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">Default Note</label>
+                              <textarea
+                                value={newCourierDefaultNote}
+                                onChange={(e) => setNewCourierDefaultNote(e.target.value)}
+                                placeholder="[INVO_CUSTOMER_NOTE]"
+                                rows={2}
+                                className={`w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] text-xs font-mono resize-none
+                                  ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/50 text-white border-[#322822]' : 'bg-white text-neutral-800 border-neutral-200'}`}
+                              />
+                            </div>
+
+                            {/* Form Actions */}
+                            <div className="flex justify-end space-x-2 pt-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewCourierClientId('');
+                                  setNewCourierApiKey('');
+                                  setNewCourierSecretKey('');
+                                  setNewCourierDefaultWeight('0.5');
+                                  setNewCourierDefaultNote('[INVO_CUSTOMER_NOTE]');
+                                  setShowAddCourierRow(false);
+                                }}
+                                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-colors border
+                                  ${settings.themeMode === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-neutral-300 border-zinc-700' : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200'}`}
+                              >
+                                Cancel
+                              </button>
                               <button
                                 type="button"
                                 onClick={async () => {
@@ -6880,13 +7039,17 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                                     alert('দয়া করে এপিআই কী টাইপ করুন!');
                                     return;
                                   }
-                                  const cleanKey = newCourierApiKey.trim();
+                                  
                                   const existsIndex = courierSettingsList.findIndex(c => c.courier_name === newCourierName);
                                   
                                   const newSetting: CourierSetting = {
                                     id: existsIndex >= 0 ? courierSettingsList[existsIndex].id : `COURIER-${Date.now()}`,
                                     courier_name: newCourierName,
-                                    api_key: cleanKey
+                                    api_key: newCourierApiKey.trim(),
+                                    client_id: newCourierClientId.trim(),
+                                    secret_key: newCourierSecretKey.trim(),
+                                    default_weight: newCourierDefaultWeight.trim() || '0.5',
+                                    default_note: newCourierDefaultNote.trim() || '[INVO_CUSTOMER_NOTE]'
                                   };
 
                                   // Save to DB
@@ -6900,13 +7063,19 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                                     }
                                     setCourierSettingsList(updatedList);
                                     localStorage.setItem('aura_cached_courier_settings', JSON.stringify(updatedList));
+                                    
+                                    // Reset inputs
+                                    setNewCourierClientId('');
                                     setNewCourierApiKey('');
+                                    setNewCourierSecretKey('');
+                                    setNewCourierDefaultWeight('0.5');
+                                    setNewCourierDefaultNote('[INVO_CUSTOMER_NOTE]');
                                     setShowAddCourierRow(false);
                                     
                                     const newNotif = {
                                       id: `notif-${Date.now()}`,
                                       title: 'কুরিয়ার সেটিংস সংরক্ষিত',
-                                      message: `${newCourierName} এপিআই কী সফলভাবে ক্লাউড এবং লোকালে সেভ করা হয়েছে।`,
+                                      message: `${newCourierName} এপিআই কী ও কনফিগারেশন সফলভাবে ক্লাউড এবং লোকালে সেভ করা হয়েছে।`,
                                       timestamp: new Date().toISOString(),
                                       read: false
                                     };
@@ -6915,10 +7084,10 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                                     alert('সংরক্ষণ ব্যর্থ হয়েছে! সুপাবেজ কানেকশন চেক করুন।');
                                   }
                                 }}
-                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all flex items-center space-x-1"
+                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs transition-all flex items-center space-x-1.5 shadow-md shadow-emerald-500/10"
                               >
-                                <Save className="h-3.5 w-3.5" />
-                                <span>Save Courier Setting</span>
+                                <Save className="h-4 w-4" />
+                                <span>Save Settings</span>
                               </button>
                             </div>
                           </div>
@@ -6929,71 +7098,371 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                       <div className="space-y-2 text-xs">
                         <div className="text-[10px] font-bold opacity-60 uppercase">সংরক্ষিত কুরিয়ার ক্রেডেনশিয়ালস তালিকা</div>
                         {courierSettingsList.length === 0 ? (
-                          <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/5 border border-dashed border-inherit text-center opacity-60 italic text-[11px]">
-                            কোনো এপিআই কী এখনো সেভ করা হয়নি। "+ New Courier" বাটন দিয়ে যুক্ত করুন।
-                          </div>
+                           <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-white/5 border border-dashed border-inherit text-center opacity-60 italic text-[11px]">
+                             কোনো এপিআই কী এখনো সেভ করা হয়নি। "+ New Courier" বাটন দিয়ে যুক্ত করুন।
+                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {courierSettingsList.map((item) => (
-                              <div key={item.id || item.courier_name} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-2xl bg-neutral-50 dark:bg-white/5 border border-inherit gap-2">
-                                <div className="flex items-center space-x-2">
-                                  <div className="p-1.5 rounded-lg bg-[#e07a5f]/10 text-[#e07a5f]">
-                                    <Truck className="h-4 w-4" />
+                            {courierSettingsList.map((item) => {
+                              // Safely extract values either directly (if loaded from updated service) or by parsing the API key
+                              let parsed: any = {};
+                              try {
+                                parsed = JSON.parse(item.api_key);
+                              } catch (_) {}
+
+                              const clientVal = item.client_id || parsed.client_id || '';
+                              const apiVal = item.api_key && !item.api_key.startsWith('{') ? item.api_key : (parsed.api_key || '');
+                              const secretVal = item.secret_key || parsed.secret_key || '';
+                              const weightVal = item.default_weight || parsed.default_weight || '0.5';
+                              const noteVal = item.default_note || parsed.default_note || '[INVO_CUSTOMER_NOTE]';
+
+                              return (
+                                <div key={item.id || item.courier_name} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-2xl bg-neutral-50 dark:bg-white/5 border border-inherit gap-2">
+                                  <div className="flex items-start space-x-2.5">
+                                    <div className="p-2 rounded-lg bg-[#e07a5f]/10 text-[#e07a5f]">
+                                      <Truck className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                      <p className="font-extrabold text-[#e07a5f]">{item.courier_name}</p>
+                                      <div className="text-[10px] font-mono opacity-60 flex flex-wrap gap-x-3 gap-y-1 mt-0.5">
+                                        {clientVal && <span><strong>Client ID:</strong> {clientVal}</span>}
+                                        {apiVal && (
+                                          <span>
+                                            <strong>API Key:</strong> {apiVal.substring(0, 6)}••••••
+                                          </span>
+                                        )}
+                                        {secretVal && (
+                                          <span>
+                                            <strong>Secret:</strong> {secretVal.substring(0, 4)}••••••
+                                          </span>
+                                        )}
+                                        <span><strong>Weight:</strong> {weightVal}kg</span>
+                                        <span><strong>Note:</strong> {noteVal}</span>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <p className="font-extrabold">{item.courier_name}</p>
-                                    <p className="text-[9px] font-mono opacity-50 select-all tracking-wider">
-                                      {item.api_key.substring(0, 8)}••••••••••••{item.api_key.substring(Math.max(0, item.api_key.length - 6))}
-                                    </p>
-                                  </div>
-                                </div>
-                                
-                                <div className="flex items-center space-x-1.5 w-full sm:w-auto justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setNewCourierName(item.courier_name);
-                                      setNewCourierApiKey(item.api_key);
-                                      setShowAddCourierRow(true);
-                                    }}
-                                    className="p-1.5 hover:bg-neutral-200 dark:hover:bg-white/10 rounded-lg text-sky-500 transition-colors"
-                                    title="Edit"
-                                  >
-                                    <Edit className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      if (confirm(`${item.courier_name} এপিআই ক্রেডেনশিয়াল মুছে ফেলতে চান?`)) {
-                                        const success = await supabaseService.deleteCourierSetting(item.id || '');
-                                        if (success) {
-                                          const updatedList = courierSettingsList.filter(c => c.id !== item.id);
-                                          setCourierSettingsList(updatedList);
-                                          localStorage.setItem('aura_cached_courier_settings', JSON.stringify(updatedList));
-                                          
-                                          const newNotif = {
-                                            id: `notif-${Date.now()}`,
-                                            title: 'কুরিয়ার সেটিংস মুছে ফেলা হয়েছে',
-                                            message: `${item.courier_name} এপিআই কী সফলভাবে মুছে ফেলা হয়েছে।`,
-                                            timestamp: new Date().toISOString(),
-                                            read: false
-                                          };
-                                          setNotifications(prev => [newNotif, ...prev]);
-                                        } else {
-                                          alert('মুছে ফেলা ব্যর্থ হয়েছে!');
+                                  
+                                  <div className="flex items-center space-x-1.5 w-full sm:w-auto justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setNewCourierName(item.courier_name);
+                                        setNewCourierClientId(clientVal);
+                                        setNewCourierApiKey(apiVal);
+                                        setNewCourierSecretKey(secretVal);
+                                        setNewCourierDefaultWeight(weightVal);
+                                        setNewCourierDefaultNote(noteVal);
+                                        setShowAddCourierRow(true);
+                                      }}
+                                      className="p-1.5 hover:bg-neutral-200 dark:hover:bg-white/10 rounded-lg text-sky-500 transition-colors"
+                                      title="Edit"
+                                    >
+                                      <Edit className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (confirm(`${item.courier_name} এপিআই ক্রেডেনশিয়াল মুছে ফেলতে চান?`)) {
+                                          const success = await supabaseService.deleteCourierSetting(item.id || '');
+                                          if (success) {
+                                            const updatedList = courierSettingsList.filter(c => c.id !== item.id);
+                                            setCourierSettingsList(updatedList);
+                                            localStorage.setItem('aura_cached_courier_settings', JSON.stringify(updatedList));
+                                            
+                                            const newNotif = {
+                                              id: `notif-${Date.now()}`,
+                                              title: 'কুরিয়ার সেটিংস মুছে ফেলা হয়েছে',
+                                              message: `${item.courier_name} এপিআই কী সফলভাবে মুছে ফেলা হয়েছে।`,
+                                              timestamp: new Date().toISOString(),
+                                              read: false
+                                            };
+                                            setNotifications(prev => [newNotif, ...prev]);
+                                          } else {
+                                            alert('মুছে ফেলা ব্যর্থ হয়েছে!');
+                                          }
                                         }
-                                      }
-                                    }}
-                                    className="p-1.5 hover:bg-neutral-200 dark:hover:bg-white/10 rounded-lg text-rose-500 transition-colors"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
+                                      }}
+                                      className="p-1.5 hover:bg-neutral-200 dark:hover:bg-white/10 rounded-lg text-rose-500 transition-colors"
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSettingsTab === 'gtm' && (
+                  <div className="animate-fade-in duration-300">
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <Layers className="h-4.5 w-4.5 text-blue-500" />
+                        <span>📊 GTM4 Data Layer সেটিংস (Google Tag Manager)</span>
+                      </h3>
+                      
+                      <div className="space-y-4">
+                        <p className="text-[11px] opacity-70 leading-relaxed">
+                          গুগল ট্যাগ ম্যানেজার (GTM) কন্টেইনার আইডি সেট করার মাধ্যমে আপনার ইকমার্স স্টোরটিতে গ্লোবাল স্ট্যান্ডার্ড ডাটা লেয়ার ট্র্যাক করতে পারবেন।
+                        </p>
+                        
+                        <div>
+                          <label className="block text-[10px] font-bold opacity-75 mb-1.5">GTM Container ID (e.g. GTM-XXXXXXX)</label>
+                          <input 
+                            type="text"
+                            placeholder="GTM-XXXXXXX"
+                            value={trackingSettings.gtmContainerId}
+                            onChange={(e) => setTrackingSettings(prev => ({ ...prev, gtmContainerId: e.target.value }))}
+                            className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent border-inherit font-bold"
+                          />
+                        </div>
+
+                        <div className="pt-3 border-t border-inherit">
+                          <button
+                            type="button"
+                            disabled={isSavingTracking}
+                            onClick={async () => {
+                              setIsSavingTracking(true);
+                              const success = await supabaseService.upsertTrackingSettings(trackingSettings);
+                              setIsSavingTracking(false);
+                              if (success) {
+                                const newNotif = {
+                                  id: `notif-${Date.now()}`,
+                                  title: `GTM Container ID সংরক্ষিত হয়েছে`,
+                                  message: `গুগল ট্যাগ ম্যানেজার আইডি "${trackingSettings.gtmContainerId}" সফলভাবে সুপাবেজে আপসার্ট হয়েছে।`,
+                                  timestamp: new Date().toISOString(),
+                                  read: false
+                                };
+                                setNotifications(prev => [newNotif, ...prev]);
+                                alert('GTM Container ID সফলভাবে সংরক্ষিত হয়েছে!');
+                              } else {
+                                alert('সংরক্ষণ করতে সমস্যা হয়েছে!');
+                              }
+                            }}
+                            className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>{isSavingTracking ? 'সংরক্ষণ হচ্ছে...' : 'সেটিংস সংরক্ষণ করুন (Save GTM)'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSettingsTab === 'meta_tracking' && (
+                  <div className="animate-fade-in duration-300">
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <Activity className="h-4.5 w-4.5 text-sky-600" />
+                        <span>🔵 FB & Instagram Server-Side Tracking সেটিংস</span>
+                      </h3>
+                      
+                      <div className="space-y-4">
+                        <p className="text-[11px] opacity-70 leading-relaxed">
+                          আইওএস চৌদ্দ (iOS 14) পরবর্তী আপডেটের জন্য ব্রাউজার ট্র্যাক ট্র্যাকিংয়ের পাশাপাশি মেটা কনভার্সন এপিআই (CAPI) ট্র্যাকিং অত্যন্ত গুরুত্বপূর্ণ।
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">Meta Pixel ID</label>
+                            <input 
+                              type="text"
+                              placeholder="1234567890"
+                              value={trackingSettings.metaPixelId}
+                              onChange={(e) => setTrackingSettings(prev => ({ ...prev, metaPixelId: e.target.value }))}
+                              className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-sky-600 bg-transparent border-inherit font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">Meta Access Token</label>
+                            <input 
+                              type="text"
+                              placeholder="EAAG..."
+                              value={trackingSettings.metaAccessToken}
+                              onChange={(e) => setTrackingSettings(prev => ({ ...prev, metaAccessToken: e.target.value }))}
+                              className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-sky-600 bg-transparent border-inherit"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">Test Event Code</label>
+                            <input 
+                              type="text"
+                              placeholder="TEST12345"
+                              value={trackingSettings.metaTestEventCode}
+                              onChange={(e) => setTrackingSettings(prev => ({ ...prev, metaTestEventCode: e.target.value }))}
+                              className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-sky-600 bg-transparent border-inherit"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-inherit">
+                          <button
+                            type="button"
+                            disabled={isSavingTracking}
+                            onClick={async () => {
+                              setIsSavingTracking(true);
+                              const success = await supabaseService.upsertTrackingSettings(trackingSettings);
+                              setIsSavingTracking(false);
+                              if (success) {
+                                const newNotif = {
+                                  id: `notif-${Date.now()}`,
+                                  title: `মেটা ট্র্যাকিং সেটিংস সংরক্ষিত`,
+                                  message: `মেটা পিক্সেল আইডি "${trackingSettings.metaPixelId}" সফলভাবে সুপাবেজে আপসার্ট হয়েছে।`,
+                                  timestamp: new Date().toISOString(),
+                                  read: false
+                                };
+                                setNotifications(prev => [newNotif, ...prev]);
+                                alert('Meta Server-Side Tracking সেটিংস সফলভাবে সংরক্ষিত হয়েছে!');
+                              } else {
+                                alert('সংরক্ষণ করতে সমস্যা হয়েছে!');
+                              }
+                            }}
+                            className="w-full sm:w-auto px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>{isSavingTracking ? 'সংরক্ষণ হচ্ছে...' : 'মেটা সেটিংস সংরক্ষণ করুন (Save Meta)'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSettingsTab === 'tiktok_tracking' && (
+                  <div className="animate-fade-in duration-300">
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <Code className="h-4.5 w-4.5 text-zinc-500" />
+                        <span>🖤 TikTok Server-Side Tracking সেটিংস</span>
+                      </h3>
+                      
+                      <div className="space-y-4">
+                        <p className="text-[11px] opacity-70 leading-relaxed">
+                          টিকটক পিক্সেল এবং ইভেন্টস এপিআই (TikTok Events API) অ্যাক্সেস টোকেন ইন্টিগ্রেশন করে কাস্টম ইভেন্ট এবং ফানেল ট্র্যাকিং পরিচালনা করুন।
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">TikTok Pixel ID</label>
+                            <input 
+                              type="text"
+                              placeholder="e.g. CXXXXXXXXXXXXXX"
+                              value={trackingSettings.tiktokPixelId}
+                              onChange={(e) => setTrackingSettings(prev => ({ ...prev, tiktokPixelId: e.target.value }))}
+                              className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-zinc-500 bg-transparent border-inherit font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">TikTok Events API Access Token</label>
+                            <input 
+                              type="text"
+                              placeholder="TikTok Token"
+                              value={trackingSettings.tiktokAccessToken}
+                              onChange={(e) => setTrackingSettings(prev => ({ ...prev, tiktokAccessToken: e.target.value }))}
+                              className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-zinc-500 bg-transparent border-inherit"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-inherit">
+                          <button
+                            type="button"
+                            disabled={isSavingTracking}
+                            onClick={async () => {
+                              setIsSavingTracking(true);
+                              const success = await supabaseService.upsertTrackingSettings(trackingSettings);
+                              setIsSavingTracking(false);
+                              if (success) {
+                                const newNotif = {
+                                  id: `notif-${Date.now()}`,
+                                  title: `টিকটক ট্র্যাকিং সেটিংস সংরক্ষিত`,
+                                  message: `টিকটক পিক্সেল আইডি "${trackingSettings.tiktokPixelId}" সফলভাবে সুপাবেজে আপসার্ট হয়েছে।`,
+                                  timestamp: new Date().toISOString(),
+                                  read: false
+                                };
+                                setNotifications(prev => [newNotif, ...prev]);
+                                alert('TikTok Server-Side Tracking সেটিংস সফলভাবে সংরক্ষিত হয়েছে!');
+                              } else {
+                                alert('সংরক্ষণ করতে সমস্যা হয়েছে!');
+                              }
+                            }}
+                            className="w-full sm:w-auto px-6 py-2.5 bg-neutral-800 hover:bg-neutral-900 text-white rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md border border-neutral-700"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>{isSavingTracking ? 'সংরক্ষণ হচ্ছে...' : 'টিকটক সেটিংস সংরক্ষণ করুন (Save TikTok)'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSettingsTab === 'ga4' && (
+                  <div className="animate-fade-in duration-300">
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <PieChart className="h-4.5 w-4.5 text-amber-500" />
+                        <span>📈 Google Analytics (GA4) Tracking সেটিংস</span>
+                      </h3>
+                      
+                      <div className="space-y-4">
+                        <p className="text-[11px] opacity-70 leading-relaxed">
+                          গুগল অ্যানালিটিক্স ৪ (GA4) এর মাধ্যমে আপনার স্টোরের রিয়েল-টাইম ভিজিটর ট্রাফিক, বাউন্স রেট এবং কাস্টমার সেলস ফানেল ট্র্যাক করুন।
+                        </p>
+                        
+                        <div>
+                          <label className="block text-[10px] font-bold opacity-75 mb-1.5">Google Tag ID (e.g. G-XXXXXX)</label>
+                          <input 
+                            type="text"
+                            placeholder="G-XXXXXX"
+                            value={trackingSettings.googleAnalyticsId}
+                            onChange={(e) => setTrackingSettings(prev => ({ ...prev, googleAnalyticsId: e.target.value }))}
+                            className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 bg-transparent border-inherit font-bold"
+                          />
+                        </div>
+
+                        <div className="pt-3 border-t border-inherit">
+                          <button
+                            type="button"
+                            disabled={isSavingTracking}
+                            onClick={async () => {
+                              setIsSavingTracking(true);
+                              const success = await supabaseService.upsertTrackingSettings(trackingSettings);
+                              setIsSavingTracking(false);
+                              if (success) {
+                                const newNotif = {
+                                  id: `notif-${Date.now()}`,
+                                  title: `GA4 ট্র্যাকিং সেটিংস সংরক্ষিত`,
+                                  message: `গুগল অ্যানালিটিক্স ৪ ট্যাগ আইডি "${trackingSettings.googleAnalyticsId}" সফলভাবে সুপাবেজে সংরক্ষিত হয়েছে।`,
+                                  timestamp: new Date().toISOString(),
+                                  read: false
+                                };
+                                setNotifications(prev => [newNotif, ...prev]);
+                                alert('Google Analytics (GA4) সেটিংস সফলভাবে সংরক্ষিত হয়েছে!');
+                              } else {
+                                alert('সংরক্ষণ করতে সমস্যা হয়েছে!');
+                              }
+                            }}
+                            className="w-full sm:w-auto px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>{isSavingTracking ? 'সংরক্ষণ হচ্ছে...' : 'GA4 সেটিংস সংরক্ষণ করুন (Save GA4)'}</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -7001,7 +7470,8 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
               </div>
 
               {/* Supabase Integration Card (Full width under the grid) */}
-              <div className={`p-6 mt-6 rounded-[2.5rem] border space-y-4 lg:col-span-12
+              {activeSettingsTab === 'grid' && (
+                <div className={`p-6 mt-6 rounded-[2.5rem] border space-y-4 lg:col-span-12
                 ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
               >
                 <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center justify-between">
@@ -7280,6 +7750,7 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                   </div>
                 </div>
               </div>
+            )}
 
             </div>
           )}
@@ -7774,7 +8245,7 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
           ORDER EDIT MODAL (INTERACTIVE FORM)
           ========================================================== */}
       {editingOrder && (() => {
-        const stats = getCourierStats(editingOrder.customerPhone || '');
+        const stats = fraudCheckResult || getCourierStats(editingOrder.customerPhone || '');
         return (
           <div className={`fixed inset-0 z-50 flex flex-col animate-fade-in
           ${settings.themeMode === 'dark' ? 'bg-[#120e0c] text-[#f6f3ed]' : 'bg-[#faf8f5] text-neutral-800'}`}
@@ -8024,21 +8495,41 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                 </button>
               </div>
 
-              <div className={`p-4 rounded-2xl border shadow-sm w-full
+              <div className={`p-4 rounded-2xl border shadow-sm w-full space-y-3.5
                 ${settings.themeMode === 'dark' ? 'bg-[#161210]/90 border-[#322822]/40 text-[#f6f3ed]' : 'bg-white border-neutral-200 text-neutral-800'}`}
               >
-                <div className="flex items-center space-x-2 mb-3">
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <div className="flex items-center justify-between border-b border-neutral-200/10 pb-2.5">
+                  <div className="flex items-center space-x-2">
+                    <span className="flex h-2 w-2 relative">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isFraudChecking ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${isFraudChecking ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+                    </span>
+                    <h4 className="text-[11px] font-black uppercase tracking-wider text-[#e07a5f]">
+                      গ্লোবাল ফ্রড চেকার (Global Fraud Checker)
+                    </h4>
+                  </div>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                    isFraudChecking 
+                      ? 'bg-amber-500/10 text-amber-500 border border-amber-500/15' 
+                      : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/15'
+                  }`}>
+                    {isFraudChecking ? '● Analyzing...' : '● Global Analysis Completed'}
                   </span>
-                  <h4 className="text-[11px] font-black uppercase tracking-wider text-[#e07a5f]">
-                    কুরিয়ার ডেলিভারি হিস্টরি (Success Score)
-                  </h4>
                 </div>
 
+                {/* High Risk Alert Warning Box */}
+                {!isFraudChecking && stats.total.total > 0 && stats.cancelPercent >= 50 && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-500 text-xs font-semibold animate-pulse flex items-start space-x-2">
+                    <span className="text-sm mt-0.5">🚨</span>
+                    <div>
+                      <p className="font-black text-rose-500 dark:text-rose-400 text-[11px] uppercase tracking-wider">উচ্চ ঝুঁকি সম্পন্ন কাস্টমার! (High Risk Buyer)</p>
+                      <p className="text-[10px] opacity-90 leading-relaxed font-bold mt-0.5">এই কাস্টমারের কুরিয়ার বুকিং বাতিলের হার ৫০% বা তার বেশি। অর্ডার কনফার্ম করার পূর্বে অবশ্যই শতভাগ নিশ্চিত হয়ে নিন!</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Table Container */}
-                <div className={`overflow-hidden rounded-xl border mb-3
+                <div className={`overflow-hidden rounded-xl border
                   ${settings.themeMode === 'dark' ? 'border-[#322822]/40' : 'border-neutral-200'}`}
                 >
                   <table className="w-full text-xs text-left border-collapse">
@@ -8108,13 +8599,13 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                 <div className="space-y-2">
                   {/* Success Rate Bar */}
                   <div className="flex items-center justify-between p-2 px-3 bg-emerald-600 text-white rounded-xl font-extrabold shadow-sm">
-                    <span>মোট সফল</span>
+                    <span>গ্লোবাল ডেলিভারি রেট (Success Score)</span>
                     <span>{stats.successPercent}%</span>
                   </div>
 
                   {/* Cancel Rate Bar */}
                   <div className="flex items-center justify-between p-2 px-3 bg-red-600 text-white rounded-xl font-extrabold shadow-sm">
-                    <span>মোট বাতিল</span>
+                    <span>গ্লোবাল রিটার্ন রেট (Risk Score)</span>
                     <span>{stats.cancelPercent}%</span>
                   </div>
 
@@ -8138,39 +8629,46 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                 </div>
 
                 {/* Analysis stats footer */}
-                <div className="mt-3.5 pt-2.5 border-t border-neutral-200/10 space-y-1 text-xs font-semibold">
+                <div className="mt-3.5 pt-2.5 border-t border-neutral-200/10 space-y-1.5 text-xs font-semibold">
                   <div className="flex justify-between">
                     <span className="opacity-60">Success Score:</span>
-                    <span className="text-emerald-500 font-bold">{stats.successPercent}</span>
+                    <span className="text-emerald-500 font-extrabold">{stats.successPercent}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="opacity-60">Risk Score:</span>
-                    <span className="text-red-500 font-bold">{stats.cancelPercent}</span>
+                    <span className="text-red-500 font-extrabold">{stats.cancelPercent}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="opacity-60">Risk Status:</span>
-                    <span className={`font-bold ${
-                      stats.status === 'High Risk' ? 'text-red-500' :
-                      stats.status === 'Moderate' ? 'text-amber-500' : 'text-emerald-500'
-                    }`}>{stats.status}</span>
+                    <span className={`font-black px-2 py-0.5 rounded-md text-[10px] tracking-wide ${
+                      stats.status === 'High Risk' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/15' :
+                      stats.status === 'Moderate' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/15' : 
+                      stats.status === 'No History' ? 'bg-neutral-500/10 text-neutral-400 border border-neutral-500/15' :
+                      'bg-emerald-500/10 text-emerald-500 border border-emerald-500/15'
+                    }`}>{stats.status === 'High Risk' ? '🚨 High Risk' : stats.status === 'Moderate' ? '⚠️ Moderate' : stats.status === 'No History' ? '∅ No History' : '✅ High Reliability'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="opacity-60">Steadfast Data Source:</span>
-                    <span className="font-mono opacity-80">Hoorin</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="opacity-60">Version:</span>
-                    <span className="font-mono opacity-80">7</span>
+                    <span className="opacity-60">Data Connections:</span>
+                    <span className="font-mono text-[10px] opacity-80">{stats.dataSource || 'local Supabase'}</span>
                   </div>
                 </div>
 
                 {/* Analyzing Loader banner */}
-                <div className={`mt-3 p-2 rounded-xl border text-center
+                <div className={`mt-3 p-2.5 rounded-xl border text-center
                   ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/60 border-white/5' : 'bg-neutral-50 border-neutral-100'}`}
                 >
                   <div className="text-[10px] font-mono tracking-wider text-neutral-400 flex items-center justify-center space-x-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                    <span>Analyzing [ {editingOrder.customerPhone || 'N/A'} ]</span>
+                    {isFraudChecking ? (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                        <span className="text-amber-500 font-extrabold animate-pulse">🔍 লাইভ ট্র্যাকিং চলছে... Analyzing [ {editingOrder.customerPhone || 'N/A'} ]</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                        <span className="text-emerald-500 font-bold">● Global Analysis Completed [ {editingOrder.customerPhone || 'N/A'} ]</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
