@@ -347,6 +347,41 @@ export const mapStaffFromDb = (db: any) => ({
   permissions: db.permissions,
 });
 
+export const cleanCourierSettings = (raw: any): CourierSetting[] => {
+  if (!raw) return [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  const seenNames = new Set<string>();
+  const cleaned: CourierSetting[] = [];
+
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue;
+    
+    // Normalize and clean courier_name
+    const name = String(item.courier_name || item.name || '').trim();
+    if (!name) continue;
+
+    // Check for duplicate names (case-insensitive) to prevent database clutter
+    const normalizedName = name.toLowerCase();
+    if (seenNames.has(normalizedName)) continue;
+    seenNames.add(normalizedName);
+
+    // Standardize IDs
+    const id = String(item.id || item.ID || `COURIER-${name.replace(/\s+/g, '-').toUpperCase()}`).trim();
+
+    cleaned.push({
+      id,
+      courier_name: name,
+      api_key: String(item.api_key || item.apiKey || '').trim(),
+      client_id: String(item.client_id || item.clientId || item.merchant_id || item.merchantId || '').trim(),
+      secret_key: String(item.secret_key || item.secretKey || '').trim(),
+      default_weight: String(item.default_weight || item.defaultWeight || '0.5').trim(),
+      default_note: String(item.default_note || item.defaultNote || '[INVO_CUSTOMER_NOTE]').trim(),
+      created_at: String(item.created_at || item.createdAt || new Date().toISOString()).trim(),
+    });
+  }
+  return cleaned;
+};
+
 // ============================================================================
 // CORE SERVICE METHODS (With automatic local fallback if tables don't exist)
 // ============================================================================
@@ -1095,46 +1130,65 @@ export const supabaseService = {
       if (data && data.tagline) {
         try {
           const parsed = JSON.parse(data.tagline);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) {
+            return cleanCourierSettings(parsed);
+          }
         } catch (_) {}
       }
       const local = await dbCache.get('aura_cached_courier_settings');
-      if (local && Array.isArray(local)) return local;
+      if (local && Array.isArray(local)) return cleanCourierSettings(local);
       return [];
     } catch (e) {
       console.warn('Supabase getCourierSettings failed, using local fallback:', e);
       const local = await dbCache.get('aura_cached_courier_settings');
-      if (local && Array.isArray(local)) return local;
+      if (local && Array.isArray(local)) return cleanCourierSettings(local);
       return [];
     }
   },
 
   async upsertCourierSetting(setting: CourierSetting): Promise<boolean> {
     try {
-      const targetId = setting.id || `COURIER-${Date.now()}`;
-      const newCourier = {
+      const currentList = await this.getCourierSettings();
+
+      const name = String(setting.courier_name || '').trim();
+      if (!name) throw new Error('Courier name is required');
+
+      const targetId = String(setting.id || `COURIER-${name.replace(/\s+/g, '-').toUpperCase()}`).trim();
+      const newCourier: CourierSetting = {
         id: targetId,
-        courier_name: setting.courier_name,
-        api_key: setting.api_key || '',
-        client_id: setting.client_id || '',
-        secret_key: setting.secret_key || '',
-        default_weight: setting.default_weight || '0.5',
-        default_note: setting.default_note || '[INVO_CUSTOMER_NOTE]',
-        created_at: setting.created_at || new Date().toISOString()
+        courier_name: name,
+        api_key: String(setting.api_key || '').trim(),
+        client_id: String(setting.client_id || '').trim(),
+        secret_key: String(setting.secret_key || '').trim(),
+        default_weight: String(setting.default_weight || '0.5').trim(),
+        default_note: String(setting.default_note || '[INVO_CUSTOMER_NOTE]').trim(),
+        created_at: String(setting.created_at || new Date().toISOString()).trim()
       };
 
-      const list = await this.getCourierSettings();
-      const existingIndex = list.findIndex(item => item.id === targetId || item.courier_name === setting.courier_name);
-      
-      let updatedList = [...list];
-      if (existingIndex > -1) {
-        updatedList[existingIndex] = newCourier;
-      } else {
-        updatedList.push(newCourier);
-      }
+      // Exclude old matches of either the same ID or name (case-insensitive) to clean duplicates
+      const filteredList = currentList.filter(item => 
+        item.id !== targetId && 
+        item.courier_name.toLowerCase() !== name.toLowerCase()
+      );
 
+      // Append and run through robust cleaner
+      const updatedList = cleanCourierSettings([...filteredList, newCourier]);
+
+      // Cache updated list locally
       await dbCache.set('aura_cached_courier_settings', updatedList);
 
+      // Clear obsolete system_settings rows (Trash Cleaning) to prevent cluttering or over-quota issues
+      const obsoleteKeys = ['courier_setting', 'courier_api', 'courier_api_settings', 'steadfast_settings', 'courier_config', 'steadfast_config'];
+      try {
+        await supabase
+          .from('system_settings')
+          .delete()
+          .in('id', obsoleteKeys);
+      } catch (err) {
+        console.warn('Error clearing obsolete system_settings rows:', err);
+      }
+
+      // Upsert the fresh & clean array
       const { error } = await supabase
         .from('system_settings')
         .upsert({
@@ -1146,6 +1200,15 @@ export const supabaseService = {
       return true;
     } catch (e: any) {
       console.warn('Supabase upsertCourierSetting failed, fell back to local cache:', e?.message || e);
+      try {
+        const currentList = await this.getCourierSettings();
+        const filteredList = currentList.filter(item => 
+          item.id !== setting.id && 
+          item.courier_name.toLowerCase() !== String(setting.courier_name || '').trim().toLowerCase()
+        );
+        const updatedList = cleanCourierSettings([...filteredList, setting]);
+        await dbCache.set('aura_cached_courier_settings', updatedList);
+      } catch (_) {}
       return true;
     }
   },
@@ -1153,7 +1216,7 @@ export const supabaseService = {
   async deleteCourierSetting(id: string): Promise<boolean> {
     try {
       const list = await this.getCourierSettings();
-      const updatedList = list.filter(item => item.id !== id);
+      const updatedList = cleanCourierSettings(list.filter(item => item.id !== id));
 
       await dbCache.set('aura_cached_courier_settings', updatedList);
 
@@ -1168,6 +1231,11 @@ export const supabaseService = {
       return true;
     } catch (e: any) {
       console.warn('Supabase deleteCourierSetting failed, fell back to local cache:', e?.message || e);
+      try {
+        const list = await this.getCourierSettings();
+        const updatedList = cleanCourierSettings(list.filter(item => item.id !== id));
+        await dbCache.set('aura_cached_courier_settings', updatedList);
+      } catch (_) {}
       return true;
     }
   },
