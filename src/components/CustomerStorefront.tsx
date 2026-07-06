@@ -442,6 +442,28 @@ export default function CustomerStorefront({
     return formattedDashboardProducts;
   }, [localProducts]);
 
+  // Category pre-fetching and asset preloading on mouse hover (Requirement 3)
+  const handleCategoryMouseEnter = (cat: string) => {
+    try {
+      console.log(`[LAZY-PREFETCH] Mouse hover on category "${cat}". Preloading category images & caching filtered subset...`);
+      const catProducts = allStoreProducts.filter(p => cat === 'All' || p.category === cat);
+      
+      // Preload images to eliminate rendering delay/flash when clicked (Requirement 3: চোখের পলকে সামনে চলে আসে)
+      catProducts.slice(0, 12).forEach(p => {
+        if (p.image && (p.image.startsWith('http') || p.image.startsWith('/'))) {
+          const img = new Image();
+          img.src = p.image;
+        }
+      });
+
+      // Quick memory/local cache to keep the sublist immediately accessible
+      const cacheKey = `aura_prefetched_cat_${cat}`;
+      localStorage.setItem(cacheKey, JSON.stringify(catProducts.slice(0, 10)));
+    } catch (e) {
+      console.warn("Pre-fetch preloading failed slightly:", e);
+    }
+  };
+
   // Categories list
   const storefrontCategories = useMemo(() => {
     if (categoriesList && categoriesList.length > 0) {
@@ -1109,6 +1131,7 @@ export default function CustomerStorefront({
                           const el = document.getElementById('products');
                           if (el) el.scrollIntoView({ behavior: 'smooth' });
                         }}
+                        onMouseEnter={() => item.category && handleCategoryMouseEnter(item.category)}
                         className="w-full text-left px-3 py-2.5 hover:bg-[#26af5f]/15 hover:text-white rounded-lg text-[10px] font-extrabold text-white/80 transition-all cursor-pointer"
                       >
                         {item.label}
@@ -1128,6 +1151,7 @@ export default function CustomerStorefront({
                       const el = document.getElementById('products');
                       if (el) el.scrollIntoView({ behavior: 'smooth' });
                     }}
+                    onMouseEnter={() => handleCategoryMouseEnter(cat)}
                     className={`transition-colors flex items-center space-x-1 whitespace-nowrap px-1.5 py-0.5 rounded-lg hover:text-[#26af5f] hover:bg-white/5
                       ${selectedCategory === cat ? 'text-[#26af5f] bg-[#26af5f]/10 font-black' : 'text-white/80'}`}
                   >
@@ -1414,6 +1438,7 @@ export default function CustomerStorefront({
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
+                onMouseEnter={() => handleCategoryMouseEnter(cat)}
                 className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border text-center w-full md:w-auto md:shrink-0
                   ${selectedCategory === cat 
                     ? 'bg-teal-500 text-white border-teal-500 shadow-md shadow-teal-500/10' 

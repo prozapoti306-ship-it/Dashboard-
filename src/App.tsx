@@ -354,12 +354,39 @@ export default function App() {
     schemaCreated: boolean;
     loading: boolean;
     error: string | null;
-  }>({
-    connected: false,
-    schemaCreated: false,
-    loading: true,
-    error: null
+  }>(() => {
+    let hasCache = false;
+    try {
+      const cached = localStorage.getItem('aura_cached_products');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          hasCache = true;
+        }
+      }
+    } catch (_) {}
+    return {
+      connected: false,
+      schemaCreated: false,
+      loading: !hasCache, // Zero-wait UI: if cache exists, don't show loading spinner
+      error: null
+    };
   });
+
+  const [syncAlert, setSyncAlert] = useState<{
+    message: string;
+    type: 'success' | 'warning' | 'info';
+  } | null>(null);
+
+  // Auto-dismiss background sync alert toast
+  useEffect(() => {
+    if (syncAlert) {
+      const timer = setTimeout(() => {
+        setSyncAlert(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [syncAlert]);
 
   const [isSeeding, setIsSeeding] = useState(false);
   const [seedingLogs, setSeedingLogs] = useState<string[]>([]);
@@ -661,150 +688,167 @@ export default function App() {
   // 1. Initial Load of all data from Supabase (Optimized for Speed)
   useEffect(() => {
     async function initSupabase() {
-      setSupabaseStatus(prev => ({ ...prev, loading: true }));
-
-      // Step 1: Render cached products from local Express cache INSTANTLY (<20ms)
+      // Step 1: Immediately render cached products from local Express cache if they weren't in localStorage
       fetch('/api/products')
         .then(res => res.json())
         .then(cacheData => {
           if (Array.isArray(cacheData) && cacheData.length > 0) {
             const mapped = cacheData.map(mapProductFromDb);
             const filtered = filterDeletedProducts(mapped);
-            if (filtered.length > 0) {
-              setProducts(filtered);
-              prevProductsRef.current = mapped;
-              localStorage.setItem('aura_cached_products', JSON.stringify(mapped));
-              console.log("[FAST-LOAD] Products loaded in <20ms from Express cache!");
-              // Turn off loading spinner immediately since we have products to show!
-              setSupabaseStatus(prev => ({ ...prev, loading: false }));
-            }
+            // Only update state if currently empty to avoid overwriting newer local state
+            setProducts(prev => {
+              if (prev.length === 0 && filtered.length > 0) {
+                prevProductsRef.current = mapped;
+                return filtered;
+              }
+              return prev;
+            });
           }
         })
-        .catch(err => console.warn("Local cache fetch failed:", err));
+        .catch(err => console.warn("Local Express cache fetch failed:", err));
 
-      // Step 2: Fetch all database tables in parallel (non-blocking, single round-trip latency)
       try {
-        const [
-          dbProducts,
-          dbSettings,
-          dbOrders,
-          dbCustomers,
-          dbNotifications,
-          dbCollections,
-          dbReturns,
-          dbStaff,
-          dbCategories,
-          dbBrands,
-          dbCollectionsList,
-          dbHomepageSettings,
-          dbCourierSettings,
-          dbTrackingSettings
-        ] = await Promise.all([
-          supabaseService.getProducts(INITIAL_PRODUCTS),
-          supabaseService.getSettings(DEFAULT_SETTINGS),
-          supabaseService.getOrders(INITIAL_ORDERS),
-          supabaseService.getCustomers(INITIAL_CUSTOMERS),
-          supabaseService.getNotifications(INITIAL_NOTIFICATIONS),
-          supabaseService.getCollections(collectionsData),
-          supabaseService.getReturns(returnsData),
-          supabaseService.getStaff(staffData),
-          supabaseService.getCategories(categoriesList),
-          supabaseService.getBrands(brandsList),
-          supabaseService.getCollectionsList(collectionsList),
-          supabaseService.getHomepageSettings(DEFAULT_HOMEPAGE_SETTINGS),
-          supabaseService.getCourierSettings(),
-          supabaseService.getTrackingSettings()
-        ]);
-
-        if (dbProducts && dbProducts.length > 0) {
-          setProducts(filterDeletedProducts(dbProducts));
-          prevProductsRef.current = dbProducts;
-          try {
-            localStorage.setItem('aura_cached_products', JSON.stringify(dbProducts));
-          } catch (e) {
-            console.warn("Quota exceeded for cached products");
-          }
-        }
-        if (dbSettings) {
-          setSettings(dbSettings);
-          prevSettingsRef.current = dbSettings;
-        }
-        if (dbOrders) {
-          setOrders(dbOrders);
-          prevOrdersRef.current = dbOrders;
-        }
-        if (dbCustomers) {
-          setCustomers(dbCustomers);
-          prevCustomersRef.current = dbCustomers;
-        }
-        if (dbNotifications) {
-          setNotifications(dbNotifications);
-          prevNotificationsRef.current = dbNotifications;
-        }
-        if (dbCollections) {
-          setCollectionsData(dbCollections);
-          prevCollectionsRef.current = dbCollections;
-        }
-        if (dbReturns) {
-          setReturnsData(dbReturns);
-          prevReturnsRef.current = dbReturns;
-        }
-        if (dbStaff) {
-          setStaffData(dbStaff);
-          prevStaffRef.current = dbStaff;
-        }
-        if (dbCategories) {
-          setCategoriesList(dbCategories);
-        }
-        if (dbBrands) {
-          setBrandsList(dbBrands);
-        }
-        if (dbCollectionsList) {
-          setCollectionsList(dbCollectionsList);
-        }
-        if (dbHomepageSettings) {
-          setHomepageSettings(dbHomepageSettings);
-        }
-        if (dbCourierSettings) {
-          setCourierSettingsList(dbCourierSettings);
-          localStorage.setItem('aura_cached_courier_settings', JSON.stringify(dbCourierSettings));
-        }
-        if (dbTrackingSettings) {
-          setTrackingSettings(dbTrackingSettings);
-          localStorage.setItem('aura_tracking_settings', JSON.stringify(dbTrackingSettings));
-        }
-
-        setSupabaseStatus({
-          connected: true,
-          schemaCreated: true,
-          loading: false,
-          error: null
-        });
-      } catch (err: any) {
-        console.warn("Parallel load had some failures, checking connection status...", err);
+        // Step 2: Instant Connection Check (<50ms) to unblock the Zero-Wait UI
         const conn = await supabaseService.checkConnection();
-        if (!conn.connected) {
-          setSupabaseStatus({
-            connected: false,
-            schemaCreated: false,
-            loading: false,
-            error: conn.error || 'Connection failed'
-          });
-        } else if (!conn.schemaCreated) {
-          setSupabaseStatus({
-            connected: true,
-            schemaCreated: false,
-            loading: false,
-            error: 'সুপাবেজে প্রয়োজনীয় টেবিলগুলো খুঁজে পাওয়া যায়নি। অনুগ্রহ করে সেটিংস ট্যাব থেকে "Initialize Database" বাটনে ক্লিক করে টেবিলগুলো তৈরি এবং প্রথমবার ডাটা পুশ করুন।'
-          });
-        } else {
-          setSupabaseStatus({
-            connected: true,
-            schemaCreated: true,
-            loading: false,
-            error: null
-          });
+        
+        setSupabaseStatus({
+          connected: conn.connected,
+          schemaCreated: conn.schemaCreated,
+          loading: false, // ZERO-WAIT UI: never lock up the user with a spinner
+          error: conn.connected ? null : (conn.error || 'Connection failed')
+        });
+
+        if (!conn.connected || !conn.schemaCreated) {
+          if (conn.connected && !conn.schemaCreated) {
+            setSupabaseStatus(prev => ({
+              ...prev,
+              error: 'সুপাবেজে প্রয়োজনীয় টেবিলগুলো খুঁজে পাওয়া যায়নি। অনুগ্রহ করে সেটিংস ট্যাব থেকে "Initialize Database" বাটনে ক্লিক করে টেবিলগুলো তৈরি এবং প্রথমবার ডাটা পুশ করুন।'
+            }));
+          }
+          return;
         }
+
+        // Step 3: Run Background Revalidations individually (No single blocking Promise.all)
+        
+        // Products Background Sync & Update Comparison
+        supabaseService.getProducts(INITIAL_PRODUCTS)
+          .then(dbProducts => {
+            if (dbProducts && dbProducts.length > 0) {
+              // Get current cached items
+              let localCached: Product[] = [];
+              try {
+                const cached = localStorage.getItem('aura_cached_products');
+                if (cached) localCached = JSON.parse(cached);
+              } catch (_) {}
+
+              const filteredDb = filterDeletedProducts(dbProducts);
+              const filteredCached = filterDeletedProducts(localCached);
+
+              // Perform deep check or quick string check to see if database has updates
+              const dbProductsStr = JSON.stringify(filteredDb);
+              const cachedProductsStr = JSON.stringify(filteredCached);
+
+              if (dbProductsStr !== cachedProductsStr || localCached.length === 0) {
+                console.log("[BG-SYNC] Products changed in database, updating state & cache...");
+                setProducts(filteredDb);
+                prevProductsRef.current = dbProducts;
+                localStorage.setItem('aura_cached_products', JSON.stringify(dbProducts));
+
+                // Trigger beautiful top-right floating sync success toast
+                setSyncAlert({
+                  message: "🔄 প্রোডাক্ট ডাটাবেজ ব্যাকগ্রাউন্ডে সফলভাবে সিঙ্ক্রোনাইজড হয়েছে! নতুন আপডেট বা স্টক এখন দৃশ্যমান।",
+                  type: 'success'
+                });
+
+                // Add to internal system notifications
+                const newNotif: Notification = {
+                  id: `SYNC-PROD-${Date.now()}`,
+                  title: "ইনভেন্টরি ব্যাকগ্রাউন্ড সিঙ্ক",
+                  message: "সুপাবেজ ডাটাবেজ থেকে সর্বশেষ প্রোডাক্ট স্টক এবং ডিসক্রিপশন ব্যাকগ্রাউন্ডে আপডেট করা হয়েছে।",
+                  type: "success",
+                  timestamp: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' }),
+                  read: false
+                };
+                setNotifications(prev => [newNotif, ...prev]);
+              } else {
+                console.log("[BG-SYNC] Products are completely up to date with Supabase.");
+              }
+            }
+          })
+          .catch(err => console.warn("Background product sync failed:", err));
+
+        // Settings Background Sync
+        supabaseService.getSettings(DEFAULT_SETTINGS)
+          .then(dbSettings => {
+            if (dbSettings) {
+              setSettings(dbSettings);
+              prevSettingsRef.current = dbSettings;
+              localStorage.setItem('aura_cached_settings', JSON.stringify(dbSettings));
+            }
+          }).catch(err => console.warn("Bg settings sync failed:", err));
+
+        // Orders Background Sync
+        supabaseService.getOrders(INITIAL_ORDERS)
+          .then(dbOrders => {
+            if (dbOrders) {
+              setOrders(dbOrders);
+              prevOrdersRef.current = dbOrders;
+              localStorage.setItem('aura_cached_orders', JSON.stringify(dbOrders));
+            }
+          }).catch(err => console.warn("Bg orders sync failed:", err));
+
+        // Customers Background Sync
+        supabaseService.getCustomers(INITIAL_CUSTOMERS)
+          .then(dbCustomers => {
+            if (dbCustomers) {
+              setCustomers(dbCustomers);
+              prevCustomersRef.current = dbCustomers;
+              localStorage.setItem('aura_cached_customers', JSON.stringify(dbCustomers));
+            }
+          }).catch(err => console.warn("Bg customers sync failed:", err));
+
+        // Notifications Background Sync
+        supabaseService.getNotifications(INITIAL_NOTIFICATIONS)
+          .then(dbNotifications => {
+            if (dbNotifications) {
+              setNotifications(dbNotifications);
+              prevNotificationsRef.current = dbNotifications;
+              localStorage.setItem('aura_cached_notifications', JSON.stringify(dbNotifications));
+            }
+          }).catch(err => console.warn("Bg notifications sync failed:", err));
+
+        // Auxiliary Lists
+        supabaseService.getCategories(categoriesList).then(db => db && setCategoriesList(db)).catch(() => {});
+        supabaseService.getBrands(brandsList).then(db => db && setBrandsList(db)).catch(() => {});
+        supabaseService.getCollectionsList(collectionsList).then(db => db && setCollectionsList(db)).catch(() => {});
+        
+        supabaseService.getHomepageSettings(DEFAULT_HOMEPAGE_SETTINGS).then(db => {
+          if (db) {
+            setHomepageSettings(db);
+            localStorage.setItem('aura_cached_homepage_settings', JSON.stringify(db));
+          }
+        }).catch(() => {});
+
+        supabaseService.getCourierSettings().then(db => {
+          if (db) {
+            setCourierSettingsList(db);
+            localStorage.setItem('aura_cached_courier_settings', JSON.stringify(db));
+          }
+        }).catch(() => {});
+
+        supabaseService.getTrackingSettings().then(db => {
+          if (db) {
+            setTrackingSettings(db);
+            localStorage.setItem('aura_tracking_settings', JSON.stringify(db));
+          }
+        }).catch(() => {});
+
+        supabaseService.getCollections(collectionsData).then(db => db && setCollectionsData(db)).catch(() => {});
+        supabaseService.getReturns(returnsData).then(db => db && setReturnsData(db)).catch(() => {});
+        supabaseService.getStaff(staffData).then(db => db && setStaffData(db)).catch(() => {});
+
+      } catch (err: any) {
+        console.warn("Background init had failures:", err);
       }
     }
 
@@ -2257,48 +2301,80 @@ export default function App() {
     return [...collectionStats].sort((a, b) => b.revenue - a.revenue)[0];
   }, [collectionStats]);
 
+  const renderSyncAlert = () => {
+    if (!syncAlert) return null;
+    return (
+      <div className="fixed top-5 right-5 z-[9999] max-w-md animate-bounce-short">
+        <div className="bg-[#120e0c]/95 backdrop-blur-md border border-emerald-500/30 shadow-[0_8px_32px_rgba(16,185,129,0.15)] rounded-2xl p-4 flex items-start space-x-3 text-white">
+          <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl mt-0.5 shrink-0">
+            <RefreshCcw className="w-5 h-5 animate-spin" style={{ animationDuration: '3s' }} />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-0.5 font-sans">রিয়েল-টাইম ডাটাবেজ সিঙ্ক</h4>
+            <p className="text-xs text-white/95 leading-relaxed font-sans">{syncAlert.message}</p>
+          </div>
+          <button 
+            onClick={() => setSyncAlert(null)}
+            className="text-white/40 hover:text-white transition-colors p-1"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   if (view === 'storefront') {
     return (
-      <CustomerStorefront
-        products={products}
-        orders={orders}
-        setOrders={setOrders}
-        setNotifications={setNotifications}
-        supabaseService={supabaseService}
-        onGoToLogin={() => setView('login')}
-        themeMode={settings.themeMode}
-        settings={settings}
-        loading={supabaseStatus.loading}
-        categoriesList={categoriesList}
-        collectionsList={collectionsList}
-        brandsList={brandsList}
-      />
+      <>
+        <CustomerStorefront
+          products={products}
+          orders={orders}
+          setOrders={setOrders}
+          setNotifications={setNotifications}
+          supabaseService={supabaseService}
+          onGoToLogin={() => setView('login')}
+          themeMode={settings.themeMode}
+          settings={settings}
+          loading={supabaseStatus.loading}
+          categoriesList={categoriesList}
+          collectionsList={collectionsList}
+          brandsList={brandsList}
+        />
+        {renderSyncAlert()}
+      </>
     );
   }
 
   if (view === 'login') {
     return (
-      <LoginPage
-        onLoginSuccess={() => {
-          setIsAuthenticated(true);
-          setView('admin');
-        }}
-        onBackToStore={() => setView('storefront')}
-        themeMode={settings.themeMode}
-      />
+      <>
+        <LoginPage
+          onLoginSuccess={() => {
+            setIsAuthenticated(true);
+            setView('admin');
+          }}
+          onBackToStore={() => setView('storefront')}
+          themeMode={settings.themeMode}
+        />
+        {renderSyncAlert()}
+      </>
     );
   }
 
   if (view === 'admin' && !isAuthenticated) {
     return (
-      <LoginPage
-        onLoginSuccess={() => {
-          setIsAuthenticated(true);
-          setView('admin');
-        }}
-        onBackToStore={() => setView('storefront')}
-        themeMode={settings.themeMode}
-      />
+      <>
+        <LoginPage
+          onLoginSuccess={() => {
+            setIsAuthenticated(true);
+            setView('admin');
+          }}
+          onBackToStore={() => setView('storefront')}
+          themeMode={settings.themeMode}
+        />
+        {renderSyncAlert()}
+      </>
     );
   }
 
@@ -2310,6 +2386,7 @@ export default function App() {
           : 'bg-[#faf8f5] text-[#2c2621]'
         }`}
     >
+      {renderSyncAlert()}
       {/* 👁️ Eye Protection Blue-Light Warm Tint Overlay Layer */}
       {settings.eyeProtectionEnabled && (
         <div 
