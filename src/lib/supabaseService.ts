@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Product, Order, Customer, Notification, SystemSettings, HomepageSettings, CourierSetting, TrackingSettings } from '../types';
+import { dbCache } from './dbCache';
 
 declare global {
   interface ImportMetaEnv {
@@ -563,11 +564,35 @@ export const supabaseService = {
   async getCollections(fallback: any[]): Promise<any[]> {
     try {
       const { data, error } = await supabase.from('collections_data').select('*');
-      if (error) throw error;
-      if (!data || data.length === 0) return fallback;
+      if (error) {
+        if (error.code === 'PGRST116' || error.message?.includes('does not exist')) {
+          throw new Error('Table does not exist');
+        }
+        throw error;
+      }
+      if (!data || data.length === 0) throw new Error('No data');
       return data.map(mapCollectionFromDb);
     } catch (e) {
-      console.warn('Supabase getCollections failed, using local fallback:', e);
+      console.warn('Supabase getCollections table failed or empty, trying system_settings fallback:', e);
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('tagline')
+          .eq('id', 'collections_data')
+          .maybeSingle();
+        if (error) throw error;
+        if (data && data.tagline) {
+          const parsed = JSON.parse(data.tagline);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (err) {
+        console.warn('Supabase system_settings fallback for collections failed:', err);
+      }
+      // Try local dbCache
+      try {
+        const cached = await dbCache.get('aura_cached_collections');
+        if (cached && Array.isArray(cached) && cached.length > 0) return cached;
+      } catch (_) {}
       return fallback;
     }
   },
@@ -578,9 +603,35 @@ export const supabaseService = {
       const { error } = await supabase.from('collections_data').upsert(mapped);
       if (error) throw error;
       return true;
-    } catch (e) {
-      console.error('Supabase upsertCollection failed:', e);
-      return false;
+    } catch (e: any) {
+      console.warn('Supabase upsertCollection table failed, using system_settings fallback:', e?.message || e);
+      try {
+        const collections = await this.getCollections([]);
+        const existingIndex = collections.findIndex(item => item.id === c.id);
+        let updatedList = [...collections];
+        if (existingIndex > -1) {
+          updatedList[existingIndex] = { ...updatedList[existingIndex], ...c };
+        } else {
+          updatedList.push(c);
+        }
+        
+        // Save to local cache
+        await dbCache.set('aura_cached_collections', updatedList);
+        
+        // Save to system_settings in Supabase
+        const { error: upsertErr } = await supabase
+          .from('system_settings')
+          .upsert({
+            id: 'collections_data',
+            tagline: JSON.stringify(updatedList),
+            currency: 'BDT'
+          });
+        if (upsertErr) throw upsertErr;
+        return true;
+      } catch (err: any) {
+        console.warn('Supabase system_settings fallback for upsertCollection failed:', err?.message || err);
+        return false;
+      }
     }
   },
 
@@ -589,9 +640,29 @@ export const supabaseService = {
       const { error } = await supabase.from('collections_data').delete().eq('id', id);
       if (error) throw error;
       return true;
-    } catch (e) {
-      console.error('Supabase deleteCollection failed:', e);
-      return false;
+    } catch (e: any) {
+      console.warn('Supabase deleteCollection table failed, using system_settings fallback:', e?.message || e);
+      try {
+        const collections = await this.getCollections([]);
+        const updatedList = collections.filter(item => item.id !== id);
+        
+        // Save to local cache
+        await dbCache.set('aura_cached_collections', updatedList);
+        
+        // Save to system_settings in Supabase
+        const { error: upsertErr } = await supabase
+          .from('system_settings')
+          .upsert({
+            id: 'collections_data',
+            tagline: JSON.stringify(updatedList),
+            currency: 'BDT'
+          });
+        if (upsertErr) throw upsertErr;
+        return true;
+      } catch (err: any) {
+        console.warn('Supabase system_settings fallback for deleteCollection failed:', err?.message || err);
+        return false;
+      }
     }
   },
 
@@ -599,11 +670,35 @@ export const supabaseService = {
   async getReturns(fallback: any[]): Promise<any[]> {
     try {
       const { data, error } = await supabase.from('returns_data').select('*');
-      if (error) throw error;
-      if (!data || data.length === 0) return fallback;
+      if (error) {
+        if (error.code === 'PGRST116' || error.message?.includes('does not exist')) {
+          throw new Error('Table does not exist');
+        }
+        throw error;
+      }
+      if (!data || data.length === 0) throw new Error('No data');
       return data.map(mapReturnFromDb);
     } catch (e) {
-      console.warn('Supabase getReturns failed, using local fallback:', e);
+      console.warn('Supabase getReturns failed, trying system_settings fallback:', e);
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('tagline')
+          .eq('id', 'returns_data')
+          .maybeSingle();
+        if (error) throw error;
+        if (data && data.tagline) {
+          const parsed = JSON.parse(data.tagline);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (err) {
+        console.warn('Supabase system_settings fallback for returns failed:', err);
+      }
+      // Try local dbCache
+      try {
+        const cached = await dbCache.get('aura_cached_returns');
+        if (cached && Array.isArray(cached) && cached.length > 0) return cached;
+      } catch (_) {}
       return fallback;
     }
   },
@@ -614,9 +709,35 @@ export const supabaseService = {
       const { error } = await supabase.from('returns_data').upsert(mapped);
       if (error) throw error;
       return true;
-    } catch (e) {
-      console.error('Supabase upsertReturn failed:', e);
-      return false;
+    } catch (e: any) {
+      console.warn('Supabase upsertReturn failed, using system_settings fallback:', e?.message || e);
+      try {
+        const returns = await this.getReturns([]);
+        const existingIndex = returns.findIndex(item => item.id === r.id);
+        let updatedList = [...returns];
+        if (existingIndex > -1) {
+          updatedList[existingIndex] = { ...updatedList[existingIndex], ...r };
+        } else {
+          updatedList.push(r);
+        }
+        
+        // Save to local cache
+        await dbCache.set('aura_cached_returns', updatedList);
+        
+        // Save to system_settings in Supabase
+        const { error: upsertErr } = await supabase
+          .from('system_settings')
+          .upsert({
+            id: 'returns_data',
+            tagline: JSON.stringify(updatedList),
+            currency: 'BDT'
+          });
+        if (upsertErr) throw upsertErr;
+        return true;
+      } catch (err: any) {
+        console.warn('Supabase system_settings fallback for upsertReturn failed:', err?.message || err);
+        return false;
+      }
     }
   },
 
@@ -624,11 +745,35 @@ export const supabaseService = {
   async getStaff(fallback: any[]): Promise<any[]> {
     try {
       const { data, error } = await supabase.from('staff_data').select('*');
-      if (error) throw error;
-      if (!data || data.length === 0) return fallback;
+      if (error) {
+        if (error.code === 'PGRST116' || error.message?.includes('does not exist')) {
+          throw new Error('Table does not exist');
+        }
+        throw error;
+      }
+      if (!data || data.length === 0) throw new Error('No data');
       return data.map(mapStaffFromDb);
     } catch (e) {
-      console.warn('Supabase getStaff failed, using local fallback:', e);
+      console.warn('Supabase getStaff failed, trying system_settings fallback:', e);
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('tagline')
+          .eq('id', 'staff_data')
+          .maybeSingle();
+        if (error) throw error;
+        if (data && data.tagline) {
+          const parsed = JSON.parse(data.tagline);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (err) {
+        console.warn('Supabase system_settings fallback for staff failed:', err);
+      }
+      // Try local dbCache
+      try {
+        const cached = await dbCache.get('aura_cached_staff');
+        if (cached && Array.isArray(cached) && cached.length > 0) return cached;
+      } catch (_) {}
       return fallback;
     }
   },
@@ -639,9 +784,35 @@ export const supabaseService = {
       const { error } = await supabase.from('staff_data').upsert(mapped);
       if (error) throw error;
       return true;
-    } catch (e) {
-      console.error('Supabase upsertStaff failed:', e);
-      return false;
+    } catch (e: any) {
+      console.warn('Supabase upsertStaff failed, using system_settings fallback:', e?.message || e);
+      try {
+        const staffList = await this.getStaff([]);
+        const existingIndex = staffList.findIndex(item => item.email === s.email);
+        let updatedList = [...staffList];
+        if (existingIndex > -1) {
+          updatedList[existingIndex] = { ...updatedList[existingIndex], ...s };
+        } else {
+          updatedList.push(s);
+        }
+        
+        // Save to local cache
+        await dbCache.set('aura_cached_staff', updatedList);
+        
+        // Save to system_settings in Supabase
+        const { error: upsertErr } = await supabase
+          .from('system_settings')
+          .upsert({
+            id: 'staff_data',
+            tagline: JSON.stringify(updatedList),
+            currency: 'BDT'
+          });
+        if (upsertErr) throw upsertErr;
+        return true;
+      } catch (err: any) {
+        console.warn('Supabase system_settings fallback for upsertStaff failed:', err?.message || err);
+        return false;
+      }
     }
   },
 
@@ -650,19 +821,48 @@ export const supabaseService = {
       const { error } = await supabase.from('staff_data').delete().eq('email', email);
       if (error) throw error;
       return true;
-    } catch (e) {
-      console.error('Supabase deleteStaff failed:', e);
-      return false;
+    } catch (e: any) {
+      console.warn('Supabase deleteStaff failed, using system_settings fallback:', e?.message || e);
+      try {
+        const staffList = await this.getStaff([]);
+        const updatedList = staffList.filter(item => item.email !== email);
+        
+        // Save to local cache
+        await dbCache.set('aura_cached_staff', updatedList);
+        
+        // Save to system_settings in Supabase
+        const { error: upsertErr } = await supabase
+          .from('system_settings')
+          .upsert({
+            id: 'staff_data',
+            tagline: JSON.stringify(updatedList),
+            currency: 'BDT'
+          });
+        if (upsertErr) throw upsertErr;
+        return true;
+      } catch (err: any) {
+        console.warn('Supabase system_settings fallback for deleteStaff failed:', err?.message || err);
+        return false;
+      }
     }
   },
 
   // 9. CATEGORIES
   async getCategories(fallback: string[]): Promise<string[]> {
     try {
-      const { data, error } = await supabase.from('categories_list').select('name');
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('tagline')
+        .eq('id', 'categories_list')
+        .maybeSingle();
       if (error) throw error;
-      if (!data || data.length === 0) return fallback;
-      return data.map((d: any) => d.name);
+      if (data && data.tagline) {
+        try {
+          const parsed = JSON.parse(data.tagline);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (_) {}
+      }
+      return fallback;
     } catch (e) {
       console.warn('Supabase getCategories failed, using fallback:', e);
       return fallback;
@@ -671,8 +871,18 @@ export const supabaseService = {
 
   async insertCategory(name: string): Promise<boolean> {
     try {
-      const { error } = await supabase.from('categories_list').insert({ name });
-      if (error) throw error;
+      const categories = await this.getCategories([]);
+      if (!categories.includes(name)) {
+        const updated = [...categories, name];
+        const { error } = await supabase
+          .from('system_settings')
+          .upsert({
+            id: 'categories_list',
+            tagline: JSON.stringify(updated),
+            currency: 'BDT'
+          });
+        if (error) throw error;
+      }
       return true;
     } catch (e) {
       console.error('Supabase insertCategory failed:', e);
@@ -682,7 +892,15 @@ export const supabaseService = {
 
   async deleteCategory(name: string): Promise<boolean> {
     try {
-      const { error } = await supabase.from('categories_list').delete().eq('name', name);
+      const categories = await this.getCategories([]);
+      const updated = categories.filter(c => c !== name);
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          id: 'categories_list',
+          tagline: JSON.stringify(updated),
+          currency: 'BDT'
+        });
       if (error) throw error;
       return true;
     } catch (e) {
@@ -694,10 +912,19 @@ export const supabaseService = {
   // 10. BRANDS
   async getBrands(fallback: string[]): Promise<string[]> {
     try {
-      const { data, error } = await supabase.from('brands_list').select('name');
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('tagline')
+        .eq('id', 'brands_list')
+        .maybeSingle();
       if (error) throw error;
-      if (!data || data.length === 0) return fallback;
-      return data.map((d: any) => d.name);
+      if (data && data.tagline) {
+        try {
+          const parsed = JSON.parse(data.tagline);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (_) {}
+      }
+      return fallback;
     } catch (e) {
       console.warn('Supabase getBrands failed, using fallback:', e);
       return fallback;
@@ -706,8 +933,18 @@ export const supabaseService = {
 
   async insertBrand(name: string): Promise<boolean> {
     try {
-      const { error } = await supabase.from('brands_list').insert({ name });
-      if (error) throw error;
+      const brands = await this.getBrands([]);
+      if (!brands.includes(name)) {
+        const updated = [...brands, name];
+        const { error } = await supabase
+          .from('system_settings')
+          .upsert({
+            id: 'brands_list',
+            tagline: JSON.stringify(updated),
+            currency: 'BDT'
+          });
+        if (error) throw error;
+      }
       return true;
     } catch (e) {
       console.error('Supabase insertBrand failed:', e);
@@ -717,7 +954,15 @@ export const supabaseService = {
 
   async deleteBrand(name: string): Promise<boolean> {
     try {
-      const { error } = await supabase.from('brands_list').delete().eq('name', name);
+      const brands = await this.getBrands([]);
+      const updated = brands.filter(b => b !== name);
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          id: 'brands_list',
+          tagline: JSON.stringify(updated),
+          currency: 'BDT'
+        });
       if (error) throw error;
       return true;
     } catch (e) {
@@ -729,10 +974,19 @@ export const supabaseService = {
   // 11. COLLECTIONS
   async getCollectionsList(fallback: string[]): Promise<string[]> {
     try {
-      const { data, error } = await supabase.from('collections_list').select('name');
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('tagline')
+        .eq('id', 'collections_list')
+        .maybeSingle();
       if (error) throw error;
-      if (!data || data.length === 0) return fallback;
-      return data.map((d: any) => d.name);
+      if (data && data.tagline) {
+        try {
+          const parsed = JSON.parse(data.tagline);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (_) {}
+      }
+      return fallback;
     } catch (e) {
       console.warn('Supabase getCollectionsList failed, using fallback:', e);
       return fallback;
@@ -741,8 +995,18 @@ export const supabaseService = {
 
   async insertCollectionList(name: string): Promise<boolean> {
     try {
-      const { error } = await supabase.from('collections_list').insert({ name });
-      if (error) throw error;
+      const collections = await this.getCollectionsList([]);
+      if (!collections.includes(name)) {
+        const updated = [...collections, name];
+        const { error } = await supabase
+          .from('system_settings')
+          .upsert({
+            id: 'collections_list',
+            tagline: JSON.stringify(updated),
+            currency: 'BDT'
+          });
+        if (error) throw error;
+      }
       return true;
     } catch (e) {
       console.error('Supabase insertCollectionList failed:', e);
@@ -752,7 +1016,15 @@ export const supabaseService = {
 
   async deleteCollectionList(name: string): Promise<boolean> {
     try {
-      const { error } = await supabase.from('collections_list').delete().eq('name', name);
+      const collections = await this.getCollectionsList([]);
+      const updated = collections.filter(c => c !== name);
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          id: 'collections_list',
+          tagline: JSON.stringify(updated),
+          currency: 'BDT'
+        });
       if (error) throw error;
       return true;
     } catch (e) {
@@ -764,16 +1036,25 @@ export const supabaseService = {
   // 12. HOMEPAGE SETTINGS (Hero Banner)
   async getHomepageSettings(fallback: HomepageSettings): Promise<HomepageSettings> {
     try {
-      const { data, error } = await supabase.from('homepage_settings').select('*').eq('id', 'hero_banner').maybeSingle();
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('tagline')
+        .eq('id', 'homepage_settings')
+        .maybeSingle();
       if (error) throw error;
-      if (!data) return fallback;
-      return {
-        id: data.id || 'hero_banner',
-        hero_title: data.hero_title || fallback.hero_title,
-        hero_subtitle: data.hero_subtitle || fallback.hero_subtitle,
-        hero_description: data.hero_description || fallback.hero_description,
-        hero_image_url: data.hero_image_url || fallback.hero_image_url,
-      };
+      if (data && data.tagline) {
+        try {
+          const parsed = JSON.parse(data.tagline);
+          return {
+            id: 'hero_banner',
+            hero_title: parsed.hero_title || fallback.hero_title,
+            hero_subtitle: parsed.hero_subtitle || fallback.hero_subtitle,
+            hero_description: parsed.hero_description || fallback.hero_description,
+            hero_image_url: parsed.hero_image_url || fallback.hero_image_url,
+          };
+        } catch (_) {}
+      }
+      return fallback;
     } catch (e) {
       console.warn('Supabase getHomepageSettings failed, using fallback:', e);
       return fallback;
@@ -782,13 +1063,18 @@ export const supabaseService = {
 
   async upsertHomepageSettings(settings: HomepageSettings): Promise<boolean> {
     try {
-      const { error } = await supabase.from('homepage_settings').upsert({
-        id: 'hero_banner',
-        hero_title: settings.hero_title,
-        hero_subtitle: settings.hero_subtitle,
-        hero_description: settings.hero_description,
-        hero_image_url: settings.hero_image_url,
-      });
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          id: 'homepage_settings',
+          tagline: JSON.stringify({
+            hero_title: settings.hero_title,
+            hero_subtitle: settings.hero_subtitle,
+            hero_description: settings.hero_description,
+            hero_image_url: settings.hero_image_url,
+          }),
+          currency: 'BDT'
+        });
       if (error) throw error;
       return true;
     } catch (e) {
@@ -800,196 +1086,89 @@ export const supabaseService = {
   // 13. COURIER SETTINGS
   async getCourierSettings(): Promise<CourierSetting[]> {
     try {
-      const { data, error } = await supabase.from('courier_settings').select('*');
-      if (error) {
-        if (error.code === 'PGRST116' || error.message?.includes('does not exist')) {
-          console.warn('courier_settings table does not exist in Supabase yet.');
-        } else {
-          throw error;
-        }
-        // Fallback to local storage if table doesn't exist
-        const local = localStorage.getItem('aura_cached_courier_settings');
-        if (!local) return [];
-        const parsed = JSON.parse(local);
-        return parsed.map((db: any) => {
-          let extra: any = {};
-          try {
-            extra = JSON.parse(db.api_key);
-          } catch (_) {}
-          return {
-            id: db.id,
-            courier_name: db.courier_name,
-            api_key: extra.api_key || db.api_key || '',
-            client_id: extra.client_id || db.client_id || '',
-            secret_key: extra.secret_key || db.secret_key || '',
-            default_weight: extra.default_weight || db.default_weight || '0.5',
-            default_note: extra.default_note || db.default_note || '[INVO_CUSTOMER_NOTE]',
-            created_at: db.created_at
-          };
-        });
-      }
-      return data.map(db => {
-        let extra: any = {};
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('tagline')
+        .eq('id', 'courier_settings')
+        .maybeSingle();
+      if (error) throw error;
+      if (data && data.tagline) {
         try {
-          extra = JSON.parse(db.api_key);
+          const parsed = JSON.parse(data.tagline);
+          if (Array.isArray(parsed)) return parsed;
         } catch (_) {}
-        return {
-          id: db.id,
-          courier_name: db.courier_name,
-          api_key: extra.api_key || db.api_key || '',
-          client_id: extra.client_id || db.client_id || '',
-          secret_key: extra.secret_key || db.secret_key || '',
-          default_weight: extra.default_weight || db.default_weight || '0.5',
-          default_note: extra.default_note || db.default_note || '[INVO_CUSTOMER_NOTE]',
-          created_at: db.created_at
-        };
-      });
+      }
+      const local = await dbCache.get('aura_cached_courier_settings');
+      if (local && Array.isArray(local)) return local;
+      return [];
     } catch (e) {
       console.warn('Supabase getCourierSettings failed, using local fallback:', e);
-      const local = localStorage.getItem('aura_cached_courier_settings');
-      if (!local) return [];
-      const parsed = JSON.parse(local);
-      return parsed.map((db: any) => {
-        let extra: any = {};
-        try {
-          extra = JSON.parse(db.api_key);
-        } catch (_) {}
-        return {
-          id: db.id,
-          courier_name: db.courier_name,
-          api_key: extra.api_key || db.api_key || '',
-          client_id: extra.client_id || db.client_id || '',
-          secret_key: extra.secret_key || db.secret_key || '',
-          default_weight: extra.default_weight || db.default_weight || '0.5',
-          default_note: extra.default_note || db.default_note || '[INVO_CUSTOMER_NOTE]',
-          created_at: db.created_at
-        };
-      });
+      const local = await dbCache.get('aura_cached_courier_settings');
+      if (local && Array.isArray(local)) return local;
+      return [];
     }
   },
 
   async upsertCourierSetting(setting: CourierSetting): Promise<boolean> {
-    // 1. Always update local storage first so the client remains functional
     try {
-      const local = localStorage.getItem('aura_cached_courier_settings');
-      let currentList: any[] = [];
-      if (local) {
-        try {
-          currentList = JSON.parse(local);
-        } catch (_) {}
-      }
-      
       const targetId = setting.id || `COURIER-${Date.now()}`;
-      const updatedSetting = {
+      const newCourier = {
         id: targetId,
         courier_name: setting.courier_name,
-        api_key: JSON.stringify({
-          api_key: setting.api_key || '',
-          client_id: setting.client_id || '',
-          secret_key: setting.secret_key || '',
-          default_weight: setting.default_weight || '0.5',
-          default_note: setting.default_note || '[INVO_CUSTOMER_NOTE]'
-        }),
-        created_at: setting.created_at || new Date().toISOString()
-      };
-
-      const existingIndex = currentList.findIndex(item => item.id === targetId || item.courier_name === setting.courier_name);
-      if (existingIndex > -1) {
-        currentList[existingIndex] = updatedSetting;
-      } else {
-        currentList.push(updatedSetting);
-      }
-      localStorage.setItem('aura_cached_courier_settings', JSON.stringify(currentList));
-    } catch (err) {
-      console.warn('Failed to update local courier settings cache:', err);
-    }
-
-    // 2. Try to sync to Supabase database
-    try {
-      const obj = {
         api_key: setting.api_key || '',
         client_id: setting.client_id || '',
         secret_key: setting.secret_key || '',
         default_weight: setting.default_weight || '0.5',
-        default_note: setting.default_note || '[INVO_CUSTOMER_NOTE]'
+        default_note: setting.default_note || '[INVO_CUSTOMER_NOTE]',
+        created_at: setting.created_at || new Date().toISOString()
       };
 
-      // Check by courier_name first to find an existing record
-      let existingRow: any = null;
-      try {
-        const { data } = await supabase
-          .from('courier_settings')
-          .select('*')
-          .eq('courier_name', setting.courier_name)
-          .maybeSingle();
-        existingRow = data;
-      } catch (err) {
-        console.warn('Error checking courier_settings by name:', err);
-      }
-
-      // Check by ID if not found by name
-      if (!existingRow && setting.id) {
-        try {
-          const { data } = await supabase
-            .from('courier_settings')
-            .select('*')
-            .eq('id', setting.id)
-            .maybeSingle();
-          existingRow = data;
-        } catch (err) {
-          console.warn('Error checking courier_settings by ID:', err);
-        }
-      }
-
-      if (existingRow) {
-        // Update the existing row
-        const { error } = await supabase
-          .from('courier_settings')
-          .update({
-            courier_name: setting.courier_name,
-            api_key: JSON.stringify(obj)
-          })
-          .eq('id', existingRow.id);
-        if (error) throw error;
+      const list = await this.getCourierSettings();
+      const existingIndex = list.findIndex(item => item.id === targetId || item.courier_name === setting.courier_name);
+      
+      let updatedList = [...list];
+      if (existingIndex > -1) {
+        updatedList[existingIndex] = newCourier;
       } else {
-        // Insert a new row
-        const { error } = await supabase
-          .from('courier_settings')
-          .insert({
-            id: setting.id || `COURIER-${Date.now()}`,
-            courier_name: setting.courier_name,
-            api_key: JSON.stringify(obj)
-          });
-        if (error) throw error;
+        updatedList.push(newCourier);
       }
+
+      await dbCache.set('aura_cached_courier_settings', updatedList);
+
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          id: 'courier_settings',
+          tagline: JSON.stringify(updatedList),
+          currency: 'BDT'
+        });
+      if (error) throw error;
       return true;
     } catch (e: any) {
-      console.warn('Supabase upsertCourierSetting failed, fell back to local storage:', e?.message || e);
-      return true; // Return true as local storage state is successfully committed
+      console.warn('Supabase upsertCourierSetting failed, fell back to local cache:', e?.message || e);
+      return true;
     }
   },
 
   async deleteCourierSetting(id: string): Promise<boolean> {
-    // 1. Update local storage first
     try {
-      const local = localStorage.getItem('aura_cached_courier_settings');
-      if (local) {
-        let currentList = JSON.parse(local);
-        currentList = currentList.filter((item: any) => item.id !== id);
-        localStorage.setItem('aura_cached_courier_settings', JSON.stringify(currentList));
-      }
-    } catch (err) {
-      console.warn('Failed to delete courier setting from local storage cache:', err);
-    }
+      const list = await this.getCourierSettings();
+      const updatedList = list.filter(item => item.id !== id);
 
-    // 2. Try to sync to Supabase
-    try {
-      const { error } = await supabase.from('courier_settings').delete().eq('id', id);
+      await dbCache.set('aura_cached_courier_settings', updatedList);
+
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          id: 'courier_settings',
+          tagline: JSON.stringify(updatedList),
+          currency: 'BDT'
+        });
       if (error) throw error;
       return true;
     } catch (e: any) {
-      console.warn('Supabase deleteCourierSetting failed, fell back to local storage:', e?.message || e);
-      return true; // Return true as local storage state is successfully committed
+      console.warn('Supabase deleteCourierSetting failed, fell back to local cache:', e?.message || e);
+      return true;
     }
   },
 
@@ -1116,23 +1295,29 @@ export const supabaseService = {
       // Seed Categories List
       logs.push(`৯. ক্যাটাগরি তালিকা সিডিং...`);
       const initialCats = ['Apparel', 'Leather Goods', 'Footwear', 'Accessories', 'Eyewear'];
-      for (const name of initialCats) {
-        await supabase.from('categories_list').upsert({ name });
-      }
+      await supabase.from('system_settings').upsert({
+        id: 'categories_list',
+        tagline: JSON.stringify(initialCats),
+        currency: 'BDT'
+      });
 
       // Seed Brands List
       logs.push(`১০. ব্র্যান্ড তালিকা সিডিং...`);
       const initialBrands = ['Aura Lux', 'Monaco Atelier', 'Breeze Couture', 'Vanguard Knit', 'Atelier Luxe', 'Monarque Premium'];
-      for (const name of initialBrands) {
-        await supabase.from('brands_list').upsert({ name });
-      }
+      await supabase.from('system_settings').upsert({
+        id: 'brands_list',
+        tagline: JSON.stringify(initialBrands),
+        currency: 'BDT'
+      });
 
       // Seed Collections List
       logs.push(`১১. কালেকশন তালিকা সিডিং...`);
       const initialCollections = ['Eid Collection', 'Winter Collection', 'Summer Collection', 'New Arrival', 'Premium Collection'];
-      for (const name of initialCollections) {
-        await supabase.from('collections_list').upsert({ name });
-      }
+      await supabase.from('system_settings').upsert({
+        id: 'collections_list',
+        tagline: JSON.stringify(initialCollections),
+        currency: 'BDT'
+      });
 
       logs.push('✅ সুপাবেজে সকল ডাটা সফলভাবে পুশ করা হয়েছে!');
       return { success: true, logs };

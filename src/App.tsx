@@ -32,6 +32,7 @@ const DEFAULT_HOMEPAGE_SETTINGS: HomepageSettings = {
 };
 // @ts-ignore
 import trendZoneLogo from './assets/images/trend_zone_logo_1782968033190.jpg';
+import { dbCache } from './lib/dbCache';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -294,8 +295,9 @@ export default function App() {
   const [isSavingBanner, setIsSavingBanner] = useState(false);
   const [bannerSaveStatus, setBannerSaveStatus] = useState<{ success: boolean; error?: string } | null>(null);
 
-  // Synchronize state changes to localStorage caches
+  // Synchronize state changes to IndexedDB and localStorage caches
   useEffect(() => {
+    dbCache.set('aura_cached_homepage_settings', homepageSettings);
     try {
       localStorage.setItem('aura_cached_homepage_settings', JSON.stringify(homepageSettings));
     } catch (e) {
@@ -304,6 +306,7 @@ export default function App() {
   }, [homepageSettings]);
 
   useEffect(() => {
+    dbCache.set('aura_cached_products', products);
     try {
       localStorage.setItem('aura_cached_products', JSON.stringify(products));
     } catch (e) {
@@ -312,6 +315,7 @@ export default function App() {
   }, [products]);
 
   useEffect(() => {
+    dbCache.set('aura_cached_orders', orders);
     try {
       localStorage.setItem('aura_cached_orders', JSON.stringify(orders));
     } catch (e) {
@@ -320,6 +324,7 @@ export default function App() {
   }, [orders]);
 
   useEffect(() => {
+    dbCache.set('aura_cached_customers', customers);
     try {
       localStorage.setItem('aura_cached_customers', JSON.stringify(customers));
     } catch (e) {
@@ -328,6 +333,7 @@ export default function App() {
   }, [customers]);
 
   useEffect(() => {
+    dbCache.set('aura_cached_notifications', notifications);
     try {
       localStorage.setItem('aura_cached_notifications', JSON.stringify(notifications));
     } catch (e) {
@@ -336,6 +342,7 @@ export default function App() {
   }, [notifications]);
 
   useEffect(() => {
+    dbCache.set('aura_cached_settings', settings);
     try {
       localStorage.setItem('aura_cached_settings', JSON.stringify(settings));
     } catch (e) {
@@ -573,6 +580,18 @@ export default function App() {
     { name: 'মেহেদী হাসান', email: 'mehedi@auralux.com', role: 'Inventory Specialist', status: 'Active', permissions: 'Stock Controls only' }
   ]);
 
+  useEffect(() => {
+    dbCache.set('aura_cached_collections', collectionsData);
+  }, [collectionsData]);
+
+  useEffect(() => {
+    dbCache.set('aura_cached_returns', returnsData);
+  }, [returnsData]);
+
+  useEffect(() => {
+    dbCache.set('aura_cached_staff', staffData);
+  }, [staffData]);
+
   const [ticketsData, setTicketsData] = useState([
     { id: 'TCK-4819', subject: 'WooCommerce Order Status Sync Timeout', category: 'Syncing', priority: 'High', status: 'Open', date: '2026-06-25' },
     { id: 'TCK-4815', subject: 'Printer alignment mismatch for PDF Invoice', category: 'Printing', priority: 'Medium', status: 'In Progress', date: '2026-06-24' },
@@ -684,6 +703,82 @@ export default function App() {
   // ==========================================
   // SUPABASE LOADING, SYNCING & REALTIME EFFECTS
   // ==========================================
+
+  // 0. Instantly load all caches from IndexedDB (Zero-Wait UI mount stage)
+  useEffect(() => {
+    async function loadIndexedDBCaches() {
+      try {
+        const cachedProducts = await dbCache.get('aura_cached_products');
+        if (cachedProducts && Array.isArray(cachedProducts) && cachedProducts.length > 0) {
+          const filtered = filterDeletedProducts(cachedProducts);
+          setProducts(filtered);
+          prevProductsRef.current = cachedProducts;
+          // Stop loading spinner immediately since we have products to show
+          setSupabaseStatus(prev => ({ ...prev, loading: false }));
+        }
+
+        const cachedOrders = await dbCache.get('aura_cached_orders');
+        if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
+          setOrders(cachedOrders);
+          prevOrdersRef.current = cachedOrders;
+        }
+
+        const cachedCustomers = await dbCache.get('aura_cached_customers');
+        if (cachedCustomers && Array.isArray(cachedCustomers) && cachedCustomers.length > 0) {
+          setCustomers(cachedCustomers);
+          prevCustomersRef.current = cachedCustomers;
+        }
+
+        const cachedNotifications = await dbCache.get('aura_cached_notifications');
+        if (cachedNotifications && Array.isArray(cachedNotifications) && cachedNotifications.length > 0) {
+          setNotifications(cachedNotifications);
+          prevNotificationsRef.current = cachedNotifications;
+        }
+
+        const cachedSettings = await dbCache.get('aura_cached_settings');
+        if (cachedSettings) {
+          setSettings(cachedSettings);
+          prevSettingsRef.current = cachedSettings;
+        }
+
+        const cachedHomepageSettings = await dbCache.get('aura_cached_homepage_settings');
+        if (cachedHomepageSettings) {
+          setHomepageSettings(cachedHomepageSettings);
+        }
+
+        const cachedCourierSettings = await dbCache.get('aura_cached_courier_settings');
+        if (cachedCourierSettings && Array.isArray(cachedCourierSettings) && cachedCourierSettings.length > 0) {
+          setCourierSettingsList(cachedCourierSettings);
+        }
+
+        const cachedTrackingSettings = await dbCache.get('aura_tracking_settings');
+        if (cachedTrackingSettings) {
+          setTrackingSettings(cachedTrackingSettings);
+        }
+
+        const cachedCollections = await dbCache.get('aura_cached_collections');
+        if (cachedCollections && Array.isArray(cachedCollections) && cachedCollections.length > 0) {
+          setCollectionsData(cachedCollections);
+          prevCollectionsRef.current = cachedCollections;
+        }
+
+        const cachedReturns = await dbCache.get('aura_cached_returns');
+        if (cachedReturns && Array.isArray(cachedReturns) && cachedReturns.length > 0) {
+          setReturnsData(cachedReturns);
+          prevReturnsRef.current = cachedReturns;
+        }
+
+        const cachedStaff = await dbCache.get('aura_cached_staff');
+        if (cachedStaff && Array.isArray(cachedStaff) && cachedStaff.length > 0) {
+          setStaffData(cachedStaff);
+          prevStaffRef.current = cachedStaff;
+        }
+      } catch (err) {
+        console.warn("Failed to load IndexedDB caches on mount:", err);
+      }
+    }
+    loadIndexedDBCaches();
+  }, []);
   
   // 1. Initial Load of all data from Supabase (Optimized for Speed)
   useEffect(() => {
@@ -732,13 +827,16 @@ export default function App() {
         
         // Products Background Sync & Update Comparison
         supabaseService.getProducts(INITIAL_PRODUCTS)
-          .then(dbProducts => {
+          .then(async (dbProducts) => {
             if (dbProducts && dbProducts.length > 0) {
               // Get current cached items
               let localCached: Product[] = [];
               try {
-                const cached = localStorage.getItem('aura_cached_products');
-                if (cached) localCached = JSON.parse(cached);
+                localCached = (await dbCache.get('aura_cached_products')) || [];
+                if (localCached.length === 0) {
+                  const cached = localStorage.getItem('aura_cached_products');
+                  if (cached) localCached = JSON.parse(cached);
+                }
               } catch (_) {}
 
               const filteredDb = filterDeletedProducts(dbProducts);
@@ -752,6 +850,7 @@ export default function App() {
                 console.log("[BG-SYNC] Products changed in database, updating state & cache...");
                 setProducts(filteredDb);
                 prevProductsRef.current = dbProducts;
+                dbCache.set('aura_cached_products', dbProducts);
                 localStorage.setItem('aura_cached_products', JSON.stringify(dbProducts));
 
                 // Trigger beautiful top-right floating sync success toast
@@ -783,6 +882,7 @@ export default function App() {
             if (dbSettings) {
               setSettings(dbSettings);
               prevSettingsRef.current = dbSettings;
+              dbCache.set('aura_cached_settings', dbSettings);
               localStorage.setItem('aura_cached_settings', JSON.stringify(dbSettings));
             }
           }).catch(err => console.warn("Bg settings sync failed:", err));
@@ -793,6 +893,7 @@ export default function App() {
             if (dbOrders) {
               setOrders(dbOrders);
               prevOrdersRef.current = dbOrders;
+              dbCache.set('aura_cached_orders', dbOrders);
               localStorage.setItem('aura_cached_orders', JSON.stringify(dbOrders));
             }
           }).catch(err => console.warn("Bg orders sync failed:", err));
@@ -803,6 +904,7 @@ export default function App() {
             if (dbCustomers) {
               setCustomers(dbCustomers);
               prevCustomersRef.current = dbCustomers;
+              dbCache.set('aura_cached_customers', dbCustomers);
               localStorage.setItem('aura_cached_customers', JSON.stringify(dbCustomers));
             }
           }).catch(err => console.warn("Bg customers sync failed:", err));
@@ -813,6 +915,7 @@ export default function App() {
             if (dbNotifications) {
               setNotifications(dbNotifications);
               prevNotificationsRef.current = dbNotifications;
+              dbCache.set('aura_cached_notifications', dbNotifications);
               localStorage.setItem('aura_cached_notifications', JSON.stringify(dbNotifications));
             }
           }).catch(err => console.warn("Bg notifications sync failed:", err));
@@ -825,6 +928,7 @@ export default function App() {
         supabaseService.getHomepageSettings(DEFAULT_HOMEPAGE_SETTINGS).then(db => {
           if (db) {
             setHomepageSettings(db);
+            dbCache.set('aura_cached_homepage_settings', db);
             localStorage.setItem('aura_cached_homepage_settings', JSON.stringify(db));
           }
         }).catch(() => {});
@@ -832,6 +936,7 @@ export default function App() {
         supabaseService.getCourierSettings().then(db => {
           if (db) {
             setCourierSettingsList(db);
+            dbCache.set('aura_cached_courier_settings', db);
             localStorage.setItem('aura_cached_courier_settings', JSON.stringify(db));
           }
         }).catch(() => {});
@@ -839,13 +944,34 @@ export default function App() {
         supabaseService.getTrackingSettings().then(db => {
           if (db) {
             setTrackingSettings(db);
+            dbCache.set('aura_tracking_settings', db);
             localStorage.setItem('aura_tracking_settings', JSON.stringify(db));
           }
         }).catch(() => {});
 
-        supabaseService.getCollections(collectionsData).then(db => db && setCollectionsData(db)).catch(() => {});
-        supabaseService.getReturns(returnsData).then(db => db && setReturnsData(db)).catch(() => {});
-        supabaseService.getStaff(staffData).then(db => db && setStaffData(db)).catch(() => {});
+        supabaseService.getCollections(collectionsData).then(db => {
+          if (db) {
+            setCollectionsData(db);
+            prevCollectionsRef.current = db;
+            dbCache.set('aura_cached_collections', db);
+          }
+        }).catch(() => {});
+
+        supabaseService.getReturns(returnsData).then(db => {
+          if (db) {
+            setReturnsData(db);
+            prevReturnsRef.current = db;
+            dbCache.set('aura_cached_returns', db);
+          }
+        }).catch(() => {});
+
+        supabaseService.getStaff(staffData).then(db => {
+          if (db) {
+            setStaffData(db);
+            prevStaffRef.current = db;
+            dbCache.set('aura_cached_staff', db);
+          }
+        }).catch(() => {});
 
       } catch (err: any) {
         console.warn("Background init had failures:", err);
