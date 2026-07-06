@@ -877,12 +877,55 @@ export const supabaseService = {
         default_weight: setting.default_weight || '0.5',
         default_note: setting.default_note || '[INVO_CUSTOMER_NOTE]'
       };
-      const { error } = await supabase.from('courier_settings').upsert({
-        id: setting.id || `COURIER-${Date.now()}`,
-        courier_name: setting.courier_name,
-        api_key: JSON.stringify(obj),
-      }, { onConflict: 'courier_name' });
-      if (error) throw error;
+
+      // Check by courier_name first to find an existing record
+      let existingRow: any = null;
+      try {
+        const { data } = await supabase
+          .from('courier_settings')
+          .select('*')
+          .eq('courier_name', setting.courier_name)
+          .maybeSingle();
+        existingRow = data;
+      } catch (err) {
+        console.warn('Error checking courier_settings by name:', err);
+      }
+
+      // Check by ID if not found by name
+      if (!existingRow && setting.id) {
+        try {
+          const { data } = await supabase
+            .from('courier_settings')
+            .select('*')
+            .eq('id', setting.id)
+            .maybeSingle();
+          existingRow = data;
+        } catch (err) {
+          console.warn('Error checking courier_settings by ID:', err);
+        }
+      }
+
+      if (existingRow) {
+        // Update the existing row
+        const { error } = await supabase
+          .from('courier_settings')
+          .update({
+            courier_name: setting.courier_name,
+            api_key: JSON.stringify(obj)
+          })
+          .eq('id', existingRow.id);
+        if (error) throw error;
+      } else {
+        // Insert a new row
+        const { error } = await supabase
+          .from('courier_settings')
+          .insert({
+            id: setting.id || `COURIER-${Date.now()}`,
+            courier_name: setting.courier_name,
+            api_key: JSON.stringify(obj)
+          });
+        if (error) throw error;
+      }
       return true;
     } catch (e) {
       console.error('Supabase upsertCourierSetting failed:', e);
