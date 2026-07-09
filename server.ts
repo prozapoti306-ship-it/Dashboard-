@@ -150,24 +150,39 @@ app.post("/api/courier/fraud-check", async (req, res) => {
 
     const cleanPhone = phone.trim().replace(/\s+/g, '');
 
-    // 1. Fetch courier settings from Supabase to get API credentials
-    const { data: settingsData, error: settingsError } = await supabase
-      .from('courier_settings')
-      .select('*');
+    // 1. Fetch courier settings from Supabase (system_settings) to get API credentials
+    let courierSettings: any[] = [];
+    try {
+      const { data: settingsRow, error: settingsError } = await supabase
+        .from('system_settings')
+        .select('tagline')
+        .eq('id', 'courier_settings')
+        .maybeSingle();
 
-    const courierSettings = (settingsData || []).map((db: any) => {
-      let extra: any = {};
-      try {
-        extra = JSON.parse(db.api_key);
-      } catch (_) {}
-      return {
-        id: db.id,
-        courier_name: db.courier_name,
-        api_key: extra.api_key || db.api_key || '',
-        client_id: extra.client_id || db.client_id || '',
-        secret_key: extra.secret_key || db.secret_key || '',
-      };
-    });
+      if (settingsRow && settingsRow.tagline) {
+        const parsed = JSON.parse(settingsRow.tagline);
+        if (Array.isArray(parsed)) {
+          courierSettings = parsed.map((item: any) => {
+            // Ensure fields are extracted correctly
+            let extra: any = {};
+            try {
+              if (item.api_key && item.api_key.startsWith('{')) {
+                extra = JSON.parse(item.api_key);
+              }
+            } catch (_) {}
+            return {
+              id: item.id,
+              courier_name: item.courier_name,
+              api_key: extra.api_key || item.api_key || '',
+              client_id: item.client_id || extra.client_id || '',
+              secret_key: item.secret_key || extra.secret_key || '',
+            };
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Error loading courier settings from system_settings in server.ts:", e);
+    }
 
     const sfSetting = courierSettings.find(s => s.courier_name.toLowerCase().includes('steadfast'));
     const ptSetting = courierSettings.find(s => s.courier_name.toLowerCase().includes('pathao'));
@@ -336,6 +351,110 @@ app.post("/api/courier/fraud-check", async (req, res) => {
   } catch (error: any) {
     console.error("Global Fraud Checker API Error:", error);
     res.status(500).json({ error: error.message || "Failed to query global fraud checker database" });
+  }
+});
+
+// 1.2 One-Click Auto-Booking with Steadfast Courier API endpoint
+app.post("/api/courier/book-order", async (req, res) => {
+  try {
+    const { orderId, recipientName, recipientPhone, recipientAddress, codAmount, note } = req.body;
+    if (!orderId || !recipientName || !recipientPhone || !recipientAddress) {
+      return res.status(400).json({ error: "Missing required booking details (orderId, recipientName, recipientPhone, recipientAddress)" });
+    }
+
+    const cleanPhone = recipientPhone.trim().replace(/\s+/g, '');
+
+    // Fetch courier settings from Supabase (system_settings) to get API credentials
+    let courierSettings: any[] = [];
+    try {
+      const { data: settingsRow, error: settingsError } = await supabase
+        .from('system_settings')
+        .select('tagline')
+        .eq('id', 'courier_settings')
+        .maybeSingle();
+
+      if (settingsRow && settingsRow.tagline) {
+        const parsed = JSON.parse(settingsRow.tagline);
+        if (Array.isArray(parsed)) {
+          courierSettings = parsed.map((item: any) => {
+            let extra: any = {};
+            try {
+              if (item.api_key && item.api_key.startsWith('{')) {
+                extra = JSON.parse(item.api_key);
+              }
+            } catch (_) {}
+            return {
+              id: item.id,
+              courier_name: item.courier_name,
+              api_key: extra.api_key || item.api_key || '',
+              client_id: item.client_id || extra.client_id || '',
+              secret_key: item.secret_key || extra.secret_key || '',
+            };
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Error loading courier settings from system_settings in book-order:", e);
+    }
+
+    const sfSetting = courierSettings.find(s => s.courier_name.toLowerCase().includes('steadfast'));
+
+    if (!sfSetting || !sfSetting.api_key || !sfSetting.secret_key) {
+      return res.status(400).json({
+        error: "Steadfast Courier API credentials are not set in Courier Settings! Please update them first in Settings -> Courier Settings."
+      });
+    }
+
+    // Call SteadFast Courier create order API
+    const payload = {
+      invoice: orderId,
+      recipient_name: recipientName.trim(),
+      recipient_phone: cleanPhone,
+      recipient_address: recipientAddress.trim(),
+      cod_amount: Number(codAmount || 0),
+      note: (note || "").trim() || "Ordered from Website"
+    };
+
+    console.log("[COURIER AUTOMATION] Placing order with SteadFast Courier:", payload);
+
+    const sfResponse = await fetch("https://portal.steadfast.com.bd/api/v1/create_order", {
+      method: "POST",
+      headers: {
+        "Api-Key": sfSetting.api_key,
+        "Secret-Key": sfSetting.secret_key,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const sfData: any = await sfResponse.json();
+    console.log("[COURIER AUTOMATION] SteadFast Response:", sfData);
+
+    if (sfResponse.ok && (sfData.status === 200 || sfData.status === 201 || sfData.success)) {
+      const consignment = sfData.consignment || {};
+      const trackingCode = consignment.tracking_code || consignment.consignment_id || String(consignment.id || "");
+      
+      return res.json({
+        success: true,
+        message: "Order successfully booked with Steadfast Courier!",
+        consignment: {
+          consignment_id: consignment.consignment_id || consignment.id,
+          tracking_code: trackingCode,
+          status: consignment.status || "in_review",
+          cod_amount: consignment.cod_amount
+        }
+      });
+    } else {
+      const errorMsg = sfData.errors || sfData.message || sfData.error || "Unknown error from Steadfast API";
+      return res.status(400).json({
+        success: false,
+        error: typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : String(errorMsg)
+      });
+    }
+
+  } catch (error: any) {
+    console.error("Courier Book Order API Error:", error);
+    res.status(500).json({ error: error.message || "Failed to book order with courier partner" });
   }
 });
 

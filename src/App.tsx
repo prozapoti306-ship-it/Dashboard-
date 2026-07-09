@@ -455,10 +455,19 @@ export default function App() {
   const [selectedCourier, setSelectedCourier] = useState<{ courier: string; order: Order } | null>(null);
   const [showCourierModal, setShowCourierModal] = useState(false);
   const [showSuccessTick, setShowSuccessTick] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   // Global Fraud Checker state and hook
   const [fraudCheckResult, setFraudCheckResult] = useState<any>(null);
   const [isFraudChecking, setIsFraudChecking] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!showCourierModal) {
+      setIsBooking(false);
+      setBookingError(null);
+    }
+  }, [showCourierModal]);
 
   useEffect(() => {
     if (editingOrder && editingOrder.customerPhone) {
@@ -9291,6 +9300,126 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                     </div>
                   )}
                 </div>
+
+                {/* Steadfast Automated Booking Section */}
+                {selectedCourier && selectedCourier.order?.id === editingOrder?.id && selectedCourier.courier === "Steadfast Courier" && (
+                  <div className={`p-3.5 rounded-2xl border ${settings.themeMode === 'dark' ? 'bg-[#ff7b00]/5 border-[#ff7b00]/20' : 'bg-[#ff7b00]/5 border-[#ff7b00]/10'} space-y-3`}>
+                    <div className="flex items-center space-x-2">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                      </span>
+                      <span className="text-[10px] font-black uppercase text-orange-500 tracking-wider">
+                        Steadfast 1-Click Auto-Booking
+                      </span>
+                    </div>
+                    <p className="text-[10px] leading-relaxed opacity-80">
+                      সরাসরি Steadfast Courier পোর্টালে এই পার্সেলটি অটো বুকিং করতে এবং রিয়েল-টাইম ট্র্যাকিং কোড পেতে বাটনটি চাপুনঃ
+                    </p>
+                    
+                    {bookingError && (
+                      <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-[10px] text-red-500 font-bold leading-normal">
+                        ⚠️ বুকিং ব্যর্থ হয়েছেঃ {bookingError}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={isBooking}
+                      onClick={async () => {
+                        if (!editingOrder) return;
+                        setIsBooking(true);
+                        setBookingError(null);
+                        try {
+                          const response = await fetch("/api/courier/book-order", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              orderId: editingOrder.id,
+                              recipientName: editingOrder.customerName,
+                              recipientPhone: editingOrder.customerPhone,
+                              recipientAddress: editingOrder.customerAddress || "",
+                              codAmount: editingOrder.total || 0,
+                              note: editingOrder.internalNotes || ""
+                            })
+                          });
+                          
+                          const data = await response.json();
+                          if (response.ok && data.success) {
+                            const trackingCode = data.consignment?.tracking_code || "";
+                            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+                            
+                            const updatedTimeline = [
+                              ...(editingOrder.timeline || []),
+                              {
+                                status: 'Confirmed' as OrderStatus,
+                                timestamp,
+                                note: `Steadfast কুরিয়ারের মাধ্যমে অর্ডারটি অটো বুক করা হয়েছে। ট্র্যাকিং কোডঃ ${trackingCode}`
+                              }
+                            ];
+
+                            const updatedOrder = {
+                              ...editingOrder,
+                              status: 'Confirmed' as OrderStatus,
+                              timeline: updatedTimeline,
+                              internalNotes: `[Steadfast Tracking: ${trackingCode}] ${editingOrder.internalNotes || ""}`
+                            };
+
+                            // Save state
+                            setOrders(prev => prev.map(o => o.id === editingOrder.id ? updatedOrder : o));
+                            setEditingOrder(updatedOrder);
+                            if (selectedOrder && selectedOrder.id === editingOrder.id) {
+                              setSelectedOrder(updatedOrder);
+                            }
+
+                            // Database sync
+                            await supabaseService.upsertOrder(updatedOrder);
+
+                            // Notification
+                            const newNotif = {
+                              id: `NOTIF-${Date.now()}`,
+                              title: `Steadfast Auto-Book Successful`,
+                              message: `Order #${editingOrder.id} booked. Tracking: ${trackingCode}`,
+                              type: 'success' as const,
+                              timestamp: new Date().toISOString(),
+                              read: false
+                            };
+                            setNotifications(prev => [newNotif, ...prev]);
+
+                            // Animate success checkmark
+                            setShowSuccessTick(true);
+                            setTimeout(() => {
+                              setShowSuccessTick(false);
+                              setShowCourierModal(false);
+                            }, 1500);
+
+                          } else {
+                            setBookingError(data.error || "অটো বুকিং ব্যর্থ হয়েছে। API Key এবং Secret Key সঠিক আছে কিনা চেক করুন।");
+                          }
+                        } catch (err: any) {
+                          setBookingError(err.message || "সার্ভার এর সাথে কানেকশন দেওয়া যায়নি।");
+                        } finally {
+                          setIsBooking(false);
+                        }
+                      }}
+                      className="w-full py-2 bg-gradient-to-r from-orange-500 to-[#e07a5f] hover:from-orange-600 hover:to-[#d06a4f] text-white text-[11px] font-extrabold rounded-xl transition-all shadow-md shadow-orange-500/20 text-center flex items-center justify-center space-x-2 disabled:opacity-50"
+                    >
+                      {isBooking ? (
+                        <>
+                          <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <span>বুকিং হচ্ছে, অপেক্ষা করুন...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>⚡ ওয়ান-ক্লিক অটো বুকিং করুন</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
 
                 {/* Confirm action button */}
                 <div className="pt-2 flex justify-end">
