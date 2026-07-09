@@ -146,6 +146,21 @@ export const filterDeletedProducts = (prods: Product[]): Product[] => {
   return prods;
 };
 
+// Filter out orders that were deleted locally (robust fallback safety)
+export const filterDeletedOrders = (ords: Order[]): Order[] => {
+  try {
+    const deletedStr = localStorage.getItem('aura_deleted_order_ids');
+    if (deletedStr) {
+      const deletedIds = JSON.parse(deletedStr);
+      if (Array.isArray(deletedIds) && deletedIds.length > 0) {
+        const idSet = new Set(deletedIds);
+        return ords.filter(o => !idSet.has(o.id));
+      }
+    }
+  } catch (_) {}
+  return ords;
+};
+
 // Check if a product is a legacy hardcoded demo product to prevent them from showing
 export const isDemoProduct = (p: Product): boolean => {
   if (!p) return false;
@@ -209,12 +224,16 @@ export default function App() {
       const cached = localStorage.getItem('aura_cached_orders');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Filter out legacy mock orders containing "ORD-2026-" to starting fresh
+          const realOrders = parsed.filter(o => !o.id.includes('ORD-2026-'));
+          return filterDeletedOrders(realOrders);
+        }
       }
     } catch (e) {
       console.warn("Error reading cached orders:", e);
     }
-    return INITIAL_ORDERS;
+    return filterDeletedOrders(INITIAL_ORDERS);
   });
 
   const [customers, setCustomers] = useState<Customer[]>(() => {
@@ -222,7 +241,11 @@ export default function App() {
       const cached = localStorage.getItem('aura_cached_customers');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Filter out legacy mock customer IDs starting with CUST-00 or CUST-0
+          const realCustomers = parsed.filter(c => !c.id.startsWith('CUST-00') && !c.id.startsWith('CUST-0'));
+          return realCustomers;
+        }
       }
     } catch (e) {
       console.warn("Error reading cached customers:", e);
@@ -504,6 +527,7 @@ export default function App() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
   const [productForm, setProductForm] = useState({
     name: '',
     description: '',
@@ -719,7 +743,7 @@ export default function App() {
 
         const cachedOrders = await dbCache.get('aura_cached_orders');
         if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
-          setOrders(cachedOrders);
+          setOrders(filterDeletedOrders(cachedOrders));
           prevOrdersRef.current = cachedOrders;
         }
 
@@ -891,10 +915,11 @@ export default function App() {
         supabaseService.getOrders(INITIAL_ORDERS)
           .then(dbOrders => {
             if (dbOrders) {
-              setOrders(dbOrders);
+              const filtered = filterDeletedOrders(dbOrders);
+              setOrders(filtered);
               prevOrdersRef.current = dbOrders;
-              dbCache.set('aura_cached_orders', dbOrders);
-              localStorage.setItem('aura_cached_orders', JSON.stringify(dbOrders));
+              dbCache.set('aura_cached_orders', filtered);
+              localStorage.setItem('aura_cached_orders', JSON.stringify(filtered));
             }
           }).catch(err => console.warn("Bg orders sync failed:", err));
 
@@ -981,11 +1006,16 @@ export default function App() {
     initSupabase();
   }, []);
 
-  // Real-time Order & Notification Polling (every 8 seconds) to receive storefront updates instantly in the dashboard
+  // Real-time Order & Notification Polling (optimized to 35 seconds & only when tab is active to preserve Supabase quota)
   useEffect(() => {
     if (!supabaseStatus.connected || !supabaseStatus.schemaCreated || view !== 'admin') return;
 
     const interval = setInterval(async () => {
+      // Only poll if the tab is currently active to save data egress & requests
+      if (document.hidden || document.visibilityState !== 'visible') {
+        return;
+      }
+
       try {
         const [dbOrders, dbNotifications, dbCustomers] = await Promise.all([
           supabaseService.getOrders(prevOrdersRef.current),
@@ -994,7 +1024,7 @@ export default function App() {
         ]);
 
         if (dbOrders && JSON.stringify(dbOrders) !== JSON.stringify(prevOrdersRef.current)) {
-          setOrders(dbOrders);
+          setOrders(filterDeletedOrders(dbOrders));
           prevOrdersRef.current = dbOrders;
         }
         if (dbNotifications && JSON.stringify(dbNotifications) !== JSON.stringify(prevNotificationsRef.current)) {
@@ -1008,7 +1038,7 @@ export default function App() {
       } catch (e) {
         console.warn("Background polling for orders and notifications had some issues:", e);
       }
-    }, 8000);
+    }, 35000); // 35 seconds to keep database light & free
 
     return () => clearInterval(interval);
   }, [supabaseStatus.connected, supabaseStatus.schemaCreated, view]);
@@ -1232,6 +1262,9 @@ export default function App() {
   // --- Dynamic Dashboard Stats Calculation ---
   // Calculates live numbers based on the updated state of orders, products, and customers
   const liveStats = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const currentMonthStr = todayStr.substring(0, 7);
+
     let todaySales = 0;
     let todayOrdersCount = 0;
     let monthlySales = 0;
@@ -1241,106 +1274,93 @@ export default function App() {
     let shippedCount = 0;
 
     orders.forEach(order => {
+      // Normalize order date to YYYY-MM-DD
+      const orderDateOnly = order.date ? order.date.substring(0, 10) : '';
+
       // Calculate today's sales and order count
-      if (order.date === '2026-06-27') {
-        todaySales += order.total;
+      if (orderDateOnly === todayStr) {
+        if (order.status !== 'Cancelled' && order.status !== 'Do Canceled') {
+          todaySales += order.total;
+        }
         todayOrdersCount += 1;
       }
       
-      // Monthly sales for current month (June 2026: starts with '2026-06')
-      if (order.date.startsWith('2026-06')) {
-        if (order.status !== 'Cancelled') {
+      // Monthly sales for current month
+      if (orderDateOnly.startsWith(currentMonthStr)) {
+        if (order.status !== 'Cancelled' && order.status !== 'Do Canceled') {
           monthlySales += order.total;
         }
       }
 
       // Accumulate order statuses
-      if (order.status === 'Pending') pendingCount++;
+      if (order.status === 'Pending' || order.status === 'New Order') pendingCount++;
       else if (order.status === 'Delivered') deliveredCount++;
-      else if (order.status === 'Cancelled') cancelledCount++;
+      else if (order.status === 'Cancelled' || order.status === 'Do Canceled') cancelledCount++;
       else shippedCount++;
     });
 
     // Compute dynamic revenue based on non-cancelled orders
     const activeOrdersTotal = orders
-      .filter(o => o.status !== 'Cancelled')
+      .filter(o => o.status !== 'Cancelled' && o.status !== 'Do Canceled')
       .reduce((sum, o) => sum + o.total, 0);
 
-    const baseRevenue = 13448000; // Base baseline in BDT (৳ 1,34,48,000)
-    const finalTotalRevenue = baseRevenue + activeOrdersTotal - 1650000; // Calibrated for smooth starting total
+    const finalTotalRevenue = activeOrdersTotal;
     const finalTotalProfit = finalTotalRevenue * 0.45; // 45% luxury profit margin
 
-    // New customers in June 2026
-    const newCustomersCount = customers.filter(c => c.joinDate.startsWith('2026-06')).length;
+    // New customers in current month
+    const newCustomersCount = customers.filter(c => c.joinDate && c.joinDate.startsWith(currentMonthStr)).length;
 
     return {
-      todaySales: todaySales || 285000,
-      todayOrdersCount: todayOrdersCount || 3,
-      monthlySales: monthlySales || 3248000,
+      todaySales: todaySales,
+      todayOrdersCount: todayOrdersCount,
+      monthlySales: monthlySales,
       totalRevenue: finalTotalRevenue,
       totalProfit: finalTotalProfit,
-      newCustomersCount: newCustomersCount || 4,
+      newCustomersCount: newCustomersCount,
       pendingOrders: pendingCount,
       deliveredOrders: deliveredCount,
       cancelledOrders: cancelledCount,
       shippedOrders: shippedCount,
       totalOrders: orders.length,
-      conversionRate: 3.42
+      conversionRate: orders.length > 0 ? parseFloat(((orders.length / Math.max(1, customers.length)) * 100).toFixed(2)) : 0
     };
   }, [orders, customers]);
 
   // --- Dynamic Monthly Analytics Calculation ---
   const monthlyAnalyticsData = useMemo(() => {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-    
-    // Revenue map (Jan to June) in BDT
-    const revenueMap: Record<string, number> = {
-      "Jan": 2800000,
-      "Feb": 3100000,
-      "Mar": 2400000,
-      "Apr": 3800000,
-      "May": 4200000,
-      "Jun": 2850000, // Starting June base
-    };
+    // Generate last 6 months names dynamically
+    const months: string[] = [];
+    const revenueMap: Record<string, number> = {};
+    const ordersMap: Record<string, number> = {};
+    const customerMap: Record<string, number> = {};
 
-    // Orders count map
-    const ordersMap: Record<string, number> = {
-      "Jan": 24,
-      "Feb": 28,
-      "Mar": 21,
-      "Apr": 35,
-      "May": 41,
-      "Jun": 18,
-    };
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const now = new Date();
 
-    // Customer Cumulative Map
-    const customerMap: Record<string, number> = {
-      "Jan": 120,
-      "Feb": 155,
-      "Mar": 205,
-      "Apr": 270,
-      "May": 350,
-      "Jun": 420,
-    };
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mName = monthNames[d.getMonth()];
+      months.push(mName);
+      revenueMap[mName] = 0;
+      ordersMap[mName] = 0;
+      customerMap[mName] = 0;
+    }
 
     // Dynamically aggregate from live orders
     orders.forEach(order => {
+      if (!order.date) return;
+      // Date format is typically "YYYY-MM-DD" or "YYYY-MM-DD HH:MM"
       const dateParts = order.date.split('-');
       if (dateParts.length >= 2) {
-        const monthNum = dateParts[1];
-        let monthKey = "";
-        if (monthNum === "01") monthKey = "Jan";
-        else if (monthNum === "02") monthKey = "Feb";
-        else if (monthNum === "03") monthKey = "Mar";
-        else if (monthNum === "04") monthKey = "Apr";
-        else if (monthNum === "05") monthKey = "May";
-        else if (monthNum === "06") monthKey = "Jun";
-
-        if (monthKey) {
-          if (order.status !== 'Cancelled') {
-            revenueMap[monthKey] += order.total;
+        const monthIndex = parseInt(dateParts[1], 10) - 1;
+        if (monthIndex >= 0 && monthIndex < 12) {
+          const monthKey = monthNames[monthIndex];
+          if (months.includes(monthKey)) {
+            if (order.status !== 'Cancelled' && order.status !== 'Do Canceled') {
+              revenueMap[monthKey] += order.total;
+            }
+            ordersMap[monthKey] += 1;
           }
-          ordersMap[monthKey] += 1;
         }
       }
     });
@@ -1351,11 +1371,22 @@ export default function App() {
       profitMap[m] = revenueMap[m] * 0.45;
     });
 
-    // Calculate dynamic customer cumulative growth
-    const totalCustomers = customers.length;
-    // Base is 420 in June, we add 15 per newly joined customer in state exceeding initial 5
-    const excessCustomersCount = Math.max(0, totalCustomers - 5);
-    customerMap["Jun"] = 420 + (excessCustomersCount * 15);
+    // Calculate customer cumulative growth dynamically
+    let runningCustomerCount = 0;
+    months.forEach(m => {
+      const count = customers.filter(c => {
+        if (!c.joinDate) return false;
+        const dateParts = c.joinDate.split('-');
+        if (dateParts.length >= 2) {
+          const monthIndex = parseInt(dateParts[1], 10) - 1;
+          return monthNames[monthIndex] === m;
+        }
+        return false;
+      }).length;
+
+      runningCustomerCount += count;
+      customerMap[m] = runningCustomerCount;
+    });
 
     // Compute order status distribution dynamically
     let pending = 0;
@@ -1364,9 +1395,9 @@ export default function App() {
     let cancelled = 0;
 
     orders.forEach(o => {
-      if (o.status === 'Pending') pending++;
+      if (o.status === 'Pending' || o.status === 'New Order') pending++;
       else if (o.status === 'Delivered') delivered++;
-      else if (o.status === 'Cancelled') cancelled++;
+      else if (o.status === 'Cancelled' || o.status === 'Do Canceled') cancelled++;
       else shipped++;
     });
 
@@ -1469,10 +1500,47 @@ export default function App() {
 
   // Delete Order
   const handleDeleteOrder = (orderId: string) => {
-    if (window.confirm('আপনি কি নিশ্চিত যে এই অর্ডারটি মুছে ফেলতে চান?')) {
-      setOrders(prev => prev.filter(o => o.id !== orderId));
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+      setOrderToDelete(order);
+    }
+  };
+
+  const handleConfirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
+
+    try {
+      const deletedStr = localStorage.getItem('aura_deleted_order_ids') || '[]';
+      const deletedIds = JSON.parse(deletedStr);
+      if (Array.isArray(deletedIds) && !deletedIds.includes(orderToDelete.id)) {
+        deletedIds.push(orderToDelete.id);
+        localStorage.setItem('aura_deleted_order_ids', JSON.stringify(deletedIds));
+      }
+    } catch (e) {
+      console.warn("Failed to update deleted orders storage:", e);
+    }
+
+    const updatedOrders = orders.filter(o => o.id !== orderToDelete.id);
+    setOrders(updatedOrders);
+
+    try {
+      await dbCache.set('aura_cached_orders', updatedOrders);
+      localStorage.setItem('aura_cached_orders', JSON.stringify(updatedOrders));
+    } catch (err) {
+      console.warn("Failed to update db cache on delete:", err);
+    }
+
+    if (selectedOrder?.id === orderToDelete.id) {
       setSelectedOrder(null);
     }
+
+    const success = await supabaseService.deleteOrder(orderToDelete.id);
+    if (success) {
+      alert('অর্ডারটি সফলভাবে ডিলিট করা হয়েছে।');
+    } else {
+      alert('অর্ডারটি সফলভাবে লোকাল ব্রাউজার থেকে মুছে ফেলা হয়েছে (ডেটাবেজ সার্ভার অফলাইন রয়েছে)। ডেটাবেজ সচল হলে স্থায়ীভাবে সিঙ্ক হয়ে যাবে।');
+    }
+    setOrderToDelete(null);
   };
 
   // Add/Edit Product Handler
@@ -10248,6 +10316,48 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
               <button 
                 type="button"
                 onClick={handleConfirmDeleteProduct}
+                className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black rounded-xl transition-all shadow-lg shadow-rose-500/20"
+              >
+                হ্যাঁ, ডিলিট করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================================
+          CUSTOM ORDER DELETE CONFIRMATION MODAL
+          ========================================================== */}
+      {orderToDelete && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-[#1a1614] border border-[#322822] text-[#f6f3ed] w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl p-6 space-y-4">
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 bg-rose-500/10 rounded-full flex items-center justify-center text-rose-500">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <h4 className="font-extrabold text-sm uppercase">অর্ডার ডিলিট করুন</h4>
+              <p className="text-xs opacity-75 leading-relaxed">
+                আপনি কি নিশ্চিতভাবেই অর্ডার <span className="text-rose-400 font-bold">"{orderToDelete.id}"</span> ডিলিট করতে চান?
+              </p>
+              <p className="text-[11px] opacity-75">
+                গ্রাহক: <span className="font-bold">{orderToDelete.customerName}</span> <br />
+                মোট মূল্য: <span className="font-bold text-orange-400">৳{orderToDelete.totalAmount?.toLocaleString() || '0'}</span>
+              </p>
+              <p className="text-[10px] text-rose-400/90 leading-relaxed pr-2">
+                এই অর্ডারটি ডিলিট করলে এটি ড্যাশবোর্ড থেকে চিরতরে মুছে যাবে।
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => setOrderToDelete(null)}
+                className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-xs font-bold rounded-xl transition-all border border-white/5"
+              >
+                বাতিল করুন (Cancel)
+              </button>
+              <button 
+                type="button"
+                onClick={handleConfirmDeleteOrder}
                 className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black rounded-xl transition-all shadow-lg shadow-rose-500/20"
               >
                 হ্যাঁ, ডিলিট করুন

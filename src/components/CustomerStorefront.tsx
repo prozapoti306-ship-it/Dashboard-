@@ -744,30 +744,66 @@ export default function CustomerStorefront({
         localStorage.setItem('current_customer', JSON.stringify(updatedCustomer));
         setCurrentCustomer(updatedCustomer);
       } else {
-        const customerId = `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
-        const newCustomer: Customer = {
-          id: customerId,
-          name: customerName,
-          phone: customerPhone,
-          address: customerAddress,
-          email: `${customerPhone}@auralux.com`,
-          avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100",
-          joinDate: today,
-          totalSpending: grandTotal,
-          ordersCount: 1,
-          segment: 'New',
-          activityTimeline: [
-            {
-              action: `কার্ট থেকে ${cart.length} টি পণ্য অর্ডার করেছেন। পেমেন্ট: ${paymentMethod}`,
-              date: today
-            }
-          ],
-          gender: 'Unisex',
-          preferredSize: cart[0]?.size || 'M',
-          favoriteCategory: cart[0]?.brand || 'Aura Lux',
-          lastPurchaseDate: today
-        };
-        await supabaseService.upsertCustomer(newCustomer);
+        // Query existing customers to find a phone match to avoid duplicate entries
+        let existingCust: Customer | null = null;
+        try {
+          const dbCustomers = await supabaseService.getCustomers([]);
+          if (Array.isArray(dbCustomers)) {
+            const cleanPhoneInput = customerPhone.replace(/[^0-9]/g, '');
+            existingCust = dbCustomers.find(c => {
+              if (!c.phone) return false;
+              const cleanCPhone = c.phone.replace(/[^0-9]/g, '');
+              // Match last 10 digits to handle local country code differences (e.g., +88017... vs 017...)
+              return cleanCPhone.endsWith(cleanPhoneInput.slice(-10)) || cleanPhoneInput.endsWith(cleanCPhone.slice(-10));
+            }) || null;
+          }
+        } catch (err) {
+          console.warn('Failed to query existing customers during guest checkout deduplication:', err);
+        }
+
+        if (existingCust) {
+          const updatedCustomer: Customer = {
+            ...existingCust,
+            name: customerName, // update in case of correction
+            address: customerAddress,
+            totalSpending: (existingCust.totalSpending || 0) + grandTotal,
+            ordersCount: (existingCust.ordersCount || 0) + 1,
+            lastPurchaseDate: today,
+            activityTimeline: [
+              {
+                action: `গেস্ট কার্ট থেকে ${cart.length} টি পণ্য অর্ডার করেছেন। অর্ডার আইডি: ${newOrderId}। পেমেন্ট: ${paymentMethod}`,
+                date: today
+              },
+              ...(existingCust.activityTimeline || [])
+            ]
+          };
+          await supabaseService.upsertCustomer(updatedCustomer);
+        } else {
+          const customerId = `CUST-${Math.floor(100000 + Math.random() * 900000)}`;
+          const newCustomer: Customer = {
+            id: customerId,
+            name: customerName,
+            phone: customerPhone,
+            address: customerAddress,
+            email: `${customerPhone}@auralux.com`,
+            avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100",
+            joinDate: today,
+            totalSpending: grandTotal,
+            ordersCount: 1,
+            segment: 'New',
+            activityTimeline: [
+              {
+                action: `কার্ট থেকে ${cart.length} টি পণ্য অর্ডার করেছেন। পেমেন্ট: ${paymentMethod}`,
+                date: today
+              }
+            ],
+            gender: 'Unisex',
+            preferredSize: cart[0]?.size || 'M',
+            favoriteCategory: cart[0]?.brand || 'Aura Lux',
+            lastPurchaseDate: today
+          };
+          await supabaseService.upsertCustomer(newCustomer);
+        }
       }
 
       // 3. Add notification to Supabase system

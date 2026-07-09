@@ -476,6 +476,17 @@ export const supabaseService = {
     }
   },
 
+  async deleteOrder(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.from('orders').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      console.error('Supabase deleteOrder failed:', e);
+      return false;
+    }
+  },
+
   // 3. CUSTOMERS
   async getCustomers(fallback: Customer[]): Promise<Customer[]> {
     try {
@@ -1320,45 +1331,31 @@ export const supabaseService = {
 
       // Seed Products
       logs.push(`২. প্রোডাক্ট ক্যাটালগ সিডিং (${data.products.length} টি আইটেম)...`);
-      for (const p of data.products) {
-        await supabase.from('products').upsert(mapProductToDb(p));
-      }
+      await Promise.all(data.products.map(p => supabase.from('products').upsert(mapProductToDb(p))));
 
       // Seed Orders
       logs.push(`৩. অর্ডার ট্রানজ্যাকশন সিডিং (${data.orders.length} টি আইটেম)...`);
-      for (const o of data.orders) {
-        await supabase.from('orders').upsert(mapOrderToDb(o));
-      }
+      await Promise.all(data.orders.map(o => supabase.from('orders').upsert(mapOrderToDb(o))));
 
       // Seed Customers
       logs.push(`৪. কাস্টমার ডিরেক্টরি সিডিং (${data.customers.length} টি প্রোফাইল)...`);
-      for (const c of data.customers) {
-        await supabase.from('customers').upsert(mapCustomerToDb(c));
-      }
+      await Promise.all(data.customers.map(c => supabase.from('customers').upsert(mapCustomerToDb(c))));
 
       // Seed Notifications
       logs.push(`৫. নোটিফিকেশন সিডিং (${data.notifications.length} টি)...`);
-      for (const n of data.notifications) {
-        await supabase.from('notifications').upsert(mapNotificationToDb(n));
-      }
+      await Promise.all(data.notifications.map(n => supabase.from('notifications').upsert(mapNotificationToDb(n))));
 
       // Seed Collections
       logs.push(`৬. কালেকশন সিডিং (${data.collections.length} টি)...`);
-      for (const c of data.collections) {
-        await supabase.from('collections_data').upsert(mapCollectionToDb(c));
-      }
+      await Promise.all(data.collections.map(c => supabase.from('collections_data').upsert(mapCollectionToDb(c))));
 
       // Seed Returns
       logs.push(`৭. রিটার্ন ডাটা সিডিং (${data.returns.length} টি)...`);
-      for (const r of data.returns) {
-        await supabase.from('returns_data').upsert(mapReturnToDb(r));
-      }
+      await Promise.all(data.returns.map(r => supabase.from('returns_data').upsert(mapReturnToDb(r))));
 
       // Seed Staff
       logs.push(`৮. স্টাফ মেম্বার সিডিং (${data.staff.length} টি)...`);
-      for (const s of data.staff) {
-        await supabase.from('staff_data').upsert(mapStaffToDb(s));
-      }
+      await Promise.all(data.staff.map(s => supabase.from('staff_data').upsert(mapStaffToDb(s))));
 
       // Seed Categories List
       logs.push(`৯. ক্যাটাগরি তালিকা সিডিং...`);
