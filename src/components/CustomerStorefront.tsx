@@ -319,6 +319,72 @@ export default function CustomerStorefront({
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'bKash' | 'Nagad' | 'Rocket'>('COD');
   const [transactionId, setTransactionId] = useState('');
   const [copiedNumber, setCopiedNumber] = useState(false);
+  const [incompleteOrderId, setIncompleteOrderId] = useState<string | null>(null);
+
+  // Auto-track incomplete/abandoned checkouts
+  React.useEffect(() => {
+    // We only track if cart is not empty and they have started entering name or phone
+    const trimmedName = customerName.trim();
+    const trimmedPhone = customerPhone.trim();
+    
+    if (cart.length === 0 || (!trimmedName && !trimmedPhone)) {
+      return;
+    }
+
+    // Standard debounce of 2 seconds to prevent excessive writes on every keystroke
+    const debounceTimer = setTimeout(async () => {
+      let orderId = incompleteOrderId;
+      let isNew = false;
+      if (!orderId) {
+        orderId = generateTrackingCode();
+        setIncompleteOrderId(orderId);
+        isNew = true;
+      }
+
+      const shippingCost = deliveryRegion === 'dhaka' ? 80 : 150;
+      const itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const grandTotal = itemsTotal + shippingCost;
+      const today = new Date().toISOString().split('T')[0];
+
+      const incompletePayload: Order = {
+        id: orderId,
+        customerName: trimmedName || 'নাম এন্টার করা হয়নি',
+        customerPhone: trimmedPhone || 'ফোন এন্টার করা হয়নি',
+        customerAddress: customerAddress.trim() || 'ঠিকানা এন্টার করা হয়নি',
+        customerEmail: '',
+        date: today,
+        items: cart.map(item => ({
+          productId: item.productId,
+          productName: `${item.name} (${item.size || 'M'})`,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        total: grandTotal,
+        status: 'Incomplete', // Mark as incomplete order
+        paymentMethod: paymentMethod,
+        paymentStatus: 'Pending',
+        timeline: [
+          {
+            status: 'Incomplete',
+            timestamp: today,
+            note: isNew 
+              ? `কাস্টমার ফর্ম পূরণ করা শুরু করেছেন। ইনকমপ্লিট অর্ডার আইডি: ${orderId}।`
+              : `ইনকমপ্লিট অর্ডারের তথ্য আপডেট করা হয়েছে।`
+          }
+        ],
+        internalNotes: `অসম্পূর্ণ অর্ডার (Incomplete/Abandoned Checkout)। ট্র্যাকিং কোড: ${orderId} | ডেলিভারি অঞ্চল: ${deliveryRegion === 'dhaka' ? 'ঢাকা সিটি' : 'ঢাকার বাইরে'}`
+      };
+
+      try {
+        await supabaseService.upsertOrder(incompletePayload);
+        console.log(`[Incomplete Tracking] Saved incomplete order: ${orderId}`);
+      } catch (err) {
+        console.error('[Incomplete Tracking] Error saving incomplete order:', err);
+      }
+    }, 2000);
+
+    return () => clearTimeout(debounceTimer);
+  }, [customerName, customerPhone, customerAddress, cart, deliveryRegion, paymentMethod, incompleteOrderId]);
   
   const handleCopyNumber = (num: string) => {
     navigator.clipboard.writeText(num);
@@ -623,6 +689,26 @@ export default function CustomerStorefront({
     if (openCart) {
       setShowCart(true);
     }
+
+    // GTM Data Layer add_to_cart tracking
+    if (typeof window !== 'undefined') {
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      (window as any).dataLayer.push({
+        event: 'add_to_cart',
+        ecommerce: {
+          items: [{
+            item_name: product.name,
+            item_id: product.id,
+            price: product.price,
+            item_brand: product.brand || 'Aura Lux',
+            item_category: product.category || 'Jersey',
+            quantity: 1,
+            item_size: finalSize
+          }]
+        }
+      });
+      console.log(`[GTM Tracker] GTM add_to_cart pushed: ${product.name} (Size: ${finalSize})`);
+    }
   };
 
   const handleRemoveFromCart = (productId: string, size: string) => {
@@ -687,9 +773,8 @@ export default function CustomerStorefront({
     const itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const grandTotal = itemsTotal + shippingCost;
     
-    // Generate tracking code and use as order ID
-    const trackingCode = generateTrackingCode();
-    const newOrderId = trackingCode;
+    // Reuse incomplete order ID if available, otherwise generate new one
+    const newOrderId = incompleteOrderId || generateTrackingCode();
     const today = new Date().toISOString().split('T')[0];
 
     const orderPayload: Order = {
@@ -822,6 +907,32 @@ export default function CustomerStorefront({
       setOrders(prev => [orderPayload, ...prev]);
       setNotifications(prev => [newNotif, ...prev]);
       
+      // GTM Data Layer purchase tracking
+      if (typeof window !== 'undefined') {
+        (window as any).dataLayer = (window as any).dataLayer || [];
+        (window as any).dataLayer.push({
+          event: 'purchase',
+          ecommerce: {
+            transaction_id: newOrderId,
+            value: grandTotal,
+            tax: 0,
+            shipping: shippingCost,
+            currency: 'BDT',
+            items: cart.map((item, idx) => ({
+              item_name: item.name,
+              item_id: item.productId,
+              price: item.price,
+              item_brand: item.brand || 'Aura Lux',
+              item_category: 'Jersey',
+              quantity: item.quantity,
+              item_size: item.size,
+              index: idx
+            }))
+          }
+        });
+        console.log(`[GTM Tracker] GTM purchase event pushed for: ${newOrderId}`);
+      }
+
       // Set success screen state
       setOrderSuccessData(orderPayload);
       
@@ -833,6 +944,7 @@ export default function CustomerStorefront({
       setCustomerAddress('');
       setTransactionId('');
       setPaymentMethod('COD');
+      setIncompleteOrderId(null);
     } catch (err) {
       console.error("Order submission error:", err);
       // Fallback update to local memory state
@@ -841,6 +953,7 @@ export default function CustomerStorefront({
       setCart([]);
       setTransactionId('');
       setPaymentMethod('COD');
+      setIncompleteOrderId(null);
     } finally {
       setIsOrdering(false);
     }

@@ -35,7 +35,7 @@ export interface OrderItem {
   price: number;
 }
 
-export type OrderStatus = 'New Order' | 'Confirmed' | 'Processing' | 'Ready to Ship' | 'Shipped' | 'Delivered' | 'Returned' | 'Cancelled' | 'Payment Pending (will pay)' | 'Keep Hold' | 'Do Canceled' | 'Pre-Confirmed';
+export type OrderStatus = 'New Order' | 'Confirmed' | 'Processing' | 'Ready to Ship' | 'Shipped' | 'Delivered' | 'Returned' | 'Cancelled' | 'Payment Pending (will pay)' | 'Keep Hold' | 'Do Canceled' | 'Pre-Confirmed' | 'Incomplete';
 
 export interface OrderTimeline {
   status: OrderStatus;
@@ -152,6 +152,7 @@ export interface CourierSetting {
 
 export interface TrackingSettings {
   gtmContainerId: string;
+  gtmServerUrl: string;
   metaPixelId: string;
   metaAccessToken: string;
   metaTestEventCode: string;

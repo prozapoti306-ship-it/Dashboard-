@@ -292,6 +292,7 @@ export default function App() {
 
   const DEFAULT_TRACKING_SETTINGS: TrackingSettings = {
     gtmContainerId: '',
+    gtmServerUrl: '',
     metaPixelId: '',
     metaAccessToken: '',
     metaTestEventCode: '',
@@ -372,6 +373,52 @@ export default function App() {
       console.warn("localStorage cache write failed for settings");
     }
   }, [settings]);
+
+  // Google Tag Manager (GTM) Dynamic Script Injection & Cleanup (Supports Server-Side Tracking)
+  useEffect(() => {
+    const existingScript = document.getElementById('gtm-script-tag');
+    if (existingScript) {
+      existingScript.remove();
+    }
+    
+    if (trackingSettings?.gtmContainerId) {
+      const containerId = trackingSettings.gtmContainerId.trim();
+      if (!containerId) return;
+
+      let gtmDomain = 'https://www.googletagmanager.com';
+      if (trackingSettings.gtmServerUrl) {
+        let serverUrl = trackingSettings.gtmServerUrl.trim();
+        if (serverUrl) {
+          if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+            serverUrl = 'https://' + serverUrl;
+          }
+          if (serverUrl.endsWith('/')) {
+            serverUrl = serverUrl.slice(0, -1);
+          }
+          gtmDomain = serverUrl;
+        }
+      }
+
+      (window as any).dataLayer = (window as any).dataLayer || [];
+      (window as any).dataLayer.push({
+        'gtm.start': new Date().getTime(),
+        event: 'gtm.js'
+      });
+
+      const f = document.getElementsByTagName('script')[0];
+      const j = document.createElement('script');
+      j.id = 'gtm-script-tag';
+      j.async = true;
+      j.src = `${gtmDomain}/gtm.js?id=${containerId}`;
+      
+      if (f && f.parentNode) {
+        f.parentNode.insertBefore(j, f);
+      } else {
+        document.head.appendChild(j);
+      }
+      console.log(`[GTM Loader] GTM successfully initialized. Container ID: ${containerId}, Base Source: ${gtmDomain}`);
+    }
+  }, [trackingSettings?.gtmContainerId, trackingSettings?.gtmServerUrl]);
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [activeSettingsTab, setActiveSettingsTab] = useState<string>('grid');
@@ -3262,10 +3309,11 @@ export default function App() {
                                 order.status === 'Processing' ? 'bg-indigo-500/10 text-indigo-500' :
                                 order.status === 'Pending' ? 'bg-amber-500/10 text-amber-500' :
                                 order.status === 'Shipped' ? 'bg-blue-500/10 text-blue-500' :
+                                order.status === 'Incomplete' ? 'bg-rose-500/15 text-rose-400' :
                                 'bg-rose-500/10 text-rose-500'
                               }`}
                             >
-                              {order.status}
+                              {order.status === 'Incomplete' ? 'Incomplete' : order.status}
                             </span>
                           </td>
                         </tr>
@@ -3376,6 +3424,7 @@ export default function App() {
                   {([
                     { id: 'All', label: 'সব অর্ডার (All)', icon: Layers, badge: orders.length },
                     { id: 'New Order', label: 'নিউ অর্ডার (New)', icon: Clock, badge: orders.filter(o => o.status === 'New Order').length },
+                    { id: 'Incomplete', label: 'ইনকমপ্লিট (Incomplete)', icon: AlertCircle, badge: orders.filter(o => o.status === 'Incomplete').length },
                     { id: 'Confirmed', label: 'কনফার্মড (Confirmed)', icon: CheckCircle2, badge: orders.filter(o => o.status === 'Confirmed').length },
                     { id: 'Processing', label: 'প্রসেসিং (Processing)', icon: Activity, badge: orders.filter(o => o.status === 'Processing').length },
                     { id: 'Shipped', label: 'শিপড (Shipped)', icon: ShoppingBag, badge: orders.filter(o => o.status === 'Shipped' || o.status === 'Ready to Ship').length },
@@ -3605,6 +3654,7 @@ export default function App() {
                               ${order.status === 'Delivered' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
                                 order.status === 'Processing' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
                                 order.status === 'New Order' ? 'bg-purple-500/15 text-purple-400 border-purple-500/30' :
+                                order.status === 'Incomplete' ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' :
                                 order.status === 'Confirmed' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
                                 order.status === 'Ready to Ship' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' :
                                 order.status === 'Shipped' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' :
@@ -3617,6 +3667,7 @@ export default function App() {
                                order.status === 'Processing' ? 'Processing' :
                                order.status === 'Shipped' ? 'Shipped' :
                                order.status === 'Delivered' ? 'Delivered' :
+                               order.status === 'Incomplete' ? 'Incomplete (অসম্পূর্ণ)' :
                                order.status === 'Cancelled' ? 'Cancelled' : order.status}
                             </span>
                           </td>
@@ -3649,7 +3700,8 @@ export default function App() {
                                   'Payment Pending (will pay)': 'Confirmed',
                                   'Keep Hold': 'Confirmed',
                                   'Do Canceled': 'New Order',
-                                  'Pre-Confirmed': 'Confirmed'
+                                  'Pre-Confirmed': 'Confirmed',
+                                  'Incomplete': 'New Order'
                                 };
                                 const nextSt = nextStatusMap[order.status] || 'New Order';
                                 updateOrderStatus(order.id, nextSt);
@@ -7485,23 +7537,37 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                     >
                       <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
                         <Layers className="h-4.5 w-4.5 text-blue-500" />
-                        <span>📊 GTM4 Data Layer সেটিংস (Google Tag Manager)</span>
+                        <span>📊 GTM4 Data Layer এবং সার্ভার সাইড ট্র্যাকিং সেটিংস</span>
                       </h3>
                       
                       <div className="space-y-4">
                         <p className="text-[11px] opacity-70 leading-relaxed">
-                          গুগল ট্যাগ ম্যানেজার (GTM) কন্টেইনার আইডি সেট করার মাধ্যমে আপনার ইকমার্স স্টোরটিতে গ্লোবাল স্ট্যান্ডার্ড ডাটা লেয়ার ট্র্যাক করতে পারবেন।
+                          গুগল ট্যাগ ম্যানেজার (GTM) কন্টেইনার আইডি এবং সার্ভার-সাইড ট্র্যাকিং কাস্টম ডোমেন সেট করার মাধ্যমে আপনার ইকমার্স স্টোরটিতে গ্লোবাল স্ট্যান্ডার্ড ডাটা লেয়ার ট্র্যাক করতে পারবেন।
                         </p>
                         
-                        <div>
-                          <label className="block text-[10px] font-bold opacity-75 mb-1.5">GTM Container ID (e.g. GTM-XXXXXXX)</label>
-                          <input 
-                            type="text"
-                            placeholder="GTM-XXXXXXX"
-                            value={trackingSettings.gtmContainerId}
-                            onChange={(e) => setTrackingSettings(prev => ({ ...prev, gtmContainerId: e.target.value }))}
-                            className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent border-inherit font-bold"
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">GTM Container ID (e.g. GTM-XXXXXXX)</label>
+                            <input 
+                              type="text"
+                              placeholder="GTM-XXXXXXX"
+                              value={trackingSettings.gtmContainerId}
+                              onChange={(e) => setTrackingSettings(prev => ({ ...prev, gtmContainerId: e.target.value }))}
+                              className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent border-inherit font-bold"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">GTM Server Container URL (সার্ভার সাইড ট্র্যাকিং অ্যাড্রেস)</label>
+                            <input 
+                              type="text"
+                              placeholder="https://sgtm.yourdomain.com"
+                              value={trackingSettings.gtmServerUrl || ''}
+                              onChange={(e) => setTrackingSettings(prev => ({ ...prev, gtmServerUrl: e.target.value }))}
+                              className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 bg-transparent border-inherit font-bold"
+                            />
+                            <span className="text-[9px] text-gray-400 mt-1 block">সার্ভার সাইড ট্র্যাকিংয়ের জন্য আপনার কাস্টম সাবডোমেন ইউআরএল দিন। ফাঁকা রাখলে ডিফল্ট গুগল সার্ভার ব্যবহৃত হবে।</span>
+                          </div>
                         </div>
 
                         <div className="pt-3 border-t border-inherit">
@@ -7515,13 +7581,13 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                               if (success) {
                                 const newNotif = {
                                   id: `notif-${Date.now()}`,
-                                  title: `GTM Container ID সংরক্ষিত হয়েছে`,
-                                  message: `গুগল ট্যাগ ম্যানেজার আইডি "${trackingSettings.gtmContainerId}" সফলভাবে সুপাবেজে আপসার্ট হয়েছে।`,
+                                  title: `GTM ও সার্ভার সাইড সেটিংস সংরক্ষিত হয়েছে`,
+                                  message: `গুগল ট্যাগ ম্যানেজার আইডি "${trackingSettings.gtmContainerId}" এবং সার্ভার URL সফলভাবে সুপাবেজে আপসার্ট হয়েছে।`,
                                   timestamp: new Date().toISOString(),
                                   read: false
                                 };
                                 setNotifications(prev => [newNotif, ...prev]);
-                                alert('GTM Container ID সফলভাবে সংরক্ষিত হয়েছে!');
+                                alert('GTM এবং সার্ভার সাইড সেটিংস সফলভাবে সংরক্ষিত হয়েছে!');
                               } else {
                                 alert('সংরক্ষণ করতে সমস্যা হয়েছে!');
                               }
@@ -7529,7 +7595,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                             className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md"
                           >
                             <Save className="h-3.5 w-3.5" />
-                            <span>{isSavingTracking ? 'সংরক্ষণ হচ্ছে...' : 'সেটিংস সংরক্ষণ করুন (Save GTM)'}</span>
+                            <span>{isSavingTracking ? 'সংরক্ষণ হচ্ছে...' : 'সেটিংস সংরক্ষণ করুন (Save GTM & Server Tracking)'}</span>
                           </button>
                         </div>
                       </div>
@@ -8982,6 +9048,16 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
             {/* Modal body */}
             <div className="flex-1 p-6 space-y-6 bg-[#161210] print:bg-white print:p-0">
               
+              {selectedOrder.status === 'Incomplete' && (
+                <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 text-center print:hidden">
+                  <AlertCircle className="h-5 w-5 text-rose-500 mx-auto mb-2 animate-bounce" />
+                  <span className="font-extrabold text-rose-400 block mb-1">অসম্পূর্ণ চেকআউট (Incomplete / Abandoned Checkout)</span>
+                  <p className="text-[11px] opacity-75">
+                    গ্রাহক এই চেকআউটটি সম্পন্ন করেননি। আপনি এই গ্রাহকের সাথে সরাসরি যোগাযোগ করতে ডানদিকের কন্ট্রোল প্যানেল ব্যবহার করতে পারেন।
+                  </p>
+                </div>
+              )}
+              
               {/* Thermal Label Sticker Content */}
               <div 
                 id="thermal-label-sticker" 
@@ -9071,6 +9147,64 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
 
               {/* Controls and Interactive Panels (Hidden on Print) */}
               <div className="max-w-[100mm] mx-auto space-y-4 print:hidden">
+                {/* Incomplete order recovery module */}
+                {selectedOrder.status === 'Incomplete' && (
+                  <div className="p-4 rounded-2xl border border-red-500/30 bg-red-500/[0.04] text-[#f6f3ed] space-y-3 shadow-md">
+                    <span className="text-red-400 font-extrabold text-[11px] uppercase tracking-wider flex items-center space-x-1">
+                      <AlertCircle className="h-4 w-4 text-red-500 animate-pulse" />
+                      <span>অসম্পূর্ণ চেকআউট পুনরুদ্ধার (Recovery)</span>
+                    </span>
+                    <p className="text-[10px] opacity-75 leading-relaxed">
+                      গ্রাহক ফর্মটি পূরণ করা শুরু করেছিলেন কিন্তু কোনো কারণে অর্ডার সম্পন্ন করেননি। নিচে থেকে সরাসরি তার সাথে যোগাযোগ করে অথবা অর্ডারটি কনফার্ম করে পুনরুদ্ধার করুন।
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <a
+                        href={`tel:${selectedOrder.customerPhone}`}
+                        className="p-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-[10px] font-bold text-center flex items-center justify-center space-x-1 transition-all"
+                      >
+                        <span>📞 সরাসরি কল দিন</span>
+                      </a>
+                      {(() => {
+                        const cleanPhone = selectedOrder.customerPhone.replace(/[^0-9]/g, '');
+                        const formattedPhone = cleanPhone.startsWith('01') ? '88' + cleanPhone : cleanPhone;
+                        const itemsStr = selectedOrder.items.map(i => i.productName).join(', ');
+                        const msg = `প্রিয় ${selectedOrder.customerName},\n\nআমরা লক্ষ্য করেছি যে আপনি আমাদের ওয়েবসাইট থেকে ${itemsStr} নিতে চেয়েছিলেন, কিন্তু অর্ডারটি সম্পন্ন করতে পারেননি। 🌸\n\nঅর্ডারটি কনফার্ম করতে অথবা কোনো সাহায্য লাগলে আমাদের জানান। আমরা আপনার অর্ডার সম্পন্ন করতে সাহায্য করতে প্রস্তুত!\n\nধন্যবাদ,\n${settings.brandName || "Trand Zone"}`;
+                        const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`;
+                        return (
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold text-center flex items-center justify-center space-x-1 transition-all"
+                          >
+                            <span>💬 WhatsApp রি-টারগেট</span>
+                          </a>
+                        );
+                      })()}
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        await updateOrderStatus(selectedOrder.id, 'New Order');
+                        const updatedTimeline = [
+                          {
+                            status: 'New Order' as OrderStatus,
+                            timestamp: new Date().toISOString().replace('T', ' ').substring(0,16),
+                            note: 'অসম্পূর্ণ চেকআউট সফলভাবে পুনরুদ্ধার করা হয়েছে এবং নতুন অর্ডারে রূপান্তরিত হয়েছে।'
+                          },
+                          ...selectedOrder.timeline
+                        ];
+                        setSelectedOrder(prev => prev ? { ...prev, status: 'New Order', timeline: updatedTimeline } : null);
+                        alert('অর্ডারটি সফলভাবে পুনরুদ্ধার করে "নিউ অর্ডার" হিসেবে স্থানান্তর করা হয়েছে!');
+                      }}
+                      className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-md flex items-center justify-center space-x-1.5 cursor-pointer"
+                    >
+                      <span>✨ অর্ডার রিকভার করুন (Mark as New Order)</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Status change panel */}
                 <div className="p-4 rounded-2xl border border-[#322822] bg-[#1a1614] text-[#f6f3ed] space-y-2 shadow-md">
                   <span className="opacity-60 block text-[10px] uppercase font-bold">স্ট্যাটাস পরিবর্তন করুন:</span>

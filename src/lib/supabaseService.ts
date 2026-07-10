@@ -1254,6 +1254,7 @@ export const supabaseService = {
   async getTrackingSettings(): Promise<TrackingSettings> {
     const defaultVal: TrackingSettings = {
       gtmContainerId: '',
+      gtmServerUrl: '',
       metaPixelId: '',
       metaAccessToken: '',
       metaTestEventCode: '',
@@ -1271,6 +1272,7 @@ export const supabaseService = {
           const parsed = JSON.parse(data.tagline);
           return {
             gtmContainerId: parsed.gtmContainerId || '',
+            gtmServerUrl: parsed.gtmServerUrl || '',
             metaPixelId: parsed.metaPixelId || '',
             metaAccessToken: parsed.metaAccessToken || '',
             metaTestEventCode: parsed.metaTestEventCode || '',
