@@ -16,6 +16,7 @@ import {
   Minus, 
   X, 
   ChevronRight, 
+  ChevronLeft, 
   Info, 
   Truck, 
   ShieldCheck, 
@@ -39,7 +40,7 @@ import {
   Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Product, Order, Notification, Customer, CustomerActivity, CustomerSegment, SystemSettings } from '../types';
+import { Product, Order, Notification, Customer, CustomerActivity, CustomerSegment, SystemSettings, Banner } from '../types';
 import { formatCurrency } from '../App';
 import { supabase, mapProductFromDb } from '../lib/supabaseService';
 
@@ -56,6 +57,11 @@ interface CustomerStorefrontProps {
   categoriesList?: string[];
   collectionsList?: string[];
   brandsList?: string[];
+  banners?: Banner[];
+  publishedTheme?: 'classic' | 'dynamic' | 'smart';
+  homepageSections?: any[];
+  smartTheme?: any;
+  dynamicSections?: any[];
 }
 
 // Helper to scale up Unsplash images for a pure 4K/8K ultra-definition zoom look on hover!
@@ -144,9 +150,258 @@ export default function CustomerStorefront({
   loading,
   categoriesList,
   collectionsList,
-  brandsList
+  brandsList,
+  banners,
+  publishedTheme,
+  homepageSections,
+  smartTheme,
+  dynamicSections
 }: CustomerStorefrontProps) {
   const [localProducts, setLocalProducts] = useState<Product[]>(products);
+
+  const activeLayoutTheme = useMemo(() => {
+    if (smartTheme?.isPreview) {
+      return 'smart';
+    }
+    return publishedTheme || 'classic';
+  }, [publishedTheme, smartTheme]);
+
+  const sectionsToRender = useMemo(() => {
+    if (activeLayoutTheme === 'dynamic' && dynamicSections && dynamicSections.length > 0) {
+      const heroIdx = dynamicSections.findIndex(s => s.id === 'hero');
+      const productsIdx = dynamicSections.findIndex(s => ['featured_products', 'categories', 'flash_sale', 'collections'].includes(s.id));
+      const aboutIdx = dynamicSections.findIndex(s => ['testimonials', 'newsletter', 'brand_logos', 'footer'].includes(s.id));
+
+      const heroVis = heroIdx !== -1 ? dynamicSections[heroIdx].visible : true;
+      const productsVis = productsIdx !== -1 ? dynamicSections[productsIdx].visible : true;
+      const aboutVis = aboutIdx !== -1 ? dynamicSections[aboutIdx].visible : true;
+
+      const items = [
+        { id: 'hero', index: heroIdx !== -1 ? heroIdx : 0, visible: heroVis },
+        { id: 'products', index: productsIdx !== -1 ? productsIdx : 1, visible: productsVis },
+        { id: 'about', index: aboutIdx !== -1 ? aboutIdx : 2, visible: aboutVis }
+      ];
+
+      items.sort((a, b) => a.index - b.index);
+
+      return items.map(item => ({ id: item.id, visible: item.visible }));
+    }
+
+    if (activeLayoutTheme === 'dynamic' && homepageSections) {
+      return homepageSections;
+    }
+    // Default/Classic order
+    return [
+      { id: 'hero', visible: true },
+      { id: 'products', visible: true },
+      { id: 'about', visible: true }
+    ];
+  }, [activeLayoutTheme, homepageSections, dynamicSections]);
+
+  const animationType = useMemo(() => {
+    return activeLayoutTheme === 'smart' && smartTheme?.animation ? smartTheme.animation : 'fade';
+  }, [activeLayoutTheme, smartTheme]);
+
+  const motionProps = useMemo(() => {
+    if (animationType === 'slide') {
+      return {
+        initial: { opacity: 0, x: 50 },
+        animate: { opacity: 1, x: 0 },
+        exit: { opacity: 0, x: -50 },
+        transition: { duration: 0.5 }
+      };
+    }
+    if (animationType === 'zoom') {
+      return {
+        initial: { opacity: 0, scale: 0.92 },
+        animate: { opacity: 1, scale: 1 },
+        exit: { opacity: 0, scale: 1.08 },
+        transition: { duration: 0.5 }
+      };
+    }
+    // Default is fade
+    return {
+      initial: { opacity: 0, y: 15 },
+      animate: { opacity: 1, y: 0 },
+      exit: { opacity: 0, y: -15 },
+      transition: { duration: 0.4 }
+    };
+  }, [animationType]);
+
+  const sectionStyles = useMemo(() => {
+    const heroIndex = sectionsToRender.findIndex(s => s.id === 'hero');
+    const productsIndex = sectionsToRender.findIndex(s => s.id === 'products');
+    const aboutIndex = sectionsToRender.findIndex(s => s.id === 'about');
+
+    const heroSec = sectionsToRender.find(s => s.id === 'hero');
+    const productsSec = sectionsToRender.find(s => s.id === 'products');
+    const aboutSec = sectionsToRender.find(s => s.id === 'about');
+
+    return {
+      hero: {
+        order: heroIndex !== -1 ? heroIndex : 0,
+        display: (heroSec?.visible !== false) ? 'block' : 'none'
+      },
+      products: {
+        order: productsIndex !== -1 ? productsIndex : 1,
+        display: (productsSec?.visible !== false) ? 'block' : 'none'
+      },
+      about: {
+        order: aboutIndex !== -1 ? aboutIndex : 2,
+        display: (aboutSec?.visible !== false) ? 'block' : 'none'
+      }
+    };
+  }, [sectionsToRender]);
+
+  // Merge default premium jerseys with sports/apparel products created from Dashboard to show everything
+  const allStoreProducts = useMemo(() => {
+    // Convert current products to storefront schema format
+    const formattedDashboardProducts = localProducts
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        price: p.price,
+        originalPrice: p.originalPrice || p.price,
+        stock: p.stock,
+        category: p.category || 'Apparel',
+        rating: p.rating || 4.5,
+        image: p.image || "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=400",
+        sizes: p.sizes && p.sizes.length > 0 ? p.sizes : ["S", "M", "L", "XL"],
+        colors: p.colors || [],
+        fabric: p.fabric || 'Premium Mesh',
+        sku: p.sku || p.id,
+        isBestSeller: p.isBestSeller || false,
+        isNewArrival: p.isNewArrival || false,
+        brand: p.brand || 'Aura Lux',
+        season: p.season || '',
+        videoUrl: p.videoUrl || ''
+      }));
+
+    // The storefront catalog is now 100% driven from the dashboard/database products,
+    // which initially includes all original premium items and the 11 jerseys/combos.
+    return formattedDashboardProducts;
+  }, [localProducts]);
+
+  // Find baby category banner specifically to use in slide 4
+  const babyBannerUrl = useMemo(() => {
+    const prodWithBanner = allStoreProducts.find(
+      p => p.category === 'Baby Category' && p.season && (p.season.startsWith('http://') || p.season.startsWith('https://') || p.season.startsWith('/') || p.season.startsWith('data:'))
+    );
+    return prodWithBanner ? prodWithBanner.season : null;
+  }, [allStoreProducts]);
+
+  const resolvedBanners = useMemo(() => {
+    const isSmartMode = publishedTheme === 'smart' || smartTheme?.isPreview;
+    if (isSmartMode) {
+      try {
+        const cachedSmart = localStorage.getItem('aura_smart_banners');
+        if (cachedSmart) {
+          const parsed = JSON.parse(cachedSmart);
+          const smartList = parsed.filter((b: any) => b.status === 'Published' || b.status === 'Scheduled' || b.status === 'Active' || !b.status);
+          if (smartList.length > 0) {
+            return smartList.map((b: any, index: number) => ({
+              id: b.id || `sb_${index}`,
+              title: b.title,
+              subtitle: b.subtitle,
+              description: b.description || '',
+              desktopImageUrl: b.desktopImageUrl || b.imageUrl || "https://images.unsplash.com/photo-1540747737956-378721767518?auto=format&fit=crop&q=80&w=1200",
+              mobileImageUrl: b.mobileImageUrl || b.desktopImageUrl || b.imageUrl || "https://images.unsplash.com/photo-1540747737956-378721767518?auto=format&fit=crop&q=80&w=600",
+              button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
+              button1Link: "#products",
+              button2Text: "সব জার্সি দেখুন",
+              button2Link: "#products",
+              overlayColor: "rgba(0,0,0,0.55)",
+              textPosition: "left" as const,
+              badge: b.badge || "AI RECOMMENDED",
+              isActive: true,
+              order: index + 1
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn("Error parsing cached smart banners in storefront:", e);
+      }
+    }
+
+    const list = banners || (() => {
+      try {
+        const cached = localStorage.getItem('aura_premium_banners');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+      return [];
+    })();
+    const activeList = list.filter((b: any) => b.isActive).sort((a: any, b: any) => (Number(a.order) || 0) - (Number(b.order) || 0));
+    if (activeList.length === 0) {
+      return [
+        {
+          id: "JERSEY-001",
+          desktopImageUrl: "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200",
+          mobileImageUrl: "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=600",
+          title: "খেলার মাঠের শ্রেষ্ঠত্ব",
+          subtitle: "Bangladesh Premium Cricket Jersey 2026",
+          description: "জাতীয় দলের অফিশিয়াল ক্রিকেট জার্সি ২০২৬। চমৎকার সাব্লিমেশন প্রিন্ট এবং প্রিমিয়াম ডাবল-মেস আরামদায়ক অ্যাথলেটিক ফিট। ঘাম শোষণ ক্ষমতা সম্পন্ন এবং খেলা বা পরার জন্য অত্যন্ত উপযোগী।",
+          button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
+          button1Link: "JERSEY-001",
+          button2Text: "সব জার্সি দেখুন",
+          button2Link: "#products",
+          overlayColor: "rgba(0,0,0,0.4)",
+          textPosition: "left" as const,
+          isActive: true,
+          order: 1
+        },
+        {
+          id: "JERSEY-002",
+          desktopImageUrl: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=1200",
+          mobileImageUrl: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=600",
+          title: "কিংবদন্তির রেট্রো ম্যাজিক",
+          subtitle: "Argentina Retro Edition '86",
+          description: "কিংবদন্তি ম্যারাডোনার ১৯৮৬ বিশ্বকাপের স্মারক জার্সি। চমৎকার ফেব্রিক কোয়ালিটি, এমব্রয়ডারি করা লোগো এবং ঐতিহ্যবাহী আকাশী-সাদা স্ট্রাইপ ডিজাইন।",
+          button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
+          button1Link: "JERSEY-002",
+          button2Text: "সব জার্সি দেখুন",
+          button2Link: "#products",
+          overlayColor: "rgba(0,0,0,0.5)",
+          textPosition: "center" as const,
+          isActive: true,
+          order: 2
+        },
+        {
+          id: "JERSEY-003",
+          desktopImageUrl: "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=1200",
+          mobileImageUrl: "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=600",
+          title: "ম্যাট ব্ল্যাক স্টেলথ লুক",
+          subtitle: "Real Madrid Stealth Edition",
+          description: "রিয়াল মাদ্রিদের অল-ব্ল্যাক স্পেশাল লিমিটেড এডিশন কিট। ম্যাট ব্ল্যাক এমবস করা লোগো, গোলেন কার্বন ফাইবার প্যাটার্ন অ্যাকসেন্ট এবং সম্পূর্ণ ঘাম নিরোধক অ্যাক্টিভ-কুল প্রযুক্তি।",
+          button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
+          button1Link: "JERSEY-003",
+          button2Text: "সব জার্সি দেখুন",
+          button2Link: "#products",
+          overlayColor: "rgba(0,0,0,0.6)",
+          textPosition: "right" as const,
+          isActive: true,
+          order: 3
+        },
+        {
+          id: "KIDS-COMBO-04",
+          desktopImageUrl: babyBannerUrl || "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=1200",
+          mobileImageUrl: babyBannerUrl || "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=600",
+          title: "শিশুদের রঙিন ও আরামদায়ক কালেকশন!",
+          subtitle: "Kids & Baby Summer Special Cotton Combo",
+          description: "১০০% প্রিমিয়াম সুতি কাপড়ে তৈরি আমাদের বেবি ট্যাংক টপ কম্বো সেটগুলো অত্যন্ত সফট এবং গরমে শিশুদের আরামের কথা চিন্তা করে ডিজাইন করা। ৭টি সাইজ ভ্যারিয়েশন (১ থেকে ১৪ বছর) নিয়ে ৪ পিসের দুর্দান্ত সেট মাত্র ৬৯০ টাকায়!",
+          button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
+          button1Link: "KIDS-COMBO-04",
+          button2Text: "সব জার্সি দেখুন",
+          button2Link: "#products",
+          overlayColor: "rgba(0,0,0,0.4)",
+          textPosition: "left" as const,
+          isActive: true,
+          order: 4
+        }
+      ];
+    }
+    return activeList;
+  }, [banners, babyBannerUrl, publishedTheme, smartTheme]);
 
   React.useEffect(() => {
     setLocalProducts(products);
@@ -304,13 +559,17 @@ export default function CustomerStorefront({
     }
   };
 
-  // Auto-sliding Banner rotation every 3 seconds
+  // Auto-sliding Banner rotation with dynamic speed
   React.useEffect(() => {
+    if (resolvedBanners.length <= 1) return;
+    const isSmartMode = smartTheme?.isPreview || publishedTheme === 'smart';
+    const duration = isSmartMode && smartTheme?.slideDuration ? smartTheme.slideDuration * 1000 : 3000;
+    
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % 3);
-    }, 3000);
+      setCurrentSlide((prev) => (prev + 1) % resolvedBanners.length);
+    }, duration);
     return () => clearInterval(timer);
-  }, []);
+  }, [resolvedBanners.length, publishedTheme, smartTheme]);
 
   // Checkout Form State
   const [customerName, setCustomerName] = useState('');
@@ -478,35 +737,7 @@ export default function CustomerStorefront({
     }
   }, [viewingProduct, showCart, showTracking, showAuthModal, showWishlistModal, showSuggestions]);
 
-  // Merge default premium jerseys with sports/apparel products created from Dashboard to show everything
-  const allStoreProducts = useMemo(() => {
-    // Convert current products to storefront schema format
-    const formattedDashboardProducts = localProducts
-      .map(p => ({
-        id: p.id,
-        name: p.name,
-        description: p.description || '',
-        price: p.price,
-        originalPrice: p.originalPrice || p.price,
-        stock: p.stock,
-        category: p.category || 'Apparel',
-        rating: p.rating || 4.5,
-        image: p.image || "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=400",
-        sizes: p.sizes && p.sizes.length > 0 ? p.sizes : ["S", "M", "L", "XL"],
-        colors: p.colors || [],
-        fabric: p.fabric || 'Premium Mesh',
-        sku: p.sku || p.id,
-        isBestSeller: p.isBestSeller || false,
-        isNewArrival: p.isNewArrival || false,
-        brand: p.brand || 'Aura Lux',
-        season: p.season || '',
-        videoUrl: p.videoUrl || ''
-      }));
-
-    // The storefront catalog is now 100% driven from the dashboard/database products,
-    // which initially includes all original premium items and the 11 jerseys/combos.
-    return formattedDashboardProducts;
-  }, [localProducts]);
+  // Placeholder for moved allStoreProducts
 
   // Category pre-fetching and asset preloading on mouse hover (Requirement 3)
   const handleCategoryMouseEnter = (cat: string) => {
@@ -549,13 +780,7 @@ export default function CustomerStorefront({
     return prodWithBanner ? prodWithBanner.season : null;
   }, [allStoreProducts, selectedCategory]);
 
-  // Find baby category banner specifically to use in slide 4
-  const babyBannerUrl = useMemo(() => {
-    const prodWithBanner = allStoreProducts.find(
-      p => p.category === 'Baby Category' && p.season && (p.season.startsWith('http://') || p.season.startsWith('https://') || p.season.startsWith('/') || p.season.startsWith('data:'))
-    );
-    return prodWithBanner ? prodWithBanner.season : null;
-  }, [allStoreProducts]);
+  // Placeholder for moved babyBannerUrl
 
   // Filter products by selectedCategory AND search query
   const filteredProducts = useMemo(() => {
@@ -1340,51 +1565,36 @@ export default function CustomerStorefront({
         </header>
       </div>
 
-      {/* Immersive Sports Apparel Hero (2026 Auto-sliding Premium Banner) */}
-      <section className="relative overflow-hidden pt-6 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto z-10">
+      <div className="flex flex-col">
+        {/* Immersive Sports Apparel Hero (2026 Auto-sliding Premium Banner) */}
+        <section className="relative overflow-hidden pt-6 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto z-10" style={sectionStyles.hero}>
         {(() => {
-          const HERO_SLIDES = [
-            {
-              id: "JERSEY-001",
-              title: "খেলার মাঠের শ্রেষ্ঠত্ব",
-              subtitle: "Bangladesh Premium Cricket Jersey 2026",
-              image: "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200",
-              badge: "Limited Edition - Buy Now",
-              accentText: "বাংলাদেশ প্রিমিয়াম ক্রিকেট জার্সি ২০২৬",
-              description: "জাতীয় দলের অফিশিয়াল ক্রিকেট জার্সি ২০২৬। চমৎকার সাব্লিমেশন প্রিন্ট এবং প্রিমিয়াম ডাবল-মেস আরামদায়ক অ্যাথলেটিক ফিট। ঘাম শোষণ ক্ষমতা সম্পন্ন এবং খেলা বা পরার জন্য অত্যন্ত উপযোগী।"
-            },
-            {
-              id: "JERSEY-002",
-              title: "কিংবদন্তির রেট্রো ম্যাজিক",
-              subtitle: "Argentina Retro Edition '86",
-              image: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=1200",
-              badge: "Exclusive Drop - 2026 Collection",
-              accentText: "আর্জেন্টিনা রেট্রো এডিশন ১৯৮৬",
-              description: "কিংবদন্তি ম্যারাডোনার ১৯৮৬ বিশ্বকাপের স্মারক জার্সি। চমৎকার ফেব্রিক কোয়ালিটি, এমব্রয়ডারি করা লোগো এবং ঐতিহ্যবাহী আকাশী-সাদা স্ট্রাইপ ডিজাইন।"
-            },
-            {
-              id: "JERSEY-003",
-              title: "ম্যাট ব্ল্যাক স্টেলথ লুক",
-              subtitle: "Real Madrid Stealth Edition",
-              image: "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=1200",
-              badge: "Hot Seller - Trending Now",
-              accentText: "রিয়াল মাদ্রিদ স্টেলথ ব্ল্যাক এডিশন",
-              description: "রিয়াল মাদ্রিদের অল-ব্ল্যাক স্পেশাল লিমিটেড এডিশন কিট। ম্যাট ব্ল্যাক এমবস করা লোগো, গোল্ডেন কার্বন ফাইবার প্যাটার্ন অ্যাকসেন্ট এবং সম্পূর্ণ ঘাম নিরোধক অ্যাক্টিভ-কুল প্রযুক্তি।"
-            },
-            {
-              id: "KIDS-COMBO-04",
-              title: "শিশুদের রঙিন ও আরামদায়ক কালেকশন!",
-              subtitle: "Kids & Baby Summer Special Cotton Combo",
-              image: babyBannerUrl || "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=1200",
-              badge: "NEW COMODITY - 100% COTTON",
-              accentText: "কিউট কার্টুন, স্পেস ও ব্র্যান্ড থিম স্লিভলেস ট্যাংক টপ কম্বো সেট",
-              description: "১০০% প্রিমিয়াম সুতি কাপড়ে তৈরি আমাদের বেবি ট্যাংক টপ কম্বো সেটগুলো অত্যন্ত সফট এবং গরমে শিশুদের আরামের কথা চিন্তা করে ডিজাইন করা। ৭টি সাইজ ভ্যারিয়েশন (১ থেকে ১৪ বছর) নিয়ে ৪ পিসের দুর্দান্ত সেট মাত্র ৬৯০ টাকায়!"
-            }
-          ];
+          const HERO_SLIDES = resolvedBanners.map((b: any) => ({
+            id: b.id,
+            title: b.title,
+            subtitle: b.subtitle,
+            desktopImageUrl: b.desktopImageUrl,
+            mobileImageUrl: b.mobileImageUrl,
+            image: b.desktopImageUrl,
+            badge: "PREMIUM OFFER",
+            accentText: b.subtitle,
+            description: b.description,
+            button1Text: b.button1Text,
+            button1Link: b.button1Link,
+            button2Text: b.button2Text,
+            button2Link: b.button2Link,
+            overlayColor: b.overlayColor,
+            textPosition: b.textPosition || 'left'
+          }));
 
-          const activeSlide = HERO_SLIDES[currentSlide];
+          const activeSlide = HERO_SLIDES[currentSlide] || HERO_SLIDES[0];
 
           const handleHeroCta = (productId: string) => {
+            if (productId && productId.startsWith('#')) {
+              const el = document.getElementById(productId.substring(1));
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              return;
+            }
             const found = allStoreProducts.find(p => p.id === productId);
             if (found) {
               handleAddToCart(found, undefined, true);
@@ -1394,9 +1604,17 @@ export default function CustomerStorefront({
             }
           };
 
+          if (!activeSlide) return null;
+
           return (
             <div className="relative rounded-[2.5rem] border border-[#eae5de] dark:border-[#28211c] overflow-hidden bg-neutral-100 dark:bg-[#181412]/80 shadow-2xl min-h-[460px] md:min-h-[520px] flex flex-col justify-between">
               
+              {/* Overlay Color layer */}
+              <div 
+                className="absolute inset-0 z-[1] pointer-events-none transition-all duration-500" 
+                style={{ backgroundColor: activeSlide.overlayColor || 'rgba(0,0,0,0.15)' }}
+              />
+
               {/* Backgound Image Slider Layer with Cross-fade and subtle scale zoom */}
               <AnimatePresence mode="wait">
                 <motion.div
@@ -1407,32 +1625,36 @@ export default function CustomerStorefront({
                   transition={{ duration: 0.8 }}
                   className="absolute inset-0 w-full h-full pointer-events-none select-none z-0"
                 >
-                  <img
-                    src={activeSlide.image}
-                    alt=""
-                    className="w-full h-full object-cover filter blur-[2px]"
-                    referrerPolicy="no-referrer"
-                  />
+                  <picture className="w-full h-full">
+                    <source media="(max-width: 640px)" srcSet={activeSlide.mobileImageUrl || activeSlide.desktopImageUrl} />
+                    <img
+                      src={activeSlide.desktopImageUrl}
+                      alt=""
+                      className="w-full h-full object-cover filter blur-[2px]"
+                      referrerPolicy="no-referrer"
+                    />
+                  </picture>
                 </motion.div>
               </AnimatePresence>
 
               {/* Content Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center p-6 sm:p-10 lg:p-14 relative z-10 w-full">
                 
-                {/* Dynamic animated text details on left */}
-                <div className="lg:col-span-7 space-y-5 text-left">
+                {/* Dynamic animated text details */}
+                <div className={`lg:col-span-7 space-y-5 ${
+                  activeSlide.textPosition === 'center' ? 'lg:col-span-12 text-center flex flex-col items-center justify-center' :
+                  activeSlide.textPosition === 'right' ? 'lg:col-span-7 lg:col-start-6 text-right flex flex-col items-end justify-end' :
+                  'lg:col-span-7 text-left'
+                }`}>
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={currentSlide}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -15 }}
-                      transition={{ duration: 0.4 }}
+                      {...motionProps}
                       className="space-y-4"
                     >
                       <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-widest font-mono">
                         <Sparkles className="h-3.5 w-3.5 animate-pulse text-teal-500" />
-                        <span>{activeSlide.badge}</span>
+                        <span>{activeLayoutTheme === 'smart' && smartTheme?.bannerBadge ? smartTheme.bannerBadge : activeSlide.badge}</span>
                       </div>
                       
                       <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] font-sans">
@@ -1451,24 +1673,24 @@ export default function CustomerStorefront({
                   </AnimatePresence>
 
                   {/* Micro features built into slider */}
-                  <div className="hidden sm:grid grid-cols-3 gap-3 pt-2 max-w-lg">
+                  <div className={`hidden sm:grid grid-cols-3 gap-3 pt-2 max-w-lg w-full ${activeSlide.textPosition === 'center' ? 'mx-auto' : activeSlide.textPosition === 'right' ? 'ml-auto mr-0' : 'mr-auto ml-0'}`}>
                     <div className="p-2.5 rounded-xl border border-inherit bg-neutral-100/40 dark:bg-white/2 flex items-center space-x-2">
                       <Activity className="h-4 w-4 text-teal-500 shrink-0" />
-                      <div>
+                      <div className="text-left">
                         <span className="block text-[10px] font-extrabold leading-tight">ড্রাই-ফিট প্রযুক্তি</span>
                         <span className="text-[8px] opacity-60">দ্রুত ঘাম শোষণ</span>
                       </div>
                     </div>
                     <div className="p-2.5 rounded-xl border border-inherit bg-neutral-100/40 dark:bg-white/2 flex items-center space-x-2">
                       <Truck className="h-4 w-4 text-teal-500 shrink-0" />
-                      <div>
+                      <div className="text-left">
                         <span className="block text-[10px] font-extrabold leading-tight">ক্যাশ অন ডেলিভারি</span>
                         <span className="text-[8px] opacity-60">সারাদেশে</span>
                       </div>
                     </div>
                     <div className="p-2.5 rounded-xl border border-inherit bg-neutral-100/40 dark:bg-white/2 flex items-center space-x-2">
                       <ShieldCheck className="h-4 w-4 text-teal-500 shrink-0" />
-                      <div>
+                      <div className="text-left">
                         <span className="block text-[10px] font-extrabold leading-tight">প্রিমিয়াম কোয়ালিটি</span>
                         <span className="text-[8px] opacity-60">রিপ্লেসমেন্ট গ্যারান্টি</span>
                       </div>
@@ -1476,47 +1698,64 @@ export default function CustomerStorefront({
                   </div>
 
                   {/* Dual Call To Actions */}
-                  <div className="pt-4 flex items-center space-x-4">
-                    <button 
-                      onClick={() => handleHeroCta(activeSlide.id)}
-                      className="px-6 py-3.5 bg-teal-500 hover:bg-teal-600 text-white font-extrabold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center space-x-2 shadow-lg shadow-teal-500/20 cursor-pointer"
-                    >
-                      <ShoppingBag className="h-4 w-4" />
-                      <span>সরাসরি অর্ডার করুন (Buy Now)</span>
-                    </button>
-                    <a 
-                      href="#products"
-                      className="px-6 py-3.5 rounded-xl border border-inherit hover:bg-neutral-200 dark:hover:bg-white/5 text-xs font-extrabold uppercase tracking-wider transition-all hidden sm:inline-block"
-                    >
-                      সব জার্সি দেখুন
-                    </a>
+                  <div className={`pt-4 flex items-center space-x-4 w-full ${
+                    activeSlide.textPosition === 'center' ? 'justify-center' :
+                    activeSlide.textPosition === 'right' ? 'justify-end' :
+                    'justify-start'
+                  }`}>
+                    {activeSlide.button1Text && (
+                      <button 
+                        onClick={() => handleHeroCta(activeSlide.button1Link)}
+                        className="px-6 py-3.5 bg-teal-500 hover:bg-teal-600 text-white font-extrabold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center space-x-2 shadow-lg shadow-teal-500/20 cursor-pointer border-none outline-none"
+                      >
+                        <ShoppingBag className="h-4 w-4" />
+                        <span>{activeSlide.button1Text}</span>
+                      </button>
+                    )}
+                    {activeSlide.button2Text && (
+                      <a 
+                        href={activeSlide.button2Link || "#products"}
+                        className="px-6 py-3.5 rounded-xl border border-inherit hover:bg-neutral-200 dark:hover:bg-white/5 text-xs font-extrabold uppercase tracking-wider transition-all inline-block text-center"
+                      >
+                        {activeSlide.button2Text}
+                      </a>
+                    )}
                   </div>
                 </div>
 
-                {/* Right Column Image Banner Container (beautiful floating preview with responsive aspects) */}
-                <div className="lg:col-span-5 relative mt-4 lg:mt-0 flex justify-center">
-                  <div className="absolute inset-0 bg-teal-500/10 rounded-[2.5rem] rotate-2 scale-105 blur-sm" />
-                  
-                  <div className="relative rounded-[2.5rem] border border-inherit overflow-hidden shadow-xl bg-white dark:bg-neutral-900 group w-full max-w-[320px] aspect-square flex items-center justify-center">
-                    <AnimatePresence mode="wait">
-                      <motion.img 
-                        key={currentSlide}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 1.05 }}
-                        transition={{ duration: 0.4 }}
-                        src={activeSlide.image} 
-                        alt="Aura Lux Jersey Product" 
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700"
-                        referrerPolicy="no-referrer"
-                      />
-                    </AnimatePresence>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-6 text-white text-left">
-                      <span className="text-[9px] font-black tracking-widest text-teal-400 uppercase font-mono">Exclusive Drop 2026</span>
-                      <h3 className="text-base font-black tracking-tight">{activeSlide.subtitle}</h3>
+                {/* Right Column Image Banner Container */}
+                {activeSlide.textPosition !== 'center' && (
+                  <div className="lg:col-span-5 relative mt-4 lg:mt-0 flex justify-center">
+                    <div className="absolute inset-0 bg-teal-500/10 rounded-[2.5rem] rotate-2 scale-105 blur-sm" />
+                    
+                    <div className="relative rounded-[2.5rem] border border-inherit overflow-hidden shadow-xl bg-white dark:bg-neutral-900 group w-full max-w-[320px] aspect-square flex items-center justify-center">
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={currentSlide}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 1.05 }}
+                          transition={{ duration: 0.4 }}
+                          className="absolute inset-0 w-full h-full"
+                        >
+                          <picture className="w-full h-full">
+                            <source media="(max-width: 640px)" srcSet={activeSlide.mobileImageUrl || activeSlide.desktopImageUrl} />
+                            <img 
+                              src={activeSlide.desktopImageUrl} 
+                              alt="Banner Product" 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          </picture>
+                        </motion.div>
+                      </AnimatePresence>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-6 text-white text-left z-10">
+                        <span className="text-[9px] font-black tracking-widest text-teal-400 uppercase font-mono">Exclusive Drop 2026</span>
+                        <h3 className="text-base font-black tracking-tight">{activeSlide.subtitle}</h3>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
               </div>
 
@@ -1572,8 +1811,36 @@ export default function CustomerStorefront({
       </section>
 
       {/* Main Catalog Section */}
-      <section id="products" className="py-16 border-t border-inherit px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto z-10 relative">
+      <section id="products" className="py-16 border-t border-inherit px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto z-10 relative" style={sectionStyles.products}>
         
+        {/* Smart AI Recommendation Panel: Renders in Smart AI Theme */}
+        {activeLayoutTheme === 'smart' && (
+          <div className="mb-12 bg-gradient-to-r from-amber-500/[0.04] to-orange-500/[0.04] rounded-3xl border-2 border-amber-500/25 p-6 relative overflow-hidden shadow-lg text-left">
+            <div className="absolute top-0 right-0 p-4 font-mono text-[9px] text-amber-500/60 font-bold uppercase tracking-widest flex items-center space-x-1">
+              <span className="h-1.5 w-1.5 bg-amber-500 rounded-full animate-ping" />
+              <span>AI Engine Active (৯৮% ম্যাচিং রেট)</span>
+            </div>
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-2 max-w-xl">
+                <div className="flex items-center space-x-2">
+                  <span className="px-2 py-0.5 bg-amber-500/20 text-amber-500 text-[9px] font-black tracking-wider rounded-md uppercase">Aura AI Personalized Recommendation</span>
+                  <span className="text-xs text-amber-500/80 font-mono">• Personalized for Visitor</span>
+                </div>
+                <h3 className="text-xl font-extrabold tracking-tight text-amber-500">আপনার জন্য বিশেষ এআই রিকমেন্ডেশন!</h3>
+                <p className="text-xs opacity-70 leading-relaxed">
+                  আপনার ব্রাউজিং ও জার্সি পছন্দের ডেটা বিশ্লেষণ করে আমাদের এআই অ্যালগরিদম এই বিশেষ জার্সিগুলো আপনার জন্য টার্গেট করেছে। সাথে থাকছে কাস্টম ডিসকাউন্ট!
+                </p>
+              </div>
+              <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3 flex items-center space-x-3 shrink-0">
+                <div className="text-center font-mono">
+                  <p className="text-xs opacity-60">ডিসকাউন্ট কোড</p>
+                  <p className="text-sm font-black text-amber-400 tracking-wider">AURA-AI-DISCOUNT</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header and filters */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="text-left space-y-2">
@@ -1794,7 +2061,7 @@ export default function CustomerStorefront({
       </section>
 
       {/* Premium Quality / Fabric details section */}
-      <section id="about" className={`py-16 border-t border-inherit ${themeMode === 'dark' ? 'bg-[#15110f]/40' : 'bg-[#faf8f5]'}`}>
+      <section id="about" className={`py-16 border-t border-inherit ${themeMode === 'dark' ? 'bg-[#15110f]/40' : 'bg-[#faf8f5]'}`} style={sectionStyles.about}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-12">
           <div className="max-w-2xl mx-auto space-y-3">
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight">কেন আমাদের জার্সি সেরা?</h2>
@@ -1840,6 +2107,19 @@ export default function CustomerStorefront({
           </div>
         </div>
       </section>
+      </div>
+
+      {/* Floating Preview Mode Notification Bar */}
+      {smartTheme?.isPreview && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-neutral-900/95 dark:bg-[#1e1e2e]/95 text-white px-6 py-3 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.3)] border border-teal-500/40 flex items-center space-x-4 backdrop-blur-md animate-pulse">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+          </span>
+          <p className="text-xs font-bold tracking-wide">👀 Preview Mode (স্মার্ট প্রিভিউ মুড সক্রিয়)</p>
+          <span className="text-[10px] opacity-60 bg-white/10 px-2 py-0.5 rounded-md font-mono">Priority: {smartTheme?.priority || 'Normal'}</span>
+        </div>
+      )}
 
       {/* FOOTER */}
       <footer className="border-t border-inherit pt-12 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-xs text-center space-y-6">

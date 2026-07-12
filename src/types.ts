@@ -163,5 +163,22 @@ export interface TrackingSettings {
   googleAnalyticsId: string;
 }
 
+export interface Banner {
+  id: string;
+  desktopImageUrl: string;
+  mobileImageUrl: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  button1Text: string;
+  button1Link: string;
+  button2Text: string;
+  button2Link: string;
+  overlayColor: string;
+  textPosition: 'left' | 'center' | 'right';
+  isActive: boolean;
+  order: number;
+}
+
 
 

@@ -17,7 +17,8 @@ import {
   OrderItem,
   HomepageSettings,
   CourierSetting,
-  TrackingSettings
+  TrackingSettings,
+  Banner
 } from './types';
 import Sidebar from './components/Sidebar';
 import CustomerStorefront from './components/CustomerStorefront';
@@ -30,6 +31,57 @@ const DEFAULT_HOMEPAGE_SETTINGS: HomepageSettings = {
   hero_description: 'জাতীয় দলের অফিশিয়াল ক্রিকেট জার্সি ২০২৬। চমৎকার সাব্লিমেশন প্রিন্ট এবং প্রিমিয়াম ডাবল-মেস আরামদায়ক অ্যাথলেটিক ফিট। ঘাম শোষণ ক্ষমতা সম্পন্ন এবং খেলা বা পরার জন্য অত্যন্ত উপযোগী।',
   hero_image_url: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200'
 };
+
+const DEFAULT_BANNERS: Banner[] = [
+  {
+    id: 'banner_1',
+    desktopImageUrl: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200',
+    mobileImageUrl: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=600',
+    title: 'খেলার মাঠের শ্রেষ্ঠত্ব',
+    subtitle: 'Bangladesh Premium Cricket Jersey 2026',
+    description: 'জাতীয় দলের অফিশিয়াল ক্রিকেট জার্সি ২০২৬। চমৎকার সাব্লিমেশন প্রিন্ট এবং প্রিমিয়াম ডাবল-মেস আরামদায়ক অ্যাথলেটিক ফিট। ঘাম শোষণ ক্ষমতা সম্পন্ন এবং খেলা বা পরার জন্য অত্যন্ত উপযোগী।',
+    button1Text: 'সরাসরি অর্ডার করুন (Buy Now)',
+    button1Link: '#products',
+    button2Text: 'সব জার্সি দেখুন',
+    button2Link: '#products',
+    overlayColor: 'rgba(0,0,0,0.4)',
+    textPosition: 'left',
+    isActive: true,
+    order: 1
+  },
+  {
+    id: 'banner_2',
+    desktopImageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=1200',
+    mobileImageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=600',
+    title: 'কিংবদন্তির রেট্রো ম্যাজিক',
+    subtitle: "Argentina Retro Edition '86",
+    description: 'কিংবদন্তি ম্যারাডোনার ১৯৮৬ বিশ্বকাপের স্মারক জার্সি। চমৎকার ফেব্রিক কোয়ালিটি, এমব্রয়ডারি করা লোগো এবং ঐতিহ্যবাহী আকাশী-সাদা স্ট্রাইপ ডিজাইন।',
+    button1Text: 'সরাসরি অর্ডার করুন (Buy Now)',
+    button1Link: '#products',
+    button2Text: 'সব জার্সি দেখুন',
+    button2Link: '#products',
+    overlayColor: 'rgba(0,0,0,0.5)',
+    textPosition: 'center',
+    isActive: true,
+    order: 2
+  },
+  {
+    id: 'banner_3',
+    desktopImageUrl: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=1200',
+    mobileImageUrl: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=600',
+    title: 'ম্যাট ব্ল্যাক স্টেলথ লুক',
+    subtitle: 'Real Madrid Stealth Edition',
+    description: 'রিয়াল মাদ্রিদের অল-ব্ল্যাক স্পেশাল লিমিটেড এডিশন কিট। ম্যাট ব্ল্যাক এমবস করা লোগো, গোল্ডেন কার্বন ফাইবার প্যাটার্ন অ্যাকসেন্ট এবং সম্পূর্ণ ঘাম নিরোধক অ্যাক্টিভ-কুল প্রযুক্তি।',
+    button1Text: 'সরাসরি অর্ডার করুন (Buy Now)',
+    button1Link: '#products',
+    button2Text: 'সব জার্সি দেখুন',
+    button2Link: '#products',
+    overlayColor: 'rgba(0,0,0,0.6)',
+    textPosition: 'right',
+    isActive: true,
+    order: 3
+  }
+];
 // @ts-ignore
 import trendZoneLogo from './assets/images/trend_zone_logo_1782968033190.jpg';
 import { dbCache } from './lib/dbCache';
@@ -54,6 +106,7 @@ import {
   Phone, 
   MapPin, 
   ChevronRight, 
+  ChevronLeft,
   Sparkles, 
   ArrowUpRight, 
   BadgeAlert, 
@@ -88,7 +141,17 @@ import {
   QrCode,
   Truck,
   Save,
-  Tag
+  Tag,
+  GripVertical,
+  Eye,
+  EyeOff,
+  Layout,
+  Edit3,
+  Copy,
+  Sliders,
+  Calendar,
+  Smartphone,
+  Monitor
 } from 'lucide-react';
 import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb, mapProductToDb } from './lib/supabaseService';
 
@@ -290,6 +353,26 @@ export default function App() {
     return DEFAULT_HOMEPAGE_SETTINGS;
   });
 
+  const [banners, setBanners] = useState<Banner[]>(() => {
+    try {
+      const cached = localStorage.getItem('aura_premium_banners');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn("Error reading cached premium banners:", e);
+    }
+    return DEFAULT_BANNERS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_premium_banners', JSON.stringify(banners));
+    } catch (e) {
+      console.warn("localStorage cache write failed for premium banners");
+    }
+  }, [banners]);
+
   const DEFAULT_TRACKING_SETTINGS: TrackingSettings = {
     gtmContainerId: '',
     gtmServerUrl: '',
@@ -486,7 +569,231 @@ export default function App() {
   const [collectionsList, setCollectionsList] = useState<string[]>(['Eid Collection', 'Winter Collection', 'Summer Collection', 'New Arrival', 'Premium Collection']);
   const [seasonsList, setSeasonsList] = useState<string[]>(['Eid', 'Winter', 'Summer', 'All Season']);
 
-  const [productSubTab, setProductSubTab] = useState<'catalog' | 'manager' | 'analytics'>('catalog');
+  const [productSubTab, setProductSubTab] = useState<'catalog' | 'manager' | 'analytics' | 'homepage-designer'>('catalog');
+  const [designerTab, setDesignerTab] = useState<'classic' | 'dynamic' | 'smart'>('classic');
+  const [showClassicDesigner, setShowClassicDesigner] = useState(false);
+  const [showDynamicDesigner, setShowDynamicDesigner] = useState(false);
+  const [showSmartDesigner, setShowSmartDesigner] = useState(false);
+
+  const [designerSuccessMessage, setDesignerSuccessMessage] = useState<string | null>(null);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [showSmartAdvancedSettings, setShowSmartAdvancedSettings] = useState(false);
+
+  useEffect(() => {
+    if (designerSuccessMessage) {
+      const timer = setTimeout(() => {
+        setDesignerSuccessMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [designerSuccessMessage]);
+
+  const [dynamicSections, setDynamicSections] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aura_dynamic_sections_config');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn("Error reading cached dynamic sections config:", e);
+    }
+    return [
+      { id: 'hero', name: 'Hero Banner', bengaliName: 'হিরো ব্যানার', visible: true, description: 'মাল্টি-স্লাইড প্রমোショナル ব্যানার', category: 'Hero & Visuals' },
+      { id: 'categories', name: 'Categories', bengaliName: 'ক্যাটাগরি লিস্ট', visible: true, description: 'দ্রুত পণ্য ফিল্টারিং চিপস', category: 'Navigation' },
+      { id: 'featured_products', name: 'Featured Products', bengaliName: 'ফিচার্ড প্রোডাক্টস', visible: true, description: 'নির্বাচিত আকর্ষণীয় জার্সি কালেকশন', category: 'Product Showcase' },
+      { id: 'flash_sale', name: 'Flash Sale', bengaliName: 'ফ্ল্যাশ সেল প্যানেল', visible: true, description: 'কাউন্টডাউন সহ আকর্ষণীয় অফার', category: 'Promotions' },
+      { id: 'collections', name: 'Collections', bengaliName: 'কালেকশনস গ্রিড', visible: true, description: 'বিশেষ কাস্টম ও থিমেটিক কালেকশন', category: 'Product Showcase' },
+      { id: 'brand_logos', name: 'Brand Logos', bengaliName: 'ব্র্যান্ড লোগো ব্যান্ড', visible: true, description: 'অংশীদার ব্র্যান্ডের চমৎকার লোগো স্লাইডার', category: 'Social Proof' },
+      { id: 'testimonials', name: 'Testimonials', bengaliName: 'গ্রাহকদের মতামত', visible: true, description: 'গ্রাহকদের রিভিউ ও ফিডব্যাক রিভিউ কার্ড', category: 'Social Proof' },
+      { id: 'newsletter', name: 'Newsletter', bengaliName: 'নিউজলেটার সাবস্ক্রিপশন', visible: true, description: 'ইমেইল সাবস্ক্রিপশন ও অফার এলার্ট ফর্ম', category: 'Marketing' },
+      { id: 'footer', name: 'Footer', bengaliName: 'ফুটার সেকশন', visible: true, description: 'যোগাযোগের ঠিকানা ও স্টোরের লিঙ্কসমূহ', category: 'Structure' },
+    ];
+  });
+  const [selectedDynamicSection, setSelectedDynamicSection] = useState<string>('hero');
+  const [previewingSectionId, setPreviewingSectionId] = useState<string | null>(null);
+  const [showSettingsSectionId, setShowSettingsSectionId] = useState<string | null>(null);
+  const [designerPreviewMode, setDesignerPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [designerPreviewSection, setDesignerPreviewSection] = useState<string | null>(null);
+
+  const moveSection = (index: number, direction: 'up' | 'down') => {
+    const newSections = [...dynamicSections];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex >= 0 && targetIndex < newSections.length) {
+      const temp = newSections[index];
+      newSections[index] = newSections[targetIndex];
+      newSections[targetIndex] = temp;
+      setDynamicSections(newSections);
+    }
+  };
+
+  const [publishedTheme, setPublishedTheme] = useState<'classic' | 'dynamic' | 'smart'>(() => {
+    try {
+      const cached = localStorage.getItem('aura_published_theme');
+      if (cached && ['classic', 'dynamic', 'smart'].includes(cached)) {
+        return cached as 'classic' | 'dynamic' | 'smart';
+      }
+    } catch (e) {
+      console.warn("Error reading cached published theme:", e);
+    }
+    return 'classic';
+  });
+
+  const [homepageSections, setHomepageSections] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('aura_homepage_sections');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn("Error reading cached homepage sections:", e);
+    }
+    return [
+      { id: 'hero', nameBangla: 'হিরো ব্যানার স্লাইডার (Hero Slider)', nameEnglish: 'Hero Banner Slider', visible: true },
+      { id: 'products', nameBangla: 'স্পোর্টস ক্যাটালগ ও পণ্য গ্রিড (Product Catalog)', nameEnglish: 'Product Catalog Grid', visible: true },
+      { id: 'about', nameBangla: 'কেন আমাদের জার্সি সেরা (Fabric Details)', nameEnglish: 'Fabric Details', visible: true }
+    ];
+  });
+
+  const [smartTheme, setSmartTheme] = useState<any>(() => {
+    try {
+      const cached = localStorage.getItem('aura_smart_theme_settings');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn("Error reading cached smart theme settings:", e);
+    }
+    return {
+      bannerBadge: 'AI RECOMMENDED',
+      animation: 'fade',
+      slideDuration: 5,
+      priority: 'high',
+      isDraft: false,
+      isPreview: false
+    };
+  });
+
+  const [smartBanners, setSmartBanners] = useState(() => {
+    try {
+      const cached = localStorage.getItem('aura_smart_banners');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn("Error reading cached smart banners:", e);
+    }
+    return [
+      {
+        id: 'sb_1',
+        title: 'এআই কিউরেটেড রেট্রো কিটস',
+        subtitle: 'Smart Recommendation Banner',
+        description: 'গ্রাহকের পূর্ববর্তী ব্রাউজিং প্যাটার্ন অনুযায়ী স্বয়ংক্রিয়ভাবে রেট্রো জার্সিগুলো রিকমেন্ড করুন।',
+        badge: 'Highly Recommended',
+        animation: 'Slide Left (স্মুথ)',
+        duration: 5,
+        priority: 'High',
+        status: 'Published',
+        scheduleStart: '2026-07-11T12:00',
+        scheduleEnd: '2026-07-18T12:00',
+        desktopImageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=1200',
+      },
+      {
+        id: 'sb_2',
+        title: 'মিডনাইট ফ্ল্যাশ ড্রপ',
+        subtitle: 'Dynamic Customer Engagement',
+        description: 'রাত ১২টা থেকে ৪টা পর্যন্ত সক্রিয় স্পেশাল লয়ালটি কুপন ও প্রমোশনাল অফার ব্যান্তর।',
+        badge: 'Limited Edition',
+        animation: 'Fade In (ধীর)',
+        duration: 3,
+        priority: 'Medium',
+        status: 'Draft',
+        scheduleStart: '2026-07-12T00:00',
+        scheduleEnd: '2026-07-12T04:00',
+        desktopImageUrl: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=1200',
+      },
+      {
+        id: 'sb_3',
+        title: 'সুপার ফ্যান প্রাইজ ড্রপ',
+        subtitle: 'VIP Customer Exclusive',
+        description: '১ বারের বেশি অর্ডার করা বিশ্বস্ত কাস্টমারদের জন্য স্বয়ংক্রিয় বিশেষ ৫% অতিরিক্ত ডিসকাউন্ট।',
+        badge: 'VIP Only',
+        animation: 'Scale Zoom (মডার্ন)',
+        duration: 6,
+        priority: 'Highest',
+        status: 'Scheduled',
+        scheduleStart: '2026-07-15T00:00',
+        scheduleEnd: '2026-07-20T23:59',
+        desktopImageUrl: 'https://images.unsplash.com/photo-1540747737956-378721767518?auto=format&fit=crop&q=80&w=1200',
+      }
+    ];
+  });
+
+  const [selectedSmartBanner, setSelectedSmartBanner] = useState<string>('sb_1');
+  const [editingSmartBannerId, setEditingSmartBannerId] = useState<string | null>(null);
+  const [smartBannerForm, setSmartBannerForm] = useState({
+    title: '',
+    subtitle: '',
+    description: '',
+    badge: 'Highly Recommended',
+    animation: 'Slide Left (স্মুথ)',
+    duration: 5,
+    priority: 'High',
+    status: 'Published',
+    scheduleStart: '2026-07-11T12:00',
+    scheduleEnd: '2026-07-18T12:00',
+    desktopImageUrl: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=1200',
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_published_theme', publishedTheme);
+    } catch (e) {
+      console.warn("localStorage write failed for published theme");
+    }
+  }, [publishedTheme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_homepage_sections', JSON.stringify(homepageSections));
+    } catch (e) {
+      console.warn("localStorage write failed for homepage sections");
+    }
+  }, [homepageSections]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_smart_theme_settings', JSON.stringify(smartTheme));
+    } catch (e) {
+      console.warn("localStorage write failed for smart theme settings");
+    }
+  }, [smartTheme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('aura_smart_banners', JSON.stringify(smartBanners));
+    } catch (e) {
+      console.warn("localStorage write failed for smart banners");
+    }
+  }, [smartBanners]);
+
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
+  const [bannerIdToDelete, setBannerIdToDelete] = useState<string | null>(null);
+  const [smartBannerIdToDelete, setSmartBannerIdToDelete] = useState<string | null>(null);
+  const [bannerForm, setBannerForm] = useState<Partial<Banner>>({
+    desktopImageUrl: '',
+    mobileImageUrl: '',
+    title: '',
+    subtitle: '',
+    description: '',
+    button1Text: '',
+    button1Link: '',
+    button2Text: '',
+    button2Link: '',
+    overlayColor: 'rgba(0,0,0,0.4)',
+    textPosition: 'left',
+    isActive: true,
+    order: 1
+  });
 
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newBrandName, setNewBrandName] = useState('');
@@ -2590,6 +2897,11 @@ export default function App() {
           categoriesList={categoriesList}
           collectionsList={collectionsList}
           brandsList={brandsList}
+          banners={banners}
+          publishedTheme={publishedTheme}
+          homepageSections={homepageSections}
+          smartTheme={smartTheme}
+          dynamicSections={dynamicSections}
         />
         {renderSyncAlert()}
       </>
@@ -3983,6 +4295,16 @@ export default function App() {
                   >
                     কালেকশন অ্যানালিটিক্স (Analytics)
                   </button>
+                  <button
+                    onClick={() => setProductSubTab('homepage-designer')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      productSubTab === 'homepage-designer' 
+                        ? 'bg-[#e07a5f] text-white shadow-md' 
+                        : 'opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    Homepage Designer
+                  </button>
                 </div>
               </div>
 
@@ -4555,6 +4877,2183 @@ export default function App() {
                       );
                     })}
                   </div>
+
+                </div>
+              )}
+
+              {productSubTab === 'homepage-designer' && (
+                <div className="space-y-6 animate-fade-in text-[#f6f3ed]">
+                  
+                  {/* View Header */}
+                  <div className="bg-[#1a1614] p-6 rounded-3xl border border-[#322822]/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <Sparkles className="h-5 w-5 text-[#e07a5f] animate-pulse" />
+                        <h2 className="text-xl font-extrabold tracking-tight">হোমপেজ ডিজাইনার (Homepage Designer)</h2>
+                      </div>
+                      <p className="opacity-70 text-xs leading-relaxed">
+                        আপনার অনলাইন স্টোরের হোমপেজ লেআউট ও কাস্টম ডিজাইন নিয়ন্ত্রণ করুন। কাস্টমারদের কাছে স্টোরটিকে আরও আকর্ষণীয় করে তুলতে সঠিক লেআউটটি নির্বাচন করুন।
+                      </p>
+                    </div>
+                    {(showClassicDesigner || showDynamicDesigner || showSmartDesigner) ? (
+                      <button
+                        onClick={() => {
+                          setShowClassicDesigner(false);
+                          setShowDynamicDesigner(false);
+                          setShowSmartDesigner(false);
+                          setEditingBannerId(null);
+                          setEditingSmartBannerId(null);
+                          setBannerForm({
+                            desktopImageUrl: '',
+                            mobileImageUrl: '',
+                            title: '',
+                            subtitle: '',
+                            description: '',
+                            button1Text: '',
+                            button1Link: '',
+                            button2Text: '',
+                            button2Link: '',
+                            overlayColor: 'rgba(0,0,0,0.4)',
+                            textPosition: 'left',
+                            isActive: true,
+                            order: banners.length + 1
+                          });
+                        }}
+                        className="px-4 py-2 border border-white/10 hover:bg-white/5 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span>ডিজাইনার বন্ধ করুন (Back to Designer Home)</span>
+                      </button>
+                    ) : (
+                      <span className="px-3.5 py-1.5 bg-[#e07a5f]/15 border border-[#e07a5f]/30 text-[#e07a5f] text-[10px] font-bold rounded-full self-start md:self-auto tracking-wider uppercase">
+                        Visual Editor v2.1
+                      </span>
+                    )}
+                  </div>
+
+                  {showClassicDesigner ? (
+                    /* Classic Premium Banner Designer */
+                    <div className="space-y-6">
+                      <div className="bg-[#1a1614] p-6 rounded-3xl border border-[#322822]/40 space-y-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-[#322822]/30 pb-4 gap-4">
+                          <div>
+                            <span className="px-2.5 py-1 bg-[#e07a5f]/10 text-[#e07a5f] text-[10px] font-extrabold rounded-md uppercase tracking-wider">Classic Designer</span>
+                            <h3 className="text-base font-black tracking-tight mt-1">প্রিমিয়াম ব্যানার ম্যানেজার (Premium Banner Manager)</h3>
+                            <p className="opacity-60 text-xs">আপনার স্টোরের মূল স্লাইডার ব্যানারগুলো পরিচালনা করুন। এগুলো গ্রাহকদের স্টোরে স্বয়ংক্রিয়ভাবে পরিবর্তিত (Auto Slide) হবে।</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setEditingBannerId(null);
+                              setBannerForm({
+                                desktopImageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=1200',
+                                mobileImageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=600',
+                                title: 'নতুন কালেকশন ২০২৬',
+                                subtitle: 'Aura Premium Casuals',
+                                description: 'আমাদের নতুন এবং এক্সক্লুসিভ স্টাইলিশ ফ্যাশন পণ্যের সমাহার এখন আপনার হাতের মুঠোয়। চমৎকার ফেব্রিক এবং আকর্ষণীয় ডিজাইন!',
+                                button1Text: 'এখনই কিনুন (Buy Now)',
+                                button1Link: '#products',
+                                button2Text: 'সব প্রোডাক্ট দেখুন',
+                                button2Link: '#products',
+                                overlayColor: 'rgba(0,0,0,0.4)',
+                                textPosition: 'left',
+                                isActive: true,
+                                order: banners.length + 1
+                              });
+                            }}
+                            className="px-4 py-2 bg-[#e07a5f] hover:bg-[#d06a4f] text-white text-xs font-black rounded-xl transition-all flex items-center space-x-1.5 shadow-lg shadow-orange-500/15"
+                          >
+                            <Plus className="h-4 w-4" />
+                            <span>নতুন ব্যানার যুক্ত করুন</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                          {/* Banner List (Left Column) */}
+                          <div className="xl:col-span-6 space-y-4">
+                            <h4 className="text-xs font-bold uppercase tracking-wider opacity-60">ব্যানার সমূহের তালিকা ({banners.length})</h4>
+                            
+                            {banners.length === 0 ? (
+                              <div className="p-8 text-center bg-black/10 rounded-2xl border border-dashed border-[#322822] space-y-2">
+                                <span className="text-2xl">🖼️</span>
+                                <p className="text-xs font-bold">কোনো ব্যানার খুঁজে পাওয়া যায়নি</p>
+                                <p className="text-[10px] opacity-60">ডানদিকের ফর্মটি ব্যবহার করে আপনার প্রথম ব্যানার যোগ করুন।</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+                                {[...banners].sort((a, b) => (a.order || 0) - (b.order || 0)).map((banner) => (
+                                  <div 
+                                    key={banner.id}
+                                    className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-black/10
+                                      ${editingBannerId === banner.id ? 'border-[#e07a5f] bg-[#e07a5f]/5' : 'border-[#322822]/40 hover:border-white/10'}`}
+                                  >
+                                    <div className="flex items-center space-x-3.5 min-w-0 flex-1">
+                                      {/* Banner thumbnail */}
+                                      <div className="h-14 w-24 rounded-lg bg-neutral-900 border border-white/5 overflow-hidden shrink-0 relative">
+                                        <img src={banner.desktopImageUrl} alt="" className="h-full w-full object-cover" />
+                                        <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[8px] font-mono px-1 rounded">
+                                          Order: {banner.order}
+                                        </span>
+                                      </div>
+                                      <div className="min-w-0 space-y-1">
+                                        <div className="flex items-center space-x-2">
+                                          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${banner.isActive ? 'bg-emerald-500' : 'bg-neutral-500'}`} />
+                                          <h5 className="font-extrabold text-xs truncate text-white">{banner.title || 'শিরোনামহীন ব্যানার'}</h5>
+                                        </div>
+                                        <p className="text-[10px] opacity-60 truncate">{banner.subtitle || 'কোনো সাবটাইটেল নেই'}</p>
+                                        <div className="flex items-center space-x-2 text-[9px] opacity-45">
+                                          <span>Pos: {banner.textPosition}</span>
+                                          <span>•</span>
+                                          <span className="truncate max-w-[120px]" title={banner.desktopImageUrl}>Desktop UI Ready</span>
+                                          <span>•</span>
+                                          <span className="truncate max-w-[120px]" title={banner.mobileImageUrl}>Mobile UI Ready</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Actions button group */}
+                                    <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 border-[#322822]/30 pt-3 sm:pt-0 shrink-0">
+                                      <div className="flex items-center space-x-1.5">
+                                        <button
+                                          onClick={() => {
+                                            // Move order up
+                                            const sorted = [...banners].sort((a, b) => (a.order || 0) - (b.order || 0));
+                                            const index = sorted.findIndex(b => b.id === banner.id);
+                                            if (index > 0) {
+                                              const newBanners = [...sorted];
+                                              const temp = newBanners[index].order;
+                                              newBanners[index].order = newBanners[index - 1].order;
+                                              newBanners[index - 1].order = temp;
+                                              setBanners(newBanners);
+                                            }
+                                          }}
+                                          disabled={[...banners].sort((a, b) => (a.order || 0) - (b.order || 0)).findIndex(b => b.id === banner.id) === 0}
+                                          className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs transition-all disabled:opacity-35 disabled:hover:bg-white/5"
+                                          title="উপরে সরান"
+                                        >
+                                          ↑
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            // Move order down
+                                            const sorted = [...banners].sort((a, b) => (a.order || 0) - (b.order || 0));
+                                            const index = sorted.findIndex(b => b.id === banner.id);
+                                            if (index < sorted.length - 1) {
+                                              const newBanners = [...sorted];
+                                              const temp = newBanners[index].order;
+                                              newBanners[index].order = newBanners[index + 1].order;
+                                              newBanners[index + 1].order = temp;
+                                              setBanners(newBanners);
+                                            }
+                                          }}
+                                          disabled={[...banners].sort((a, b) => (a.order || 0) - (b.order || 0)).findIndex(b => b.id === banner.id) === banners.length - 1}
+                                          className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs transition-all disabled:opacity-35 disabled:hover:bg-white/5"
+                                          title="নিচে সরান"
+                                        >
+                                          ↓
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setEditingBannerId(banner.id);
+                                            setBannerForm({ ...banner });
+                                            setDesignerSuccessMessage(`"${banner.title}" ব্যানারটি এডিট করার জন্য ফর্ম লোড হয়েছে!`);
+                                            setTimeout(() => {
+                                              document.getElementById('classic-banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            }, 100);
+                                          }}
+                                          className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500 hover:text-white border border-amber-500/20 text-amber-500 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                                        >
+                                          সম্পাদনা
+                                        </button>
+                                        {bannerIdToDelete === banner.id ? (
+                                          <div className="flex items-center space-x-1 bg-rose-500/15 p-1 rounded-lg border border-rose-500/30 animate-fade-in shrink-0">
+                                            <span className="text-[9px] font-black text-rose-400 px-1">মুছবেন?</span>
+                                            <button
+                                              onClick={() => {
+                                                const filtered = banners.filter(b => b.id !== banner.id);
+                                                // Reassign orders cleanly
+                                                const ordered = filtered.map((b, i) => ({ ...b, order: i + 1 }));
+                                                setBanners(ordered);
+                                                if (editingBannerId === banner.id) {
+                                                  setEditingBannerId(null);
+                                                }
+                                                setBannerIdToDelete(null);
+                                                setDesignerSuccessMessage(`"${banner.title}" ব্যানারটি সফলভাবে ডিলিট করা হয়েছে।`);
+                                              }}
+                                              className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[9px] font-black rounded cursor-pointer border-none"
+                                            >
+                                              হ্যাঁ
+                                            </button>
+                                            <button
+                                              onClick={() => setBannerIdToDelete(null)}
+                                              className="px-2 py-1 bg-neutral-700 hover:bg-neutral-600 text-white text-[9px] font-black rounded cursor-pointer border-none"
+                                            >
+                                              না
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => {
+                                              setBannerIdToDelete(banner.id);
+                                            }}
+                                            className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500 hover:text-white border border-rose-500/20 text-rose-500 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                                          >
+                                            মুছুন
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Banner Form (Right Column) */}
+                          <div id="classic-banner-form" className="xl:col-span-6 bg-[#161210] p-6 rounded-3xl border border-[#322822]/40 space-y-4">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-[#e07a5f]">
+                              {editingBannerId ? 'ব্যানার বিবরণ সম্পাদনা করুন (Edit Banner)' : 'নতুন ব্যানার বিবরণ যুক্ত করুন (Add Banner)'}
+                            </h4>
+
+                            <div className="space-y-4 text-xs">
+                              {/* Desktop Image Upload & URL */}
+                              <div className="space-y-1.5">
+                                <label className="font-bold opacity-75">Desktop Banner Image URL:</label>
+                                <input 
+                                  type="text"
+                                  value={bannerForm.desktopImageUrl || ''}
+                                  onChange={(e) => setBannerForm(prev => ({ ...prev, desktopImageUrl: e.target.value }))}
+                                  placeholder="যেমন: https://images.unsplash.com/..."
+                                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50 font-mono"
+                                />
+                                
+                                <div 
+                                  className="border-2 border-dashed border-[#322822] hover:border-[#e07a5f]/40 rounded-xl p-3 bg-black/20 text-center cursor-pointer transition-all relative group"
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    const file = e.dataTransfer.files?.[0];
+                                    if (file && file.type.startsWith('image/')) {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => {
+                                        setBannerForm(prev => ({ ...prev, desktopImageUrl: reader.result as string }));
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                >
+                                  <input 
+                                    type="file"
+                                    accept="image/*"
+                                    id="desktop-banner-file"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                          setBannerForm(prev => ({ ...prev, desktopImageUrl: reader.result as string }));
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                  <label htmlFor="desktop-banner-file" className="cursor-pointer block">
+                                    <div className="flex items-center justify-center space-x-1.5">
+                                      <PlusCircle className="h-4 w-4 text-[#e07a5f] opacity-80" />
+                                      <span className="font-bold text-[10px]">Desktop ছবি আপলোড বা ড্রপ করুন</span>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* Mobile Image Upload & URL */}
+                              <div className="space-y-1.5">
+                                <label className="font-bold opacity-75">Mobile Banner Image URL:</label>
+                                <input 
+                                  type="text"
+                                  value={bannerForm.mobileImageUrl || ''}
+                                  onChange={(e) => setBannerForm(prev => ({ ...prev, mobileImageUrl: e.target.value }))}
+                                  placeholder="যেমন: https://images.unsplash.com/..."
+                                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50 font-mono"
+                                />
+                                
+                                <div 
+                                  className="border-2 border-dashed border-[#322822] hover:border-[#e07a5f]/40 rounded-xl p-3 bg-black/20 text-center cursor-pointer transition-all relative group"
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    const file = e.dataTransfer.files?.[0];
+                                    if (file && file.type.startsWith('image/')) {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => {
+                                        setBannerForm(prev => ({ ...prev, mobileImageUrl: reader.result as string }));
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                >
+                                  <input 
+                                    type="file"
+                                    accept="image/*"
+                                    id="mobile-banner-file"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                          setBannerForm(prev => ({ ...prev, mobileImageUrl: reader.result as string }));
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                  />
+                                  <label htmlFor="mobile-banner-file" className="cursor-pointer block">
+                                    <div className="flex items-center justify-center space-x-1.5">
+                                      <PlusCircle className="h-4 w-4 text-[#e07a5f] opacity-80" />
+                                      <span className="font-bold text-[10px]">Mobile ছবি আপলোড বা ড্রপ করুন</span>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* Title & Subtitle */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                  <label className="font-bold opacity-75">Main Title (ব্যানার প্রধান শিরোনাম):</label>
+                                  <input 
+                                    type="text"
+                                    value={bannerForm.title || ''}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, title: e.target.value }))}
+                                    placeholder="যেমন: নতুন ধামাকা অফার"
+                                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="font-bold opacity-75">Subtitle (ব্যানার সাবটাইটেল):</label>
+                                  <input 
+                                    type="text"
+                                    value={bannerForm.subtitle || ''}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, subtitle: e.target.value }))}
+                                    placeholder="যেমন: Limited Stock Edition"
+                                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Description */}
+                              <div className="space-y-1.5">
+                                <label className="font-bold opacity-75">Description (ব্যানার বিবরণ):</label>
+                                <textarea 
+                                  value={bannerForm.description || ''}
+                                  onChange={(e) => setBannerForm(prev => ({ ...prev, description: e.target.value }))}
+                                  placeholder="অফার বা প্রোডাক্ট সম্পর্কে সংক্ষেপে কিছু লিখুন..."
+                                  rows={2}
+                                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50 leading-relaxed"
+                                />
+                              </div>
+
+                              {/* Button 1 Text & Link */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                  <label className="font-bold opacity-75">Button 1 Text:</label>
+                                  <input 
+                                    type="text"
+                                    value={bannerForm.button1Text || ''}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, button1Text: e.target.value }))}
+                                    placeholder="যেমন: এখনই অর্ডার করুন"
+                                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="font-bold opacity-75">Button 1 Link / Product ID:</label>
+                                  <input 
+                                    type="text"
+                                    value={bannerForm.button1Link || ''}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, button1Link: e.target.value }))}
+                                    placeholder="যেমন: #products বা PROD-001"
+                                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Button 2 Text & Link */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                  <label className="font-bold opacity-75">Button 2 Text:</label>
+                                  <input 
+                                    type="text"
+                                    value={bannerForm.button2Text || ''}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, button2Text: e.target.value }))}
+                                    placeholder="যেমন: সব প্রোডাক্ট দেখুন"
+                                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="font-bold opacity-75">Button 2 Link / Product ID:</label>
+                                  <input 
+                                    type="text"
+                                    value={bannerForm.button2Link || ''}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, button2Link: e.target.value }))}
+                                    placeholder="যেমন: #products"
+                                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Overlay Color & Text Position */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                  <label className="font-bold opacity-75">Overlay Color (ব্যানার ওভারলে কালার):</label>
+                                  <input 
+                                    type="text"
+                                    value={bannerForm.overlayColor || ''}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, overlayColor: e.target.value }))}
+                                    placeholder="যেমন: rgba(0,0,0,0.4)"
+                                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50 font-mono"
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="font-bold opacity-75">Text Position (শিরোনাম পজিশন):</label>
+                                  <select
+                                    value={bannerForm.textPosition || 'left'}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, textPosition: e.target.value as any }))}
+                                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50"
+                                  >
+                                    <option value="left">Left (বাম পাশে)</option>
+                                    <option value="center">Center (মাঝখানে)</option>
+                                    <option value="right">Right (ডান পাশে)</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Banner Order & Active Toggle */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                                <div className="space-y-1.5">
+                                  <label className="font-bold opacity-75">Banner Order (ব্যানার ক্রম):</label>
+                                  <input 
+                                    type="number"
+                                    min="1"
+                                    value={bannerForm.order || ''}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, order: Number(e.target.value) }))}
+                                    className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50 font-mono"
+                                  />
+                                </div>
+                                <div className="flex items-center space-x-2.5 pt-4">
+                                  <input 
+                                    type="checkbox"
+                                    id="banner-is-active"
+                                    checked={bannerForm.isActive ?? true}
+                                    onChange={(e) => setBannerForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                                    className="rounded border-[#322822] bg-[#120e0c] text-[#e07a5f] focus:ring-[#e07a5f]"
+                                  />
+                                  <label htmlFor="banner-is-active" className="font-bold opacity-75 cursor-pointer">
+                                    ব্যানারটি সক্রিয় রাখুন (Active)
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* Form Buttons */}
+                              <div className="flex gap-2 pt-4 border-t border-[#322822]/40">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingBannerId(null);
+                                    setBannerForm({
+                                      desktopImageUrl: '',
+                                      mobileImageUrl: '',
+                                      title: '',
+                                      subtitle: '',
+                                      description: '',
+                                      button1Text: '',
+                                      button1Link: '',
+                                      button2Text: '',
+                                      button2Link: '',
+                                      overlayColor: 'rgba(0,0,0,0.4)',
+                                      textPosition: 'left',
+                                      isActive: true,
+                                      order: banners.length + 1
+                                    });
+                                  }}
+                                  className="flex-1 py-2.5 border border-white/10 hover:bg-white/5 rounded-xl font-bold transition-all"
+                                >
+                                  বাতিল (Clear)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!bannerForm.desktopImageUrl) {
+                                      setDesignerSuccessMessage('ত্রুটি: দয়া করে অন্তত একটি ডেক্সটপ ইমেজ ইউআরএল (Desktop Image URL) প্রদান করুন!');
+                                      return;
+                                    }
+                                    
+                                    if (editingBannerId) {
+                                      const updated = banners.map(b => b.id === editingBannerId ? { ...b, ...bannerForm } as Banner : b);
+                                      setBanners(updated);
+                                      setDesignerSuccessMessage('অভিনন্দন! আপনার ব্যানার বিবরণটি সফলভাবে আপডেট করা হয়েছে এবং লাইভ স্টোরে পরিবর্তন প্রতিফলিত হয়েছে।');
+                                      setEditingBannerId(null);
+                                    } else {
+                                      const newBanner: Banner = {
+                                        id: 'banner_' + Date.now(),
+                                        desktopImageUrl: bannerForm.desktopImageUrl || '',
+                                        mobileImageUrl: bannerForm.mobileImageUrl || bannerForm.desktopImageUrl || '',
+                                        title: bannerForm.title || '',
+                                        subtitle: bannerForm.subtitle || '',
+                                        description: bannerForm.description || '',
+                                        button1Text: bannerForm.button1Text || '',
+                                        button1Link: bannerForm.button1Link || '',
+                                        button2Text: bannerForm.button2Text || '',
+                                        button2Link: bannerForm.button2Link || '',
+                                        overlayColor: bannerForm.overlayColor || 'rgba(0,0,0,0.4)',
+                                        textPosition: bannerForm.textPosition || 'left',
+                                        isActive: bannerForm.isActive ?? true,
+                                        order: bannerForm.order || (banners.length + 1)
+                                      };
+                                      setBanners([...banners, newBanner]);
+                                      setDesignerSuccessMessage('সফলতা: আপনার নতুন স্লাইডার ব্যানারটি সফলভাবে তৈরি করা হয়েছে এবং লুপ সিকোয়েন্সে যুক্ত হয়েছে।');
+                                    }
+                                    setBannerForm({
+                                      desktopImageUrl: '',
+                                      mobileImageUrl: '',
+                                      title: '',
+                                      subtitle: '',
+                                      description: '',
+                                      button1Text: '',
+                                      button1Link: '',
+                                      button2Text: '',
+                                      button2Link: '',
+                                      overlayColor: 'rgba(0,0,0,0.4)',
+                                      textPosition: 'left',
+                                      isActive: true,
+                                      order: banners.length + 1
+                                    });
+                                  }}
+                                  className="flex-1 py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-black rounded-xl transition-all shadow-lg shadow-orange-500/10"
+                                >
+                                  {editingBannerId ? 'আপডেট করুন (Update)' : 'সংরক্ষণ করুন (Save)'}
+                                </button>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  ) : showDynamicDesigner ? (
+                    /* Dynamic Layout Builder UI */
+                    <div className="space-y-6 animate-fade-in text-left">
+                      {/* Top Action Bar */}
+                      <div className="bg-[#1a1614] p-5 rounded-3xl border border-[#322822]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="h-2 w-2 bg-indigo-500 rounded-full animate-pulse"></span>
+                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest font-mono">Premium Designer Mode</span>
+                          </div>
+                          <h3 className="text-lg font-black text-white font-sans">ডাইনামিক থিম লেআউট বিল্ডার (Dynamic Theme Layout Builder)</h3>
+                          <p className="opacity-70 text-xs font-sans">হোমপেজ সেকশনগুলোর অর্ডার পরিবর্তন করুন, ভিজিবিলিটি টগল এবং প্রিসেট সেটিংস কাস্টমাইজ করুন।</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => {
+                              try {
+                                localStorage.setItem('aura_dynamic_sections_config', JSON.stringify(dynamicSections));
+                                setPublishedTheme('dynamic');
+                                localStorage.setItem('aura_published_theme', 'dynamic');
+                                setDesignerSuccessMessage('অভিনন্দন! আপনার ডাইনামিক লেআউট কনফিগারেশন সফলভাবে সেভ ও পাবলিশ করা হয়েছে এবং কাস্টমার স্টোরে লাইভ করা হয়েছে।');
+                              } catch(e) {
+                                setDesignerSuccessMessage('লেআউট সফলভাবে সংরক্ষিত হয়েছে!');
+                              }
+                            }}
+                            className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-500/15 flex items-center space-x-1.5 transition-all cursor-pointer border-none"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>Save Layout</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              const activeSecs = dynamicSections.filter(s => s.visible).map(s => s.bengaliName).join(', ');
+                              setDesignerSuccessMessage(`লাইভ স্টোরফ্রন্ট প্রিভিউ লোড হচ্ছে... ভিউ মোড: ${designerPreviewMode.toUpperCase()} | সক্রিয় সেকশনসমূহ: ${activeSecs || 'কোনো সেকশন নেই'}`);
+                            }}
+                            className="px-4 py-2 bg-[#2c221e] hover:bg-[#3d302a] text-white font-extrabold text-xs rounded-xl border border-[#4e3c32] flex items-center space-x-1.5 transition-all cursor-pointer"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-indigo-400" />
+                            <span>Preview</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              if(confirm('আপনি কি লেআউটটি ডিফল্ট বিন্যাসে ফিরিয়ে নিতে চান?')) {
+                                setDynamicSections([
+                                  { id: 'hero', name: 'Hero Banner', bengaliName: 'হিরো ব্যানার', visible: true, description: 'মাল্টি-স্লাইড প্রমোショナル ব্যানার', category: 'Hero & Visuals' },
+                                  { id: 'categories', name: 'Categories', bengaliName: 'ক্যাটাগরি লিস্ট', visible: true, description: 'দ্রুত পণ্য ফিল্টারিং চিপস', category: 'Navigation' },
+                                  { id: 'featured_products', name: 'Featured Products', bengaliName: 'ফিচার্ড প্রোডাক্টস', visible: true, description: 'নির্বাচিত আকর্ষণীয় জার্সি কালেকশন', category: 'Product Showcase' },
+                                  { id: 'flash_sale', name: 'Flash Sale', bengaliName: 'ফ্ল্যাশ সেল প্যানেল', visible: true, description: 'কাউন্টডাউন সহ আকর্ষণীয় অফার', category: 'Promotions' },
+                                  { id: 'collections', name: 'Collections', bengaliName: 'কালেকশনস গ্রিড', visible: true, description: 'বিশেষ কাস্টম ও থিমেটিক কালেকশন', category: 'Product Showcase' },
+                                  { id: 'brand_logos', name: 'Brand Logos', bengaliName: 'ব্র্যান্ড লোগো ব্যান্ড', visible: true, description: 'অংশীদার ব্র্যান্ডের চমৎকার লোগো স্লাইডার', category: 'Social Proof' },
+                                  { id: 'testimonials', name: 'Testimonials', bengaliName: 'গ্রাহকদের মতামত', visible: true, description: 'গ্রাহকদের রিভিউ ও ফিডব্যাক রিভিউ কার্ড', category: 'Social Proof' },
+                                  { id: 'newsletter', name: 'Newsletter', bengaliName: 'নিউজলেটার সাবস্ক্রিপশন', visible: true, description: 'ইমেইল সাবস্ক্রিপশন ও অফার এলার্ট ফর্ম', category: 'Marketing' },
+                                  { id: 'footer', name: 'Footer', bengaliName: 'ফুটার সেকশন', visible: true, description: 'যোগাযোগের ঠিকানা ও স্টোরের লিঙ্কসমূহ', category: 'Structure' },
+                                ]);
+                                setDesignerPreviewSection(null);
+                                alert('লেআউট ডিফল্ট অবস্থায় রিসেট করা হয়েছে।');
+                              }
+                            }}
+                            className="px-4 py-2 bg-neutral-900/50 hover:bg-neutral-900/80 text-neutral-300 font-extrabold text-xs rounded-xl border border-white/5 flex items-center space-x-1.5 transition-all cursor-pointer"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span>Reset Layout</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Main Workspace Layout - 12 Column Responsive Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        
+                        {/* Left Side: Homepage Sections List & Custom Settings (col-span-6) */}
+                        <div className="lg:col-span-6 space-y-6">
+                          <div className="bg-[#1a1614] rounded-3xl border border-[#322822]/40 overflow-hidden shadow-xl">
+                            <div className="p-5 border-b border-[#322822]/40 bg-black/10 flex items-center justify-between">
+                              <div className="space-y-0.5 text-left">
+                                <h4 className="text-sm font-extrabold text-white">হোমপেজ সেকশন তালিকা (Homepage Sections List)</h4>
+                                <p className="opacity-60 text-[11px] font-sans">অর্ডার ডানে বাটন দিয়ে সাজান, প্রিভিউ ও সেটিংস ম্যানেজ করুন।</p>
+                              </div>
+                              <span className="px-2.5 py-1 bg-indigo-500/10 text-indigo-300 text-[10px] font-black rounded-lg border border-indigo-500/20">
+                                {dynamicSections.length} Sections Available
+                              </span>
+                            </div>
+
+                            <div className="divide-y divide-[#322822]/40 p-4 space-y-3">
+                              {dynamicSections.map((section, idx) => {
+                                const isSelected = selectedDynamicSection === section.id || designerPreviewSection === section.id;
+                                const isVisible = section.visible;
+                                return (
+                                  <div
+                                    key={section.id}
+                                    onClick={() => {
+                                      setSelectedDynamicSection(section.id);
+                                      setDesignerPreviewSection(section.id);
+                                    }}
+                                    className={`p-4 rounded-2xl border transition-all cursor-pointer group text-left space-y-3 relative overflow-hidden
+                                      ${isSelected 
+                                        ? 'bg-indigo-500/[0.04] border-indigo-500/50 shadow-md shadow-indigo-500/[0.02]' 
+                                        : 'bg-black/10 border-white/5 hover:border-white/10'}`}
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="flex items-center space-x-2.5 min-w-0">
+                                        {/* Drag Handle UI */}
+                                        <div className="text-neutral-500 hover:text-neutral-300 p-1 shrink-0 flex items-center space-x-2 border-r border-white/5 pr-2.5">
+                                          <span className="text-xs font-mono select-none opacity-60">☰</span>
+                                          {/* Mini move arrows for instant reordering! */}
+                                          <div className="flex flex-col -space-y-1">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                moveSection(idx, 'up');
+                                              }}
+                                              disabled={idx === 0}
+                                              className="p-0.5 text-neutral-600 hover:text-indigo-400 disabled:opacity-35 cursor-pointer transition-colors"
+                                              title="Move Up"
+                                            >
+                                              ▲
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                moveSection(idx, 'down');
+                                              }}
+                                              disabled={idx === dynamicSections.length - 1}
+                                              className="p-0.5 text-neutral-600 hover:text-indigo-400 disabled:opacity-35 cursor-pointer transition-colors"
+                                              title="Move Down"
+                                            >
+                                              ▼
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        {/* Index, Name, and Desc */}
+                                        <div className="space-y-0.5 min-w-0">
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-[10px] font-mono opacity-50 shrink-0">0{idx + 1}</span>
+                                            <p className={`text-xs font-black truncate ${isVisible ? 'text-white' : 'text-neutral-500 line-through'}`}>
+                                              {section.name} <span className="text-[10px] font-normal opacity-60">({section.bengaliName})</span>
+                                            </p>
+                                          </div>
+                                          <p className="text-[10px] opacity-50 truncate max-w-xs font-sans">
+                                            {section.description}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {/* Category Chip */}
+                                      <span className="hidden sm:inline-block px-1.5 py-0.5 text-[8px] font-mono rounded bg-neutral-800 text-neutral-400 shrink-0 uppercase tracking-wider">
+                                        {section.category}
+                                      </span>
+                                    </div>
+
+                                    {/* Action buttons footer for constraints */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-white/5" onClick={(e) => e.stopPropagation()}>
+                                      {/* Visible Status tag */}
+                                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase font-mono tracking-wider ${
+                                        isVisible ? 'bg-emerald-500/10 text-emerald-400' : 'bg-neutral-800 text-neutral-500'
+                                      }`}>
+                                        {isVisible ? 'Active' : 'Hidden'}
+                                      </span>
+
+                                      {/* Buttons collection */}
+                                      <div className="flex items-center space-x-1.5">
+                                        {/* Show / Hide Toggle */}
+                                        <button
+                                          onClick={() => {
+                                            setDynamicSections(dynamicSections.map(s => 
+                                              s.id === section.id ? { ...s, visible: !s.visible } : s
+                                            ));
+                                          }}
+                                          title={isVisible ? 'হাইড করুন (Hide)' : 'দেখুন (Show)'}
+                                          className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                                            isVisible 
+                                              ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20' 
+                                              : 'bg-neutral-900 text-neutral-500 border-white/5 hover:text-neutral-300'
+                                          }`}
+                                        >
+                                          {isVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                                        </button>
+
+                                        {/* Settings Button */}
+                                        <button
+                                          onClick={() => setShowSettingsSectionId(showSettingsSectionId === section.id ? null : section.id)}
+                                          title="সেটিংস কাস্টমাইজ করুন"
+                                          className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                                            showSettingsSectionId === section.id
+                                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                              : 'bg-neutral-900 text-neutral-400 border-white/5 hover:text-white hover:bg-neutral-800'
+                                          }`}
+                                        >
+                                          <Settings className="h-3.5 w-3.5" />
+                                        </button>
+
+                                        {/* Mobile Preview Button */}
+                                        <button
+                                          onClick={() => {
+                                            setSelectedDynamicSection(section.id);
+                                            setDesignerPreviewSection(section.id);
+                                            setDesignerPreviewMode('mobile');
+                                          }}
+                                          title="মোবাইল লেআউটে প্রিভিউ করুন"
+                                          className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                                            designerPreviewSection === section.id && designerPreviewMode === 'mobile'
+                                              ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                                              : 'bg-neutral-900 text-neutral-400 border-white/5 hover:text-white hover:bg-neutral-800'
+                                          }`}
+                                        >
+                                          <Smartphone className="h-3.5 w-3.5" />
+                                        </button>
+
+                                        {/* Desktop Preview Button */}
+                                        <button
+                                          onClick={() => {
+                                            setSelectedDynamicSection(section.id);
+                                            setDesignerPreviewSection(section.id);
+                                            setDesignerPreviewMode('desktop');
+                                          }}
+                                          title="ডেস্কটপ লেআউটে প্রিভিউ করুন"
+                                          className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                                            designerPreviewSection === section.id && designerPreviewMode === 'desktop'
+                                              ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                                              : 'bg-neutral-900 text-neutral-400 border-white/5 hover:text-white hover:bg-neutral-800'
+                                          }`}
+                                        >
+                                          <Monitor className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            
+                            {/* Tips panel */}
+                            <div className="p-4 bg-indigo-950/20 border-t border-[#322822]/40 text-[11px] opacity-70 flex items-center space-x-2 text-left">
+                              <Sparkles className="h-4 w-4 text-indigo-400 shrink-0 animate-pulse" />
+                              <span className="font-sans">টিপস: অর্ডার আপ ও ডাউন এরোতে চাপলে লাইভ প্রিভিউ প্যানেলে সেটির বিন্যাস রিয়েল-টাইমে পরিবর্তিত হয়।</span>
+                            </div>
+                          </div>
+
+                          {/* Custom Settings Panel inside Left Side */}
+                          <div className="bg-[#1a1614] rounded-3xl border border-[#322822]/40 p-5 space-y-4 shadow-xl text-left">
+                            <div className="flex items-center justify-between border-b border-[#322822]/40 pb-3">
+                              <h4 className="text-xs font-black uppercase tracking-wider text-amber-500 flex items-center space-x-1.5">
+                                <Settings className="h-4 w-4" />
+                                <span>সেকশন সেটিংস কনফিগারেশন (Custom Settings)</span>
+                              </h4>
+                              {showSettingsSectionId && (
+                                <button 
+                                  onClick={() => setShowSettingsSectionId(null)}
+                                  className="text-[10px] text-neutral-400 hover:text-white bg-white/5 px-2 py-0.5 rounded"
+                                >
+                                  Close
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Section Specific Settings Inputs Form */}
+                            {(() => {
+                              const activeSec = dynamicSections.find(s => s.id === (showSettingsSectionId || selectedDynamicSection));
+                              if (!activeSec) return (
+                                <p className="opacity-50 text-xs italic py-2">যেকোনো সেকশনের সেটিংস বাটনে চাপুন অথবা সেকশন সিলেক্ট করুন সেটিংস কনফিগার করতে।</p>
+                              );
+
+                              return (
+                                <div className="space-y-4 text-xs">
+                                  <div className="p-3 bg-amber-500/[0.03] border border-amber-500/20 rounded-xl space-y-1">
+                                    <p className="font-bold text-amber-500">{activeSec.name} সেটিংস প্যানেল</p>
+                                    <p className="text-[10px] opacity-60 font-sans">এই সেকশনটির জন্য কাস্টম হেডার, টেক্সট বা লেআউট প্যারামিটার পরিবর্তন করুন:</p>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    <div>
+                                      <label className="block text-[11px] opacity-70 mb-1 font-bold">সেকশন শিরোনাম (Section Title):</label>
+                                      <input 
+                                        type="text" 
+                                        defaultValue={activeSec.bengaliName} 
+                                        onChange={(e) => {
+                                          const updated = dynamicSections.map(s => 
+                                            s.id === activeSec.id ? { ...s, bengaliName: e.target.value } : s
+                                          );
+                                          setDynamicSections(updated);
+                                        }}
+                                        className="w-full bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-all" 
+                                      />
+                                    </div>
+
+                                    <div className="pt-1.5 border-t border-white/5">
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                                        className="w-full py-2 px-3 bg-[#1e1917] hover:bg-neutral-800 text-neutral-300 text-[10px] font-black rounded-xl transition-all flex items-center justify-between cursor-pointer border border-white/5"
+                                      >
+                                        <span>⚙️ Advanced Settings (উন্নত সেটিংস)</span>
+                                        <span className="font-mono text-[9px]">{showAdvancedSettings ? 'Hide ▲' : 'Show ▼'}</span>
+                                      </button>
+                                    </div>
+
+                                    {showAdvancedSettings && (
+                                      <div className="space-y-4 pt-3 border-t border-white/5 animate-fade-in">
+                                        {activeSec.id === 'hero' && (
+                                          <div className="space-y-2 text-left">
+                                            <div>
+                                              <label className="block text-[11px] opacity-70 mb-1 font-bold">Auto Slide Interval:</label>
+                                              <select defaultValue="5 Seconds" className="w-full bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none">
+                                                <option>3 Seconds</option>
+                                                <option>5 Seconds</option>
+                                                <option>8 Seconds</option>
+                                              </select>
+                                            </div>
+                                            <div className="flex items-center space-x-2 pt-1 justify-start">
+                                              <input type="checkbox" defaultChecked className="rounded text-indigo-500" />
+                                              <span className="text-[11px] opacity-70 font-sans">লুপ এনিমেশন এনাবেল করুন (Loop Animation)</span>
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {activeSec.id === 'flash_sale' && (
+                                          <div className="space-y-2 text-left">
+                                            <div>
+                                              <label className="block text-[11px] opacity-70 mb-1 font-bold">কাউন্টডাউন টাইম (Countdown Target Date):</label>
+                                              <input type="datetime-local" defaultValue="2026-07-15T18:00" className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-white" />
+                                            </div>
+                                            <div>
+                                              <label className="block text-[11px] opacity-70 mb-1 font-bold">ডিসকাউন্ট হার (Discount Percentage):</label>
+                                              <input type="text" defaultValue="50% OFF" className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-white" />
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {activeSec.id !== 'hero' && activeSec.id !== 'flash_sale' && (
+                                          <div className="text-left">
+                                            <label className="block text-[11px] opacity-70 mb-1 font-bold">সর্বোচ্চ আইটেম সংখ্যা (Max Visible Items):</label>
+                                            <input 
+                                              type="number" 
+                                              defaultValue={activeSec.id === 'brand_logos' ? 6 : 4} 
+                                              className="w-full bg-black/30 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none" 
+                                            />
+                                          </div>
+                                        )}
+
+                                        <button 
+                                          type="button"
+                                          onClick={() => {
+                                            setDesignerSuccessMessage(`${activeSec.bengaliName} সেকশনের নতুন সেটিংস ড্রাফট হিসেবে সেভ হয়েছে!`);
+                                            setShowSettingsSectionId(null);
+                                          }}
+                                          className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold rounded-xl text-xs transition-all tracking-wider uppercase cursor-pointer"
+                                        >
+                                          Apply Settings
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Right Side: GRAND LIVE HOMEPAGE PREVIEW PANEL (col-span-6) */}
+                        <div className="lg:col-span-6 flex flex-col space-y-4">
+                          <div className="bg-[#1a1614] rounded-3xl border border-[#322822]/40 p-5 space-y-4 shadow-xl flex-1 flex flex-col justify-between">
+                            
+                            {/* Preview Control Switch bar */}
+                            <div className="flex items-center justify-between border-b border-[#322822]/40 pb-3 flex-wrap gap-2">
+                              <div className="flex items-center space-x-2">
+                                <span className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-indigo-400 flex items-center space-x-1.5">
+                                  <span>লাইভ হোমপেজ ডিজাইন প্রিভিউ (Live Preview Panel)</span>
+                                </h4>
+                              </div>
+
+                              {/* Toggle Device Frame */}
+                              <div className="flex items-center bg-black/40 p-1 rounded-xl border border-white/5">
+                                <button
+                                  onClick={() => setDesignerPreviewMode('mobile')}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer flex items-center space-x-1 ${
+                                    designerPreviewMode === 'mobile'
+                                      ? 'bg-indigo-500 text-white shadow-md'
+                                      : 'text-neutral-400 hover:text-white'
+                                  }`}
+                                >
+                                  <Smartphone className="h-3 w-3" />
+                                  <span>Mobile</span>
+                                </button>
+                                <button
+                                  onClick={() => setDesignerPreviewMode('desktop')}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer flex items-center space-x-1 ${
+                                    designerPreviewMode === 'desktop'
+                                      ? 'bg-indigo-500 text-white shadow-md'
+                                      : 'text-neutral-400 hover:text-white'
+                                  }`}
+                                >
+                                  <Monitor className="h-3 w-3" />
+                                  <span>Desktop</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* DEVICE PREVIEW AREA */}
+                            <div className="flex-1 py-4 flex items-center justify-center bg-black/10 rounded-2xl border border-white/5 overflow-hidden">
+                              
+                              {designerPreviewMode === 'mobile' ? (
+                                /* SMARTPHONE MOCKUP */
+                                <div className="w-full max-w-[280px] sm:max-w-[310px] rounded-[3rem] border-[8px] border-neutral-800 bg-[#120e0c] shadow-2xl relative overflow-hidden flex flex-col aspect-[9/18]">
+                                  {/* Camera notch / pill */}
+                                  <div className="absolute top-2 left-1/2 -translate-x-1/2 h-4 w-24 bg-black rounded-full z-30 flex items-center justify-center">
+                                    <div className="h-1.5 w-1.5 bg-neutral-900 rounded-full"></div>
+                                  </div>
+                                  
+                                  {/* Mobile Status Bar */}
+                                  <div className="h-6 bg-[#120e0c] flex items-center justify-between px-6 text-[8px] font-bold text-white/80 select-none z-20">
+                                    <span>9:41</span>
+                                    <div className="flex items-center space-x-1">
+                                      <span>📶</span>
+                                      <span>🔋</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Interactive Viewport */}
+                                  <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-800 pr-0.5 space-y-4 p-3 bg-[#0d0908] text-left">
+                                    {/* Small Floating Shop Header */}
+                                    <div className="border-b border-white/5 pb-2 flex items-center justify-between">
+                                      <span className="text-[10px] font-black tracking-wider text-white">TREND ZONE BD</span>
+                                      <span className="text-[9px] text-indigo-400">⚡ Store</span>
+                                    </div>
+
+                                    {/* Render dynamicSections in exact sorted order */}
+                                    {dynamicSections.filter(s => s.visible).map((section) => {
+                                      const isHighlighted = selectedDynamicSection === section.id || designerPreviewSection === section.id;
+                                      return (
+                                        <div 
+                                          key={section.id}
+                                          onClick={() => {
+                                            setSelectedDynamicSection(section.id);
+                                            setDesignerPreviewSection(section.id);
+                                          }}
+                                          className={`relative rounded-xl overflow-hidden transition-all duration-300 border-2 cursor-pointer
+                                            ${isHighlighted 
+                                              ? 'border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.25)] ring-1 ring-indigo-400' 
+                                              : 'border-white/5 hover:border-white/15'}`}
+                                        >
+                                          {/* Mini Badge Indicator */}
+                                          <div className="absolute top-1 left-1.5 z-10 px-1.5 py-0.5 bg-black/70 text-[6px] font-mono rounded text-white font-bold pointer-events-none">
+                                            {section.bengaliName}
+                                          </div>
+
+                                          {/* Section Contents */}
+                                          {section.id === 'hero' && (
+                                            <div className="h-32 bg-cover bg-center flex flex-col justify-end p-2.5 relative"
+                                              style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.8) 40%, transparent), url('https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=600')` }}>
+                                              <p className="text-[6px] text-amber-400 uppercase tracking-widest font-black font-sans">Aura Elite Kits</p>
+                                              <h5 className="text-[9px] font-black text-white leading-tight mt-0.5">নতুন ধামাকা ফুটবল কালেকশন</h5>
+                                              <div className="flex space-x-1 mt-1 font-sans">
+                                                <span className="px-2 py-0.5 bg-indigo-500 text-white text-[5px] font-bold rounded">Buy Now</span>
+                                                <span className="px-2 py-0.5 bg-white/10 text-white text-[5px] font-bold rounded">Details</span>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'categories' && (
+                                            <div className="p-2 bg-neutral-900/60 space-y-1.5 font-sans">
+                                              <div className="flex overflow-x-auto gap-1 pb-0.5 scrollbar-none">
+                                                <span className="px-2 py-0.5 bg-indigo-500 text-white text-[6px] font-bold rounded-full shrink-0">⚡ Premium Jersey</span>
+                                                <span className="px-2 py-0.5 bg-[#120e0c] text-neutral-400 text-[6px] rounded-full shrink-0">Retro Fit</span>
+                                                <span className="px-2 py-0.5 bg-[#120e0c] text-neutral-400 text-[6px] rounded-full shrink-0">Slim Fit</span>
+                                                <span className="px-2 py-0.5 bg-[#120e0c] text-neutral-400 text-[6px] rounded-full shrink-0">Full Kit</span>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'featured_products' && (
+                                            <div className="p-2 bg-neutral-900/40 space-y-1.5">
+                                              <div className="grid grid-cols-2 gap-1.5 font-sans">
+                                                {[
+                                                  { name: 'RM Stealth Carbon', price: '৳১৪৫০', img: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=150' },
+                                                  { name: 'ARG Retro Worldcup', price: '৳১৩৮০', img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=150' },
+                                                ].map((p, i) => (
+                                                  <div key={i} className="bg-black/30 p-1 rounded-lg border border-white/5 text-center">
+                                                    <div className="h-12 bg-neutral-800 rounded overflow-hidden">
+                                                      <img src={p.img} alt={p.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                                    </div>
+                                                    <p className="text-[7px] font-bold truncate text-white mt-1">{p.name}</p>
+                                                    <p className="text-[7px] text-indigo-400 font-mono font-bold">{p.price}</p>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'flash_sale' && (
+                                            <div className="p-2.5 bg-rose-950/20 border border-rose-500/10 space-y-1.5 font-sans">
+                                              <div className="flex justify-between items-center text-[7px]">
+                                                <span className="text-rose-400 font-black">🔥 FLASH DEAL -50%</span>
+                                                <span className="font-mono text-white bg-rose-500/30 px-1 rounded">02h : 14m</span>
+                                              </div>
+                                              <div className="h-1 bg-neutral-800 rounded overflow-hidden">
+                                                <div className="h-full bg-gradient-to-r from-indigo-500 to-rose-500 w-3/4"></div>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'collections' && (
+                                            <div className="p-2 bg-neutral-900/60 space-y-1">
+                                              <div className="grid grid-cols-2 gap-1.5 text-center font-sans">
+                                                <div className="bg-[#120e0c] p-1.5 rounded border border-white/5 flex flex-col justify-center">
+                                                  <span className="text-[7px] font-black text-white">Retro Masterpieces</span>
+                                                  <span className="text-[5px] text-indigo-400">14+ items</span>
+                                                </div>
+                                                <div className="bg-[#120e0c] p-1.5 rounded border border-white/5 flex flex-col justify-center">
+                                                  <span className="text-[7px] font-black text-white">Fan Version Kits</span>
+                                                  <span className="text-[5px] text-indigo-400">22+ items</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'brand_logos' && (
+                                            <div className="p-1.5 bg-black/40 flex justify-between items-center gap-1 overflow-x-auto text-[5px] text-neutral-400 font-mono select-none">
+                                              <span>⚡ AURA LUX</span>
+                                              <span>● MONACO</span>
+                                              <span>▲ VANGUARD</span>
+                                              <span>❖ BREEZE</span>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'testimonials' && (
+                                            <div className="p-2 bg-neutral-900/40 space-y-1 font-sans">
+                                              <div className="bg-[#120e0c] p-1.5 rounded text-[6px] text-neutral-300">
+                                                <div className="flex justify-between text-yellow-500">
+                                                  <span>রাকিব হাসান</span>
+                                                  <span>★★★★★</span>
+                                                </div>
+                                                <p className="opacity-70 mt-0.5 line-clamp-1">জার্সির কোয়ালিটি অসাধারণ!</p>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'newsletter' && (
+                                            <div className="p-2 bg-indigo-950/20 text-center space-y-1 font-sans">
+                                              <p className="text-[7px] font-black text-indigo-300">ইনবক্সে বিশেষ কুপন কোড পান!</p>
+                                              <div className="flex gap-1">
+                                                <input type="text" placeholder="Your Email" disabled className="bg-black/40 border border-white/10 rounded px-1 text-[6px] text-white flex-1 focus:outline-none" />
+                                                <button disabled className="bg-indigo-600 text-white font-bold text-[5px] px-1.5 py-0.5 rounded">Join</button>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'footer' && (
+                                            <div className="p-2.5 bg-[#120e0c] text-[6px] text-neutral-500 text-center font-sans">
+                                              <p className="font-bold text-white text-[7px]">Trend Zone BD</p>
+                                              <p className="mt-0.5">© ২০২৬ Trend Zone. All Rights Reserved.</p>
+                                            </div>
+                                          )}
+
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : (
+                                /* BROWSER/DESKTOP MOCKUP */
+                                <div className="w-full max-w-[450px] sm:max-w-[500px] rounded-2xl border-4 border-neutral-800 bg-[#120e0c] shadow-2xl relative overflow-hidden flex flex-col aspect-[16/11]">
+                                  {/* Browser Header Controls */}
+                                  <div className="h-8 bg-[#120e0c] flex items-center justify-between px-3.5 text-neutral-400 select-none border-b border-white/5">
+                                    <div className="flex items-center space-x-1.5">
+                                      <span className="h-2 w-2 bg-red-500 rounded-full"></span>
+                                      <span className="h-2 w-2 bg-yellow-500 rounded-full"></span>
+                                      <span className="h-2 w-2 bg-green-500 rounded-full"></span>
+                                    </div>
+                                    <div className="bg-black/30 rounded-md px-6 py-0.5 text-[7px] text-neutral-400 font-mono tracking-wider w-48 text-center truncate">
+                                      https://trendzone.com.bd/live
+                                    </div>
+                                    <span className="text-[9px]">☰</span>
+                                  </div>
+
+                                  {/* Viewport content */}
+                                  <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-800 pr-0.5 space-y-5 p-4 bg-[#0d0908] text-left">
+                                    {/* Desktop Floating Store Header */}
+                                    <div className="border-b border-white/5 pb-2.5 flex items-center justify-between font-sans">
+                                      <span className="text-xs font-black tracking-wider text-white">TREND ZONE BD (প্রিমিয়াম অনলাইন স্টোর)</span>
+                                      <div className="flex space-x-2 text-[8px] text-neutral-400">
+                                        <span>হোম</span>
+                                        <span>জার্সি কালেকশন</span>
+                                        <span>অর্ডার ট্র্যাকিং</span>
+                                        <span className="text-indigo-400 font-bold">⚡ হট অফার</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Render dynamicSections in exact sorted order */}
+                                    {dynamicSections.filter(s => s.visible).map((section) => {
+                                      const isHighlighted = selectedDynamicSection === section.id || designerPreviewSection === section.id;
+                                      return (
+                                        <div 
+                                          key={section.id}
+                                          onClick={() => {
+                                            setSelectedDynamicSection(section.id);
+                                            setDesignerPreviewSection(section.id);
+                                          }}
+                                          className={`relative rounded-2xl overflow-hidden transition-all duration-300 border-2 cursor-pointer
+                                            ${isHighlighted 
+                                              ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.25)] ring-1 ring-indigo-400' 
+                                              : 'border-white/5 hover:border-white/15'}`}
+                                        >
+                                          {/* Mini Badge Indicator */}
+                                          <div className="absolute top-2 left-3.5 z-10 px-2 py-0.5 bg-black/80 text-[8px] font-mono rounded text-white font-bold pointer-events-none">
+                                            {section.bengaliName}
+                                          </div>
+
+                                          {/* Section Contents */}
+                                          {section.id === 'hero' && (
+                                            <div className="h-44 bg-cover bg-center flex flex-col justify-end p-4 relative"
+                                              style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.85) 40%, transparent), url('https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200')` }}>
+                                              <p className="text-[8px] text-indigo-400 uppercase tracking-widest font-black font-sans">Aura Elite Series</p>
+                                              <h5 className="text-sm font-black text-white leading-tight mt-1">নতুন সিজন ধামাকা ফুটবল জার্সি কালেকশন</h5>
+                                              <p className="text-[10px] opacity-70 max-w-sm mt-1 leading-relaxed font-sans">প্রিমিয়াম এবং স্টাইলিশ ডিজাইনের খেলোয়াড় এডিশন কিটস এখন লাইভ অফারে উপলব্ধ।</p>
+                                              <div className="flex space-x-2 mt-2 font-sans">
+                                                <span className="px-3 py-1 bg-indigo-500 text-white text-[8px] font-black rounded-lg">অর্ডার করুন (Buy Now)</span>
+                                                <span className="px-3 py-1 bg-white/10 text-white text-[8px] font-bold rounded-lg">বিস্তারিত দেখুন</span>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'categories' && (
+                                            <div className="p-3 bg-neutral-900/60 space-y-1.5 font-sans">
+                                              <div className="flex flex-wrap gap-1.5">
+                                                <span className="px-3 py-1 bg-indigo-500 text-white text-[8px] font-bold rounded-full">⚡ প্রিমিয়াম প্লেয়ার এডিশন</span>
+                                                <span className="px-3 py-1 bg-[#120e0c] text-neutral-300 text-[8px] rounded-full border border-white/5">ফ্যান এডিশন ক্লাসিক</span>
+                                                <span className="px-3 py-1 bg-[#120e0c] text-neutral-300 text-[8px] rounded-full border border-white/5">রেট্রো ক্লাসিক ১৯৮৬</span>
+                                                <span className="px-3 py-1 bg-[#120e0c] text-neutral-300 text-[8px] rounded-full border border-white/5">উইন্ডব্রেকার জ্যাকেট</span>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'featured_products' && (
+                                            <div className="p-3.5 bg-neutral-900/40 space-y-2 font-sans">
+                                              <div className="flex justify-between items-center text-[9px] mb-1">
+                                                <span className="font-extrabold text-indigo-400">🔥 সপ্তাহের সেরা ডিল (Trending Now)</span>
+                                                <span className="opacity-50">মোট ৩টি আইটেম</span>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2">
+                                                {[
+                                                  { name: 'RM Stealth Carbon', price: '৳১৪৫০', img: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=150' },
+                                                  { name: 'ARG Retro Worldcup', price: '৳১৩৮০', img: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=150' },
+                                                  { name: 'BD Cricket Official', price: '৳১১৫০', img: 'https://images.unsplash.com/photo-1540747737956-378721767518?auto=format&fit=crop&q=80&w=150' },
+                                                ].map((p, i) => (
+                                                  <div key={i} className="bg-black/30 p-1.5 rounded-lg border border-white/5 text-center">
+                                                    <div className="h-14 bg-neutral-800 rounded overflow-hidden">
+                                                      <img src={p.img} alt={p.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                                    </div>
+                                                    <p className="text-[8px] font-black truncate text-white mt-1">{p.name}</p>
+                                                    <p className="text-[8px] text-indigo-400 font-mono font-bold mt-0.5">{p.price}</p>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'flash_sale' && (
+                                            <div className="p-3 bg-rose-950/20 border border-rose-500/10 space-y-2 font-sans">
+                                              <div className="flex justify-between items-center text-[9px]">
+                                                <span className="text-rose-400 font-black flex items-center">
+                                                  <span className="h-1.5 w-1.5 bg-rose-500 rounded-full animate-ping mr-1"></span>
+                                                  FLASH SALE (৫০% মেগা ডিসকাউন্ট অফার)
+                                                </span>
+                                                <span className="font-mono text-white bg-rose-500/30 px-1.5 py-0.5 rounded text-[8px]">০২ ঘন্টা : ১৪ মিনিট</span>
+                                              </div>
+                                              <div className="h-1.5 bg-neutral-800 rounded overflow-hidden">
+                                                <div className="h-full bg-gradient-to-r from-indigo-500 to-rose-500 w-3/4"></div>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'collections' && (
+                                            <div className="p-3.5 bg-neutral-900/60 space-y-1.5 font-sans">
+                                              <div className="grid grid-cols-2 gap-2 text-center">
+                                                <div className="bg-[#120e0c] p-2 rounded-lg border border-white/5 flex flex-col justify-center hover:border-indigo-500/20 transition-all">
+                                                  <span className="text-[9px] font-black text-white">Retro Masterpieces Collection</span>
+                                                  <span className="text-[7px] text-indigo-400">14+ Premium Jerseys Available</span>
+                                                </div>
+                                                <div className="bg-[#120e0c] p-2 rounded-lg border border-white/5 flex flex-col justify-center hover:border-indigo-500/20 transition-all">
+                                                  <span className="text-[9px] font-black text-white">Fan Version Official Kits</span>
+                                                  <span className="text-[7px] text-indigo-400">22+ Club & Country Jerseys</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'brand_logos' && (
+                                            <div className="p-2.5 bg-black/40 flex justify-around items-center gap-2 text-[7px] text-neutral-400 font-mono select-none">
+                                              <span>⚡ AURA LUXURY CO.</span>
+                                              <span>● MONACO SPECIALS</span>
+                                              <span>▲ VANGUARD CLOTH</span>
+                                              <span>❖ BREEZE SPORTS</span>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'testimonials' && (
+                                            <div className="p-3 bg-neutral-900/40 space-y-1.5 font-sans">
+                                              <div className="bg-[#120e0c] p-2 rounded text-[8px] text-neutral-300">
+                                                <div className="flex justify-between text-yellow-500 font-bold mb-1">
+                                                  <span>রাকিব হাসান (Verified Buyer)</span>
+                                                  <span>★★★★★</span>
+                                                </div>
+                                                <p className="opacity-70">"জার্সিগুলোর ফেব্রিক কোয়ালিটি অসাধারণ! একদম প্রফেশনাল প্লেয়ার এডিশনের মতো ঘাম শোষণ করে এবং পড়ে খুব আরাম পাওয়া যায়।"</p>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'newsletter' && (
+                                            <div className="p-3 bg-indigo-950/20 text-center space-y-1.5 font-sans">
+                                              <p className="text-[9px] font-black text-indigo-300">ইনবক্সে বিশেষ কুপন কোড ও পরবর্তী ধামাকা অফার পান!</p>
+                                              <div className="flex gap-2 max-w-xs mx-auto">
+                                                <input type="text" placeholder="Your Email Address" disabled className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[8px] text-white flex-1 focus:outline-none" />
+                                                <button disabled className="bg-indigo-600 text-white font-bold text-[8px] px-3 py-1 rounded-lg">Subscribe</button>
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {section.id === 'footer' && (
+                                            <div className="p-3 bg-[#120e0c] text-[8px] text-neutral-500 text-center font-sans">
+                                              <p className="font-bold text-white text-[9px]">Trend Zone BD</p>
+                                              <p className="mt-1 opacity-75">যোগাযোগ: ০১৭০০-০০০০০০ | প্রিমিয়াম ও রেট্রো জার্সি গন্তব্য।</p>
+                                              <p className="mt-1 opacity-50">© ২০২৬ Trend Zone. All Rights Reserved.</p>
+                                            </div>
+                                          )}
+
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                            </div>
+
+                            {/* Synchronized status banner */}
+                            <div className="bg-black/20 p-3.5 rounded-2xl border border-white/5 text-[10px] space-y-1 text-left">
+                              <div className="flex items-center justify-between text-[11px] text-indigo-400 font-black">
+                                <span>⚙️ রিয়েল-টাইম সিনক্রোনাইজেশন অ্যাক্টিভ</span>
+                                <span className="font-mono text-[9px] bg-indigo-500/10 px-1.5 py-0.5 rounded text-indigo-300">Layout Synchronized</span>
+                              </div>
+                              <p className="opacity-70 leading-relaxed font-sans">
+                                বামপাশের প্যানেলে সেকশনগুলোর ভিজিবিলিটি অন/অফ করলে অথবা সেকশনের উপর/নিচে সরালে তা এখানে রিয়েল-টাইমে আপডেট হয়।
+                              </p>
+                            </div>
+
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  ) : showSmartDesigner ? (
+
+                    /* Smart Theme - Advanced Banner Control Panel UI */
+                    <div className="space-y-6 animate-fade-in text-left">
+                      {/* Top Action & Status Bar */}
+                      <div className="bg-[#1a1614] p-5 rounded-3xl border border-[#322822]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="h-2 w-2 bg-amber-500 rounded-full animate-pulse"></span>
+                            <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Smart AI Workspace</span>
+                          </div>
+                          <h3 className="text-lg font-black text-white font-sans">অ্যাডভান্সড ব্যানার কন্ট্রোল প্যানেল (Advanced Banner Control Panel)</h3>
+                          <p className="opacity-70 text-xs font-sans">এআই-চালিত স্মার্ট ব্যানারগুলোর অর্ডার, শিডিউলিং, অ্যানিমেশন এবং প্রায়োরিটি কাস্টমাইজ করুন।</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => {
+                              try {
+                                setPublishedTheme('smart');
+                                localStorage.setItem('aura_published_theme', 'smart');
+                                localStorage.setItem('aura_smart_banners', JSON.stringify(smartBanners));
+                                localStorage.setItem('aura_smart_theme_settings', JSON.stringify({ ...smartTheme, isPreview: true }));
+                                setDesignerSuccessMessage("স্মার্ট থিম সহ লাইভ স্টোরফ্রন্ট প্রিভিউ জেনারেট হচ্ছে... ২ সেকেন্ডের মধ্যে গ্রাহক হোমপেজে নিয়ে যাওয়া হচ্ছে!");
+                                setTimeout(() => {
+                                  setView('storefront');
+                                }, 1800);
+                              } catch (e) {
+                                setDesignerSuccessMessage("প্রিভিউ করা যায়নি।");
+                              }
+                            }}
+                            className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-extrabold rounded-xl transition-all flex items-center space-x-1.5 border border-white/5 cursor-pointer"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-amber-400" />
+                            <span>Preview Live</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              try {
+                                localStorage.setItem('aura_smart_theme_settings', JSON.stringify(smartTheme));
+                                localStorage.setItem('aura_smart_banners', JSON.stringify(smartBanners));
+                                setDesignerSuccessMessage("স্মার্ট ব্যানার ড্রাফট এবং সেটিংস সফলভাবে ক্যাশে সংরক্ষিত হয়েছে!");
+                              } catch(e) {
+                                setDesignerSuccessMessage("ড্রাফট সংরক্ষণ করা যায়নি।");
+                              }
+                            }}
+                            className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-extrabold rounded-xl transition-all flex items-center space-x-1.5 border border-white/5 cursor-pointer"
+                          >
+                            <Save className="h-3.5 w-3.5 text-amber-400" />
+                            <span>Save Draft</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              try {
+                                setPublishedTheme('smart');
+                                localStorage.setItem('aura_published_theme', 'smart');
+                                localStorage.setItem('aura_smart_theme_settings', JSON.stringify(smartTheme));
+                                localStorage.setItem('aura_smart_banners', JSON.stringify(smartBanners));
+                                setDesignerSuccessMessage("অভিনন্দন! আপনার অ্যাডভান্সড স্মার্ট ব্যানার কনফিগারেশন সফলভাবে পাবলিশ হয়েছে এবং স্টোরে লাইভ করা হয়েছে।");
+                              } catch(e) {
+                                setDesignerSuccessMessage("পাবলিশ করা যায়নি।");
+                              }
+                            }}
+                            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-orange-500/10 flex items-center space-x-1.5 cursor-pointer border-none"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            <span>Publish to Store</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Main Workspace: 12-column Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                        
+                        {/* Left Sidebar: Banner List (col-span-4) */}
+                        <div className="lg:col-span-4 space-y-4">
+                          <div className="bg-[#1a1614] p-5 rounded-3xl border border-[#322822]/40 space-y-4">
+                            <div className="flex items-center justify-between border-b border-[#322822]/40 pb-3">
+                              <h4 className="text-xs font-black uppercase tracking-wider opacity-65 flex items-center space-x-2">
+                                <Layers className="h-3.5 w-3.5 text-amber-500" />
+                                <span>ব্যানার লিস্ট (Banner List)</span>
+                              </h4>
+                              <button
+                                onClick={() => {
+                                  setEditingSmartBannerId(null);
+                                  setSmartBannerForm({
+                                    title: 'নতুন স্মার্ট ব্যানার টাইটেল',
+                                    subtitle: 'AI Targeting Subtitle',
+                                    description: 'এই আকর্ষণীয় অফারটি শুধুমাত্র সীমিত সময়ের জন্য প্রযোজ্য।',
+                                    badge: 'Highly Recommended',
+                                    animation: 'Slide Left (স্মুথ)',
+                                    duration: 5,
+                                    priority: 'High',
+                                    status: 'Draft',
+                                    scheduleStart: '2026-07-11T12:00',
+                                    scheduleEnd: '2026-07-18T12:00',
+                                    desktopImageUrl: 'https://images.unsplash.com/photo-1540747737956-378721767518?auto=format&fit=crop&q=80&w=1200',
+                                  });
+                                  setDesignerSuccessMessage("নতুন ব্যানার তৈরির ফর্ম লোড হয়েছে। ডানে তথ্য পূরণ করে সংরক্ষণ করুন!");
+                                }}
+                                className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-black rounded-lg transition-all flex items-center space-x-1 cursor-pointer"
+                              >
+                                <Plus className="h-3 w-3" />
+                                <span>Add New</span>
+                              </button>
+                            </div>
+
+                            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                              {smartBanners.map((sb) => {
+                                const isSelected = selectedSmartBanner === sb.id;
+                                return (
+                                  <div
+                                    key={sb.id}
+                                    onClick={() => {
+                                      setSelectedSmartBanner(sb.id);
+                                      setSmartBannerForm({
+                                        title: sb.title,
+                                        subtitle: sb.subtitle,
+                                        description: sb.description,
+                                        badge: sb.badge,
+                                        animation: sb.animation,
+                                        duration: sb.duration,
+                                        priority: sb.priority,
+                                        status: sb.status,
+                                        scheduleStart: sb.scheduleStart,
+                                        scheduleEnd: sb.scheduleEnd,
+                                        desktopImageUrl: sb.desktopImageUrl,
+                                      });
+                                    }}
+                                    className={`p-4 rounded-2xl border text-left cursor-pointer transition-all space-y-3 group relative overflow-hidden
+                                      ${isSelected 
+                                        ? 'bg-amber-500/[0.08] border-amber-500/50 shadow-md shadow-amber-500/[0.02]' 
+                                        : 'bg-black/20 border-white/5 hover:border-white/15'}`}
+                                  >
+                                    {/* Action Indicators */}
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-1.5">
+                                        <span className={`h-1.5 w-1.5 rounded-full ${
+                                          sb.status === 'Published' ? 'bg-emerald-500 animate-pulse' :
+                                          sb.status === 'Scheduled' ? 'bg-amber-500' : 'bg-neutral-400'
+                                        }`} />
+                                        <span className="text-[9px] font-black font-mono tracking-wider uppercase opacity-60">
+                                          {sb.status}
+                                        </span>
+                                      </div>
+                                      <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider
+                                        ${sb.priority === 'Highest' ? 'bg-red-500/15 text-red-400' :
+                                          sb.priority === 'High' ? 'bg-amber-500/15 text-amber-400' :
+                                          'bg-neutral-800 text-neutral-400'}`}>
+                                        Priority: {sb.priority}
+                                      </span>
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="space-y-1">
+                                      <span className="text-[10px] font-bold text-amber-500 bg-amber-500/5 px-2 py-0.5 rounded-full border border-amber-500/10">
+                                        {sb.badge}
+                                      </span>
+                                      <h5 className="font-extrabold text-xs text-white truncate mt-1.5">{sb.title}</h5>
+                                      <p className="opacity-50 text-[10px] line-clamp-1">{sb.description}</p>
+                                    </div>
+
+                                    {/* Footer Metrics */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[9px] opacity-60">
+                                      <span className="flex items-center space-x-1">
+                                        <Clock className="h-3 w-3 text-neutral-400" />
+                                        <span>{sb.duration}s Loop</span>
+                                      </span>
+                                      <span className="truncate max-w-[120px]">
+                                        {sb.animation}
+                                      </span>
+                                    </div>
+
+                                    {/* Quick Actions overlay on hover or active */}
+                                    <div className="flex items-center justify-end space-x-1 pt-1.5 border-t border-white/5">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingSmartBannerId(sb.id);
+                                          setSelectedSmartBanner(sb.id);
+                                          setSmartBannerForm({
+                                            title: sb.title,
+                                            subtitle: sb.subtitle,
+                                            description: sb.description,
+                                            badge: sb.badge,
+                                            animation: sb.animation,
+                                            duration: sb.duration,
+                                            priority: sb.priority,
+                                            status: sb.status,
+                                            scheduleStart: sb.scheduleStart,
+                                            scheduleEnd: sb.scheduleEnd,
+                                            desktopImageUrl: sb.desktopImageUrl,
+                                          });
+                                          setDesignerSuccessMessage(`"${sb.title}" এডিট করার জন্য সফলভাবে লোড করা হয়েছে। কাস্টমাইজেশন শেষ করে নিচের আপডেট বাটনে চাপুন।`);
+                                        }}
+                                        className="p-1.5 bg-[#120e0c]/40 hover:bg-[#e07a5f]/20 hover:text-[#e07a5f] rounded-lg text-neutral-300 transition-colors border-none cursor-pointer"
+                                        title="ব্যানার এডিট করুন"
+                                      >
+                                        <Edit3 className="h-3 w-3" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const duplicated = {
+                                            ...sb,
+                                            id: 'sb_' + Date.now(),
+                                            title: sb.title + ' (Copy)'
+                                          };
+                                          setSmartBanners([...smartBanners, duplicated]);
+                                          setSelectedSmartBanner(duplicated.id);
+                                          setDesignerSuccessMessage(`"${sb.title}" ব্যানারটি সফলভাবে ডুপ্লিকেট করা হয়েছে!`);
+                                        }}
+                                        className="p-1.5 bg-[#120e0c]/40 hover:bg-amber-500/20 hover:text-amber-500 rounded-lg text-neutral-300 transition-colors border-none cursor-pointer"
+                                        title="ডুপ্লিকেট করুন"
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </button>
+                                      {smartBannerIdToDelete === sb.id ? (
+                                        <div className="flex items-center space-x-1 bg-rose-500/15 p-1 rounded-lg border border-rose-500/30 animate-fade-in shrink-0">
+                                          <span className="text-[9px] font-black text-rose-400 px-1">মুছবেন?</span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const filtered = smartBanners.filter(b => b.id !== sb.id);
+                                              setSmartBanners(filtered);
+                                              setSelectedSmartBanner(filtered[0]?.id || 'sb_1');
+                                              setSmartBannerIdToDelete(null);
+                                              setDesignerSuccessMessage("ব্যানারটি সফলভাবে ডিলিট করা হয়েছে।");
+                                            }}
+                                            className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[9px] font-black rounded cursor-pointer border-none animate-fade-in"
+                                          >
+                                            হ্যাঁ
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSmartBannerIdToDelete(null);
+                                            }}
+                                            className="px-2 py-1 bg-neutral-700 hover:bg-neutral-600 text-white text-[9px] font-black rounded cursor-pointer border-none animate-fade-in"
+                                          >
+                                            না
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (smartBanners.length <= 1) {
+                                              setDesignerSuccessMessage("সতর্কতা: স্টোরে কমপক্ষে একটি স্মার্ট ব্যানার অবশ্যই লাইভ থাকতে হবে!");
+                                              return;
+                                            }
+                                            setSmartBannerIdToDelete(sb.id);
+                                          }}
+                                          className="p-1.5 bg-[#120e0c]/40 hover:bg-rose-500/20 hover:text-rose-500 rounded-lg text-neutral-300 transition-colors border-none cursor-pointer"
+                                          title="ডিলিট করুন"
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Form & Live Preview Canvas (col-span-8) */}
+                        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-12 gap-6">
+                          
+                          {/* Left Child: Advanced Control Form (col-span-6) */}
+                          <div className="md:col-span-6 bg-[#1a1614] p-5 rounded-3xl border border-[#322822]/40 space-y-4">
+                            <h4 className="text-xs font-black uppercase tracking-wider opacity-65 flex items-center space-x-2">
+                              <Sliders className="h-3.5 w-3.5 text-[#e07a5f]" />
+                              <span>ব্যানার কনফিগারেশন (Control Panel)</span>
+                            </h4>
+
+                            <div className="space-y-4">
+                              {/* Title */}
+                              <div className="text-left">
+                                <label className="block text-[11px] opacity-70 mb-1 font-bold">ব্যানার টাইটেল (Title):</label>
+                                <input
+                                  type="text"
+                                  value={smartBannerForm.title}
+                                  onChange={(e) => setSmartBannerForm({...smartBannerForm, title: e.target.value})}
+                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50"
+                                  placeholder="যেমন: রেট্রো ফুটবল জার্সি কালেকশন"
+                                />
+                              </div>
+
+                              {/* Subtitle */}
+                              <div className="text-left">
+                                <label className="block text-[11px] opacity-70 mb-1 font-bold">ব্যানার সাবটাইটেল (Subtitle):</label>
+                                <input
+                                  type="text"
+                                  value={smartBannerForm.subtitle}
+                                  onChange={(e) => setSmartBannerForm({...smartBannerForm, subtitle: e.target.value})}
+                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50"
+                                  placeholder="যেমন: Special Recommendation"
+                                />
+                              </div>
+
+                              {/* Description */}
+                              <div className="text-left">
+                                <label className="block text-[11px] opacity-70 mb-1 font-bold">ব্যানার ডেসক্রিপশন (Description):</label>
+                                <textarea
+                                  value={smartBannerForm.description}
+                                  onChange={(e) => setSmartBannerForm({...smartBannerForm, description: e.target.value})}
+                                  rows={2}
+                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50"
+                                  placeholder="ব্যানারের আকর্ষণীয় অফার বা বিস্তারিত টেক্সট..."
+                                />
+                              </div>
+
+                              {/* Desktop Image URL */}
+                              <div className="text-left">
+                                <label className="block text-[11px] opacity-70 mb-1 font-bold">ব্যানার ইমেজ লিংক (Image URL):</label>
+                                <input
+                                  type="text"
+                                  value={smartBannerForm.desktopImageUrl}
+                                  onChange={(e) => setSmartBannerForm({...smartBannerForm, desktopImageUrl: e.target.value})}
+                                  className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50"
+                                  placeholder="ইমেজ ইউআরএল লিংক..."
+                                />
+                              </div>
+
+                              {/* Grid Layout for compact parameters */}
+                              <div className="grid grid-cols-2 gap-4">
+                                {/* Badge Selection */}
+                                <div className="text-left">
+                                  <label className="block text-[11px] opacity-70 mb-1 font-bold">ব্যাজ সিলেকশন (Badge):</label>
+                                  <select
+                                    value={smartBannerForm.badge}
+                                    onChange={(e) => setSmartBannerForm({...smartBannerForm, badge: e.target.value})}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 cursor-pointer"
+                                  >
+                                    {['Highly Recommended', 'VIP Exclusive', 'Flash Sale Deal', 'Highly Rated', 'Limited Offer', 'New Arrival'].map(b => (
+                                      <option key={b} value={b} className="bg-[#1a1614] text-white">{b}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Animation Selection */}
+                                <div className="text-left">
+                                  <label className="block text-[11px] opacity-70 mb-1 font-bold">অ্যানিমেশন (Animation):</label>
+                                  <select
+                                    value={smartBannerForm.animation}
+                                    onChange={(e) => setSmartBannerForm({...smartBannerForm, animation: e.target.value})}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 cursor-pointer"
+                                  >
+                                    {['Slide Left (স্মুথ)', 'Fade In (ধীর)', 'Scale Zoom (মডার্ন)', 'Bounce Accented (আকর্ষণীয়)'].map(a => (
+                                      <option key={a} value={a} className="bg-[#1a1614] text-white">{a}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Slide Duration */}
+                                <div className="text-left">
+                                  <label className="block text-[11px] opacity-70 mb-1 font-bold">লুপ সময় (Slide Duration):</label>
+                                  <div className="relative">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={20}
+                                      value={smartBannerForm.duration}
+                                      onChange={(e) => setSmartBannerForm({...smartBannerForm, duration: parseInt(e.target.value) || 5})}
+                                      className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 font-mono"
+                                    />
+                                    <span className="absolute right-3 top-2.5 text-[10px] opacity-50 font-bold">Sec</span>
+                                  </div>
+                                </div>
+
+                                {/* Priority Selection */}
+                                <div className="text-left">
+                                  <label className="block text-[11px] opacity-70 mb-1 font-bold">প্রায়োরিটি (Priority):</label>
+                                  <select
+                                    value={smartBannerForm.priority}
+                                    onChange={(e) => setSmartBannerForm({...smartBannerForm, priority: e.target.value})}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 cursor-pointer"
+                                  >
+                                    {['Low', 'Medium', 'High', 'Highest'].map(p => (
+                                      <option key={p} value={p} className="bg-[#1a1614] text-white">{p}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Schedule Inputs */}
+                              <div className="border-t border-[#322822]/40 pt-3 space-y-3 text-left">
+                                <div className="flex items-center space-x-1">
+                                  <Calendar className="h-3 w-3 text-amber-500" />
+                                  <span className="text-[10px] font-black uppercase opacity-60 tracking-wider">রানিং শিডিউল নির্ধারণ (Schedule)</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="text-left">
+                                    <label className="block text-[10px] opacity-60 mb-0.5">শুরুর সময় (Start):</label>
+                                    <input
+                                      type="datetime-local"
+                                      value={smartBannerForm.scheduleStart}
+                                      onChange={(e) => setSmartBannerForm({...smartBannerForm, scheduleStart: e.target.value})}
+                                      className="w-full bg-black/30 border border-white/10 rounded-xl p-2 text-xs text-white focus:outline-none font-mono"
+                                    />
+                                  </div>
+                                  <div className="text-left">
+                                    <label className="block text-[10px] opacity-60 mb-0.5">শেষের সময় (End):</label>
+                                    <input
+                                      type="datetime-local"
+                                      value={smartBannerForm.scheduleEnd}
+                                      onChange={(e) => setSmartBannerForm({...smartBannerForm, scheduleEnd: e.target.value})}
+                                      className="w-full bg-black/30 border border-white/10 rounded-xl p-2 text-xs text-white focus:outline-none font-mono"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Status Toggle & Save Action */}
+                              <div className="border-t border-[#322822]/40 pt-3 flex items-center justify-between gap-4">
+                                <div className="text-left">
+                                  <label className="block text-[10px] opacity-60 mb-1 font-bold">ব্যানার স্ট্যাটাস:</label>
+                                  <div className="flex items-center space-x-2">
+                                    {['Draft', 'Published', 'Scheduled'].map(st => (
+                                      <button
+                                        key={st}
+                                        type="button"
+                                        onClick={() => setSmartBannerForm({...smartBannerForm, status: st})}
+                                        className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg border transition-all cursor-pointer
+                                          ${smartBannerForm.status === st 
+                                            ? 'bg-amber-500 text-black border-transparent font-black shadow-md' 
+                                            : 'bg-black/30 border-white/5 text-neutral-400 hover:text-white'}`}
+                                      >
+                                        {st}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (editingSmartBannerId) {
+                                      // Update existing
+                                      const updated = smartBanners.map(b => b.id === editingSmartBannerId ? {
+                                        ...b,
+                                        ...smartBannerForm
+                                      } : b);
+                                      setSmartBanners(updated);
+                                      setEditingSmartBannerId(null);
+                                      setDesignerSuccessMessage("স্মার্ট ব্যানারটি সফলভাবে আপডেট করা হয়েছে!");
+                                    } else {
+                                      // Create new
+                                      const newB = {
+                                        id: 'sb_' + Date.now(),
+                                        ...smartBannerForm,
+                                        duration: smartBannerForm.duration || 5
+                                      };
+                                      setSmartBanners([...smartBanners, newB]);
+                                      setSelectedSmartBanner(newB.id);
+                                      setDesignerSuccessMessage("নতুন স্মার্ট ব্যানারটি সফলভাবে লিস্টে যুক্ত করা হয়েছে!");
+                                    }
+                                  }}
+                                  className="px-5 py-2.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-black text-xs rounded-xl transition-all shadow-md cursor-pointer self-end"
+                                >
+                                  {editingSmartBannerId ? 'আপডেট করুন (Update)' : 'লিস্টে যোগ করুন (Add)'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right Child: Interactive Device Live Preview Canvas (col-span-6) */}
+                          <div className="md:col-span-6 flex flex-col space-y-4">
+                            <div className="bg-[#1a1614] p-5 rounded-3xl border border-[#322822]/40 flex-1 flex flex-col justify-between">
+                              <div className="flex items-center justify-between border-b border-[#322822]/40 pb-3">
+                                <h4 className="text-xs font-black uppercase tracking-wider opacity-65 flex items-center space-x-2">
+                                  <Eye className="h-3.5 w-3.5 text-emerald-500" />
+                                  <span>লাইভ প্রিভিউ (Live Preview)</span>
+                                </h4>
+                                <span className="text-[9px] bg-emerald-500/10 text-emerald-400 font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                  Synchronized
+                                </span>
+                              </div>
+
+                              {/* Styled Device Wrapper */}
+                              <div className="flex-1 py-6 flex items-center justify-center">
+                                <div className="w-full max-w-sm rounded-[2.5rem] border-[6px] border-neutral-800 bg-[#120e0c] p-3 shadow-2xl relative overflow-hidden aspect-[16/10] flex flex-col">
+                                  
+                                  {/* Banner Inside Device */}
+                                  <div 
+                                    className="h-full w-full rounded-2xl relative overflow-hidden flex flex-col justify-end p-4 text-left group bg-cover bg-center"
+                                    style={{ 
+                                      backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.25) 80%), url(${smartBannerForm.desktopImageUrl || 'https://images.unsplash.com/photo-1540747737956-378721767518?auto=format&fit=crop&q=80&w=1200'})` 
+                                    }}
+                                  >
+                                    {/* Premium Dynamic Badge */}
+                                    <div className="absolute top-3 left-3 flex items-center space-x-1">
+                                      <span className="px-2 py-1 bg-amber-500 text-black text-[8px] font-black uppercase rounded-lg tracking-wider shadow-lg flex items-center space-x-1">
+                                        <Sparkles className="h-2 w-2 animate-pulse" />
+                                        <span>{smartBannerForm.badge}</span>
+                                      </span>
+                                    </div>
+
+                                    {/* Animation Info Tag */}
+                                    <div className="absolute top-3 right-3 text-[7px] text-white/50 bg-black/40 px-2 py-1 rounded-md font-mono border border-white/5">
+                                      ✨ {smartBannerForm.animation}
+                                    </div>
+
+                                    {/* Text Content */}
+                                    <div className="space-y-1">
+                                      <p className="text-[8px] text-amber-400 font-black tracking-widest uppercase">{smartBannerForm.subtitle || 'Smart Target Offer'}</p>
+                                      <h4 className="text-xs font-extrabold text-white leading-tight">{smartBannerForm.title || 'স্মার্ট ব্যানার টাইটেল'}</h4>
+                                      <p className="text-[9px] text-neutral-300 line-clamp-2 leading-snug">{smartBannerForm.description || 'ব্যানার ডেসক্রিপশন...'}</p>
+                                    </div>
+
+                                    {/* Action Buttons Mock */}
+                                    <div className="mt-2.5 flex items-center space-x-2">
+                                      <span className="px-2.5 py-1 bg-amber-500 text-black text-[8px] font-black rounded-lg transition-transform hover:scale-105 select-none">
+                                        অর্ডার করুন
+                                      </span>
+                                      <span className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white text-[8px] font-bold rounded-lg select-none border border-white/10">
+                                        বিস্তারিত দেখুন
+                                      </span>
+                                    </div>
+
+                                    {/* Interactive Progress Bar looping animation simulation */}
+                                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10">
+                                      <div 
+                                        className="h-full bg-amber-500 rounded-r-full"
+                                        style={{ 
+                                          width: '60%',
+                                          transition: `width ${smartBannerForm.duration}s linear`,
+                                          animation: 'pulse 1.5s infinite' 
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Bottom Details panel */}
+                              <div className="bg-black/20 p-3.5 rounded-2xl border border-white/5 text-[10px] space-y-2 text-left">
+                                <div className="flex items-center justify-between text-[11px] text-amber-500 font-bold">
+                                  <span>⚙️ ইন্টেলিজেন্ট এআই প্যারামিটার</span>
+                                  <span className="font-mono text-[9px] bg-amber-500/10 px-1.5 py-0.5 rounded text-amber-400">Target Match: 98%</span>
+                                </div>
+                                <p className="opacity-70 leading-relaxed">
+                                  এই ব্যানারটির জন্য লুপ সময় <strong>{smartBannerForm.duration} সেকেন্ড</strong> নির্ধারণ করা আছে। অগ্রাধিকার স্ট্যাটাস <strong>"{smartBannerForm.priority}"</strong> হওয়ায় এটি কাস্টমারের হোমপেজের উপরের রিকমেন্ডেশন স্লটে বেশি অগ্রাধিকার পাবে।
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Theme Selector Navigation Bar */}
+                      <div className="bg-[#1a1614] p-4 rounded-3xl border border-[#322822]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+                        <div className="space-y-0.5 text-left">
+                          <p className="text-xs font-black text-[#e07a5f] uppercase tracking-wider">Theme Layout Designer</p>
+                          <p className="opacity-70 text-[11px]">আপনার পছন্দের স্টোর থিম ও লেআউট নির্বাচন করে কাস্টমাইজ করুন</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { id: 'classic', label: 'Classic Layout', icon: Layers },
+                            { id: 'dynamic', label: 'Dynamic Layout', icon: Activity, isComingSoon: true },
+                            { id: 'smart', label: 'Smart AI Layout', icon: Cpu, isComingSoon: true }
+                          ].map(t => {
+                            const TabIcon = t.icon;
+                            const isActive = designerTab === t.id;
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => setDesignerTab(t.id as any)}
+                                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer
+                                  ${isActive 
+                                    ? 'bg-gradient-to-r from-[#e07a5f] to-[#d95d39] text-white border-transparent shadow-lg shadow-orange-500/15' 
+                                    : 'bg-black/25 border-[#322822]/30 text-neutral-400 hover:text-white hover:border-white/10'}`}
+                              >
+                                <TabIcon className={`h-3.5 w-3.5 ${isActive ? 'text-white' : 'opacity-70'}`} />
+                                <span>{t.label}</span>
+                                {t.isComingSoon && (
+                                  <span className={`text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider shrink-0
+                                    ${isActive ? 'bg-white/20 text-white' : 'bg-[#e07a5f]/15 text-[#e07a5f]'}`}>
+                                    Soon
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Tab Contents (The Classic / Dynamic / Smart Selection Cards) */}
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                      
+                      {/* Left Description Column: Description Card with Features List */}
+                      <div className="md:col-span-7 bg-[#1a1614] rounded-3xl border border-[#322822]/40 overflow-hidden shadow-xl">
+                        
+                        {/* Classic Tab Card */}
+                        {designerTab === 'classic' && (
+                          <div className="p-6 sm:p-8 space-y-6">
+                            <div className="space-y-2">
+                              <span className="px-2.5 py-1 bg-neutral-800 text-neutral-300 text-[9px] font-extrabold rounded-md uppercase tracking-widest">Standard Layout</span>
+                              <h3 className="text-2xl font-black tracking-tight text-white">ক্লাসিক লেআউট (Classic Design Style)</h3>
+                              <p className="opacity-70 text-xs sm:text-sm leading-relaxed">
+                                একটি ঐতিহ্যগত ই-কমার্স ডিজাইন যা অত্যন্ত পরিষ্কার এবং ব্যবহারকারী-বান্ধব। সাধারণ গ্রিড লেআউট এবং সুনির্দিষ্ট ক্যাটাগরি ফোকাসড সেকশন কাস্টমারকে কোনো বিভ্রান্তি ছাড়াই কেনাকাটা করতে সাহায্য করে। এটি যেকোনো সাধারণ বুটিক বা কসমেটিক স্টোরের জন্য অত্যন্ত কার্যকরী।
+                              </p>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-3">
+                              <h4 className="text-xs font-bold text-[#e07a5f]">মূল বৈশিষ্ট্যসমূহ (Key Features):</h4>
+                              <ul className="space-y-2 text-xs opacity-80">
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-[#e07a5f] rounded-full"></span>
+                                  <span>ক্লিন মিনিমালিস্ট হিরো ব্যানার ও স্লোগান সেকশন।</span>
+                                </li>
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-[#e07a5f] rounded-full"></span>
+                                  <span>প্রোডাক্ট ক্যাটালগের ৩/৪ কলাম বিশিষ্ট গ্রিড ভিউ।</span>
+                                </li>
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-[#e07a5f] rounded-full"></span>
+                                  <span>সহজ ও অত্যন্ত দ্রুত লোড হওয়া ক্যাটাগরি নেভিগেশন।</span>
+                                </li>
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-[#e07a5f] rounded-full"></span>
+                                  <span>মোবাইল স্ক্রিনে রি-স্পন্সিভ ও লাইটওয়েট পারফরম্যান্স।</span>
+                                </li>
+                              </ul>
+                            </div>
+
+                            <div className="pt-4 border-t border-[#322822]/40">
+                              <button 
+                                onClick={() => {
+                                  setShowClassicDesigner(true);
+                                  setBannerForm({
+                                    desktopImageUrl: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200',
+                                    mobileImageUrl: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=600',
+                                    title: 'নতুন ধামাকা অফার',
+                                    subtitle: 'Aura Premium Casuals',
+                                    description: 'আমাদের নতুন এবং এক্সক্লুসিভ স্টাইলিশ ফ্যাশন পণ্যের সমাহার এখন আপনার হাতের মুঠোয়।',
+                                    button1Text: 'এখনই কিনুন (Buy Now)',
+                                    button1Link: '#products',
+                                    button2Text: 'সব প্রোডাক্ট দেখুন',
+                                    button2Link: '#products',
+                                    overlayColor: 'rgba(0,0,0,0.4)',
+                                    textPosition: 'left',
+                                    isActive: true,
+                                    order: banners.length + 1
+                                  });
+                                }}
+                                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-[#e07a5f] to-[#d95d39] hover:from-[#d95d39] hover:to-[#c34a27] text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider flex items-center justify-center space-x-2 cursor-pointer border-none outline-none"
+                              >
+                                <span>Open Designer</span>
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Dynamic Tab Card */}
+                        {designerTab === 'dynamic' && (
+                          <div className="p-6 sm:p-8 space-y-6">
+                            <div className="space-y-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="px-2.5 py-1 bg-indigo-950/40 text-indigo-300 text-[9px] font-extrabold rounded-md uppercase tracking-widest border border-indigo-500/20">Vibrant Layout</span>
+                              </div>
+                              <h3 className="text-2xl font-black tracking-tight text-white">ডাইনামিক লেআউট (Dynamic Visual Style)</h3>
+                              <p className="opacity-70 text-xs sm:text-sm leading-relaxed">
+                                ফ্ল্যাশ সেলস, ট্রেন্ডিং প্রোডাক্ট কালেকশন স্লাইডার এবং ইন্টারঅ্যাক্টিভ এনিমেশনের সংমিশ্রণে তৈরি একটি আধুনিক লেআউট। এটি কাস্টমারদের মধ্যে ব্র্যান্ড ইমেজ বাড়াতে এবং পণ্য এক্সপ্লোর করার আগ্রহ তৈরি করতে অত্যন্ত সহায়ক। তরুন ও ফ্যাশন সচেতন দর্শকদের জন্য এটি সেরা চয়েস।
+                              </p>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-3">
+                              <h4 className="text-xs font-bold text-indigo-400">মূল বৈশিষ্ট্যসমূহ (Key Features):</h4>
+                              <ul className="space-y-2 text-xs opacity-80">
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-indigo-500 rounded-full"></span>
+                                  <span>ফুল-উইথ মাল্টি-স্লাইড হিরো ব্যানার উইজেট।</span>
+                                </li>
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-indigo-500 rounded-full"></span>
+                                  <span>হরাইজোন্টাল স্ক্রোলিং ট্রেন্ডিং প্রোডাক্টস ও হট ডিলস ক্যারোসেল।</span>
+                                </li>
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-indigo-500 rounded-full"></span>
+                                  <span>ক্লিক করলেই স্মুথলি ক্যাটাগরি অনুযায়ী ফিল্টার হওয়া চিপস।</span>
+                                </li>
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-indigo-500 rounded-full"></span>
+                                  <span>রিচ ভিজ্যুয়াল ও কার্ড হোভার ট্রানজিশন ইফেক্টস।</span>
+                                </li>
+                              </ul>
+                            </div>
+
+                            <div className="pt-4 border-t border-[#322822]/40">
+                              <button 
+                                onClick={() => setShowDynamicDesigner(true)}
+                                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider flex items-center justify-center space-x-2 cursor-pointer border-none outline-none"
+                              >
+                                <span>Open Designer</span>
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Smart Tab Card */}
+                        {designerTab === 'smart' && (
+                          <div className="p-6 sm:p-8 space-y-6">
+                            <div className="space-y-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="px-2.5 py-1 bg-amber-950/40 text-amber-300 text-[9px] font-extrabold rounded-md uppercase tracking-widest border border-amber-500/20">Personalized AI Layout</span>
+                                <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 text-[9px] font-black rounded-md uppercase tracking-widest border border-amber-500/20 animate-pulse">Coming Soon (শীঘ্রই আসছে)</span>
+                              </div>
+                              <h3 className="text-2xl font-black tracking-tight text-white">স্মার্ট এআই লেআউট (Smart AI Assisted Style)</h3>
+                              <p className="opacity-70 text-xs sm:text-sm leading-relaxed">
+                                অত্যাধুনিক স্মার্ট পারসোনালাইজড লেআউট যা কাস্টমারের পূর্ববর্তী আচরণ, ব্রাউজিং হিস্টোরি এবং ইন্টারেস্ট ডেটার উপর ভিত্তি করে স্বয়ংক্রিয়ভাবে হোমপেজ সাজিয়ে তোলে। এটি কাস্টমারকে তার সবচেয়ে পছন্দের পণ্যটি প্রথমে প্রদর্শন করে সেলস রূপান্তরের হার বহু গুণ বাড়িয়ে দেয়।
+                              </p>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-black/20 border border-[#322822]/40 space-y-3">
+                              <h4 className="text-xs font-bold text-amber-400">মূল বৈশিষ্ট্যসমূহ (Key Features):</h4>
+                              <ul className="space-y-2 text-xs opacity-80">
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-amber-500 rounded-full"></span>
+                                  <span>কাস্টমারের পছন্দ অনুযায়ী স্বয়ংক্রিয় পণ্য সাজানোর এআই অ্যালগরিদম।</span>
+                                </li>
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-amber-500 rounded-full"></span>
+                                  <span>স্মার্ট রিকমেন্ডেশন উইজেট (Recommended For You)।</span>
+                                </li>
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-amber-500 rounded-full"></span>
+                                  <span>ইন্টেলিজেন্ট উইন-ব্যাক এবং পুনরায় আগ্রহী করার অফার প্যানেল।</span>
+                                </li>
+                                <li className="flex items-center space-x-2">
+                                  <span className="h-1.5 w-1.5 bg-amber-500 rounded-full"></span>
+                                  <span>গ্রাহকের ডিভাইসের সাইজ ও লোকেশনের উপর ভিত্তি করে ডাইনামিক অফার ব্যানার।</span>
+                                </li>
+                              </ul>
+                            </div>
+
+                            <div className="pt-4 border-t border-[#322822]/40">
+                              <button 
+                                onClick={() => {
+                                  setShowSmartDesigner(true);
+                                  setSmartBannerForm({
+                                    title: smartBanners[0]?.title || 'নতুন স্মার্ট ব্যানার টাইটেল',
+                                    subtitle: smartBanners[0]?.subtitle || 'AI Targeting Subtitle',
+                                    description: smartBanners[0]?.description || 'এই আকর্ষণীয় অফারটি শুধুমাত্র সীমিত সময়ের জন্য প্রযোজ্য।',
+                                    badge: smartBanners[0]?.badge || 'Highly Recommended',
+                                    animation: smartBanners[0]?.animation || 'Slide Left (স্মুথ)',
+                                    duration: smartBanners[0]?.duration || 5,
+                                    priority: smartBanners[0]?.priority || 'High',
+                                    status: smartBanners[0]?.status || 'Draft',
+                                    scheduleStart: smartBanners[0]?.scheduleStart || '2026-07-11T12:00',
+                                    scheduleEnd: smartBanners[0]?.scheduleEnd || '2026-07-18T12:00',
+                                    desktopImageUrl: smartBanners[0]?.desktopImageUrl || 'https://images.unsplash.com/photo-1540747737956-378721767518?auto=format&fit=crop&q=80&w=1200',
+                                  });
+                                  setDesignerSuccessMessage("স্মার্ট এআই ব্যানার ডিজাইনার ওয়ার্কস্পেস লোড হয়েছে!");
+                                }}
+                                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all uppercase tracking-wider flex items-center justify-center space-x-2 cursor-pointer border-none outline-none"
+                              >
+                                <span>Open Designer</span>
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+
+                      {/* Right Live Layout Preview Representation Column */}
+                      <div className="md:col-span-5 bg-[#1a1614] rounded-3xl border border-[#322822]/40 p-6 space-y-4">
+                        <h4 className="text-xs font-extrabold uppercase tracking-wider opacity-60">Layout wireframe preview</h4>
+                        
+                        {designerTab === 'classic' && (
+                          <div className="space-y-3 bg-black/30 p-4 rounded-2xl border border-white/5 font-mono text-[9px] opacity-80">
+                            {/* Mini Wireframe for Classic */}
+                            <div className="h-14 bg-neutral-800 rounded-lg flex items-center justify-center text-neutral-400 border border-neutral-700">
+                              [ HERO BANNER (Standard Slider) ]
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              <div className="h-10 bg-neutral-900 rounded-lg flex items-center justify-center text-neutral-500 text-center flex-wrap px-0.5">Apparel</div>
+                              <div className="h-10 bg-neutral-900 rounded-lg flex items-center justify-center text-neutral-500 text-center flex-wrap px-0.5">Leather</div>
+                              <div className="h-10 bg-neutral-900 rounded-lg flex items-center justify-center text-neutral-500 text-center flex-wrap px-0.5">Footwear</div>
+                              <div className="h-10 bg-neutral-900 rounded-lg flex items-center justify-center text-neutral-500 text-center flex-wrap px-0.5">Accessory</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="h-4 bg-neutral-800/60 rounded flex items-center px-2 text-neutral-400">Featured Products</div>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div className="h-16 bg-neutral-900/80 rounded border border-neutral-800/40"></div>
+                                <div className="h-16 bg-neutral-900/80 rounded border border-neutral-800/40"></div>
+                                <div className="h-16 bg-neutral-900/80 rounded border border-neutral-800/40"></div>
+                              </div>
+                            </div>
+                            <div className="h-8 bg-neutral-900 rounded-lg flex items-center justify-center text-neutral-500">
+                              [ Footer Info ]
+                            </div>
+                          </div>
+                        )}
+
+                        {designerTab === 'dynamic' && (
+                          <div className="space-y-3 bg-black/30 p-4 rounded-2xl border border-white/5 font-mono text-[9px] opacity-80">
+                            {/* Mini Wireframe for Dynamic */}
+                            <div className="h-14 bg-indigo-950/20 rounded-lg flex items-center justify-center text-indigo-400/80 border border-indigo-500/20">
+                              [ FULL WIDE SLIDER (Vibrant) ]
+                            </div>
+                            <div className="flex space-x-1.5 overflow-x-auto pb-1">
+                              <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30 shrink-0">🔥 All Deals</span>
+                              <span className="px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-full shrink-0">New In</span>
+                              <span className="px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-full shrink-0">Bestsellers</span>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="h-4 bg-indigo-950/30 rounded flex items-center px-2 text-indigo-300">FLASH SALES - 50% OFF</div>
+                              <div className="flex space-x-2 overflow-x-auto pb-1">
+                                <div className="h-16 w-16 bg-neutral-900 rounded shrink-0 border border-indigo-500/10"></div>
+                                <div className="h-16 w-16 bg-neutral-900 rounded shrink-0 border border-indigo-500/10"></div>
+                                <div className="h-16 w-16 bg-neutral-900 rounded shrink-0 border border-indigo-500/10"></div>
+                              </div>
+                            </div>
+                            <div className="h-8 bg-indigo-950/10 rounded-lg flex items-center justify-center text-indigo-400/50">
+                              [ Interactive Cart Trigger ]
+                            </div>
+                          </div>
+                        )}
+
+                        {designerTab === 'smart' && (
+                          <div className="space-y-3 bg-black/30 p-4 rounded-2xl border border-white/5 font-mono text-[9px] opacity-80">
+                            {/* Mini Wireframe for Smart AI */}
+                            <div className="h-10 bg-amber-950/20 rounded-lg flex items-center justify-center text-amber-400/80 border border-amber-500/20">
+                              [ AI PERSONALIZED BANNER ]
+                            </div>
+                            <div className="bg-amber-500/[0.04] p-2 rounded-lg border border-amber-500/10 space-y-1.5">
+                              <div className="text-[8px] text-amber-400 font-bold">Recommended for "Visitor"</div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="h-14 bg-neutral-900 rounded p-1 flex flex-col justify-between border border-amber-500/5">
+                                  <div className="h-8 bg-neutral-800 rounded"></div>
+                                  <span className="text-[7px] text-amber-300">98% Match</span>
+                                </div>
+                                <div className="h-14 bg-neutral-900 rounded p-1 flex flex-col justify-between border border-amber-500/5">
+                                  <div className="h-8 bg-neutral-800 rounded"></div>
+                                  <span className="text-[7px] text-amber-300">95% Match</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="h-8 bg-amber-950/10 rounded-lg flex items-center justify-center text-amber-400/50">
+                              [ Smart Intent Coupon Code Widget ]
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-2 text-[10px] opacity-60 leading-relaxed text-center">
+                          ডিজাইনার ওপেন করার পর আপনি রিয়েল-টাইমে সেকশনগুলো পরিবর্তন, রি-অর্ডার এবং নতুন কনটেন্ট যুক্ত করতে পারবেন।
+                        </div>
+
+                      </div>
+
+                    </div>
+                    </div>
+                  )}
 
                 </div>
               )}
