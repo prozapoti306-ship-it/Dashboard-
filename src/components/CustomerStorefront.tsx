@@ -37,7 +37,8 @@ import {
   Facebook,
   Instagram,
   Home,
-  Star
+  Star,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Order, Notification, Customer, CustomerActivity, CustomerSegment, SystemSettings, Banner } from '../types';
@@ -158,6 +159,23 @@ export default function CustomerStorefront({
   dynamicSections
 }: CustomerStorefrontProps) {
   const [localProducts, setLocalProducts] = useState<Product[]>(products);
+  const [lang, setLang] = useState<'bn' | 'en'>(() => {
+    try {
+      const saved = localStorage.getItem('preferred_language');
+      return (saved === 'bn' || saved === 'en') ? saved : 'bn';
+    } catch (e) {
+      return 'bn';
+    }
+  });
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
+
+  const t = (bengali: string, english: string) => {
+    return lang === 'bn' ? bengali : english;
+  };
+
+  React.useEffect(() => {
+    localStorage.setItem('preferred_language', lang);
+  }, [lang]);
 
   const activeLayoutTheme = useMemo(() => {
     if (smartTheme?.isPreview) {
@@ -400,7 +418,10 @@ export default function CustomerStorefront({
         }
       ];
     }
-    return activeList;
+    return activeList.map((b: any) => ({
+      ...b,
+      mobileImageUrl: b.mobileImageUrl || b.desktopImageUrl || "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200"
+    }));
   }, [banners, babyBannerUrl, publishedTheme, smartTheme]);
 
   React.useEffect(() => {
@@ -1224,13 +1245,12 @@ export default function CustomerStorefront({
       <div className="relative z-40 shadow-xl">
         {/* Animated Notice Bar (Top) */}
         <div className="bg-[#26af5f] text-white text-[11px] font-black tracking-wider py-1.5 px-4 text-center flex items-center justify-center space-x-2.5 overflow-hidden animate-pulse">
-          <span>🚚 সারা বাংলাদেশে ক্যাশ অন ডেলিভারি (Cash on Delivery)!</span>
+          <span>🚚 {t('সারা বাংলাদেশে ক্যাশ অন ডেলিভারি (Cash on Delivery)!', 'Cash on Delivery (COD) across entire Bangladesh!')}</span>
           <span className="hidden md:inline-block opacity-60">•</span>
-          <span className="hidden md:inline-block">💬 সরাসরি অর্ডার করতে কল বা হোয়াটসঅ্যাপ করুন: 01792572306</span>
+          <span className="hidden md:inline-block">💬 {t('সরাসরি অর্ডার করতে কল বা হোয়াটসঅ্যাপ করুন: 01792572306', 'Call or WhatsApp to order directly: 01792572306')}</span>
         </div>
 
-        <header className="transition-colors duration-300 brand-header"
-        >
+        <header className="transition-colors duration-300 brand-header">
           {/* Line 1: Top Bar */}
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 md:py-0 md:h-20 flex flex-row flex-wrap md:flex-nowrap items-center justify-between gap-3 md:gap-4">
             {/* Left: Logo */}
@@ -1261,7 +1281,7 @@ export default function CustomerStorefront({
                     setShowSuggestions(true);
                   }}
                   onFocus={() => setShowSuggestions(true)}
-                  placeholder="জার্সির নাম বা ক্যাটাগরি দিয়ে খুঁজুন..."
+                  placeholder={t("জার্সির নাম বা ক্যাটাগরি দিয়ে খুঁজুন...", "Search by jersey name or category...")}
                   className="w-full pl-9 pr-8 py-2 bg-white/10 hover:bg-white/15 focus:bg-white/20 text-white placeholder-white/50 text-[11px] sm:text-xs rounded-full border border-white/15 focus:border-[#26af5f] focus:ring-1 focus:ring-[#26af5f] outline-none transition-all"
                 />
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-white/50" />
@@ -1280,75 +1300,42 @@ export default function CustomerStorefront({
                 {showSuggestions && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setShowSuggestions(false)} />
-                    <motion.div
+                    <motion.div 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      className="absolute left-1/2 -translate-x-1/2 w-[calc(100vw-2rem)] md:w-full md:left-0 md:translate-x-0 mt-2 bg-[#111111] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-40 p-4 space-y-4 text-left"
+                      className="absolute left-0 right-0 mt-2 bg-[#181818] border border-white/10 rounded-2xl shadow-2xl z-40 overflow-hidden text-white"
                     >
-                      {/* Popular Category Shortcuts */}
-                      <div>
-                        <p className="text-[9px] uppercase font-black tracking-widest text-[#26af5f] mb-2 font-mono">পপুলার ক্যাটাগরি শর্টকাট</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { label: '👨 ম্যান (Men)', value: 'man', category: 'All' },
-                            { label: '👩 উইমেন (Women)', value: 'woman', category: 'All' },
-                            { label: '👶 চাইল্ড (Kids)', value: 'child', category: 'All' },
-                            { label: '🧸 বেবি কম্বো', value: '', category: 'Baby Category' },
-                            { label: '⚽ ফুটবল', value: '', category: 'Football' },
-                            { label: '🏏 ক্রিকেট', value: '', category: 'Cricket' },
-                            { label: '🏃 অ্যাক্টিভ', value: '', category: 'Activewear' }
-                          ].map((item, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                if (item.value) {
-                                  setSearchQuery(item.value);
-                                } else {
-                                  setSearchQuery('');
-                                }
-                                if (item.category) {
-                                  setSelectedCategory(item.category);
-                                }
-                                setShowSuggestions(false);
-                                const el = document.getElementById('products');
-                                if (el) el.scrollIntoView({ behavior: 'smooth' });
-                              }}
-                              className="px-2.5 py-1.5 bg-white/5 hover:bg-[#26af5f]/20 hover:text-white border border-white/10 hover:border-[#26af5f]/30 rounded-lg text-[10px] font-bold text-white/80 transition-all cursor-pointer"
-                            >
-                              {item.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Matching Products Suggestions */}
-                      <div>
-                        <p className="text-[9px] uppercase font-black tracking-widest text-[#26af5f] mb-2 font-mono">ম্যাচিং প্রোডাক্টস</p>
-                        <div className="space-y-2 max-h-[160px] overflow-y-auto custom-scrollbar">
+                      <div className="p-3 max-h-[300px] overflow-y-auto custom-scrollbar">
+                        <p className="text-[10px] font-bold opacity-40 uppercase tracking-wider mb-2">সার্চ সাজেশন</p>
+                        <div className="space-y-1.5">
                           {allStoreProducts
                             .filter(p => {
-                              if (!searchQuery.trim()) return p.isBestSeller;
+                              if (!searchQuery.trim()) return true;
                               const q = searchQuery.toLowerCase();
                               return p.name.toLowerCase().includes(q) || 
                                      (p.category && p.category.toLowerCase().includes(q)) ||
                                      (p.brand && p.brand.toLowerCase().includes(q));
                             })
-                            .slice(0, 4)
+                            .slice(0, 5)
                             .map(p => (
                               <div 
                                 key={p.id}
                                 onClick={() => {
-                                  setViewingProduct(p);
-                                  setSelectedDetailSize(p.sizes?.[0] || 'M');
+                                  setSelectedCategory('All');
+                                  setSearchQuery(p.name);
                                   setShowSuggestions(false);
+                                  setTimeout(() => {
+                                    const el = document.getElementById(`product-${p.id}`);
+                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  }, 100);
                                 }}
-                                className="flex items-center space-x-3 p-2 hover:bg-white/5 rounded-xl border border-transparent hover:border-white/5 cursor-pointer transition-all"
+                                className="flex items-center space-x-2.5 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all"
                               >
-                                <img src={p.image} alt={p.name} className="w-9 h-9 object-cover rounded-lg bg-neutral-900 border border-white/10 shrink-0" referrerPolicy="no-referrer" />
+                                <img src={p.imageUrl || p.images?.[0]} alt={p.name} className="h-8 w-8 object-cover rounded-lg bg-neutral-800" referrerPolicy="no-referrer" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-[11px] font-extrabold truncate text-white">{p.name}</p>
-                                  <p className="text-[9px] text-[#26af5f] font-mono">{formatCurrency(p.price)}</p>
+                                  <p className="text-xs font-bold truncate text-white">{p.name}</p>
+                                  <p className="text-[10px] text-[#26af5f] font-black">৳{p.price}</p>
                                 </div>
                                 <span className="text-[8px] font-bold text-white/40 uppercase font-mono">{p.category}</span>
                               </div>
@@ -1372,6 +1359,66 @@ export default function CustomerStorefront({
 
             {/* Right: Actions (Hotline, Wishlist, Cart, Profile) */}
             <div className="flex items-center space-x-2 sm:space-x-3 shrink-0 order-2 md:order-3">
+              {/* Language Switcher Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowLangDropdown(!showLangDropdown)}
+                  className="flex items-center space-x-1.5 p-2 rounded-xl bg-white/5 hover:bg-[#26af5f]/15 text-xs font-bold transition-all cursor-pointer text-white border border-white/10 hover:border-[#26af5f]/30"
+                  title={lang === 'bn' ? "ভাষা পরিবর্তন করুন" : "Change Language"}
+                >
+                  <Globe className="h-4 w-4 text-[#26af5f]" />
+                  <span className="hidden sm:inline">{lang === 'bn' ? 'বাংলা' : 'English'}</span>
+                  <span className="sm:hidden">{lang === 'bn' ? 'BN' : 'EN'}</span>
+                </button>
+
+                <AnimatePresence>
+                  {showLangDropdown && (
+                    <>
+                      {/* Overlay to close the dropdown when clicked outside */}
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setShowLangDropdown(false)} 
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute right-0 mt-2 w-32 bg-neutral-900 border border-white/10 rounded-2xl shadow-2xl p-1.5 z-50 overflow-hidden"
+                      >
+                        <button
+                          onClick={() => {
+                            setLang('bn');
+                            setShowLangDropdown(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
+                            lang === 'bn' 
+                              ? 'bg-[#26af5f] text-white' 
+                              : 'text-neutral-300 hover:bg-white/5'
+                          }`}
+                        >
+                          <span>বাংলা</span>
+                          {lang === 'bn' && <Check className="h-3 w-3" />}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setLang('en');
+                            setShowLangDropdown(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between mt-1 ${
+                            lang === 'en' 
+                              ? 'bg-[#26af5f] text-white' 
+                              : 'text-neutral-300 hover:bg-white/5'
+                          }`}
+                        >
+                          <span>English</span>
+                          {lang === 'en' && <Check className="h-3 w-3" />}
+                        </button>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+
               {/* Support Hotline Link */}
               <a 
                 href="tel:01792572306" 
@@ -1451,115 +1498,55 @@ export default function CustomerStorefront({
             </div>
           </div>
 
-          {/* Line 2: Main Menu Row */}
-          <div className="bg-[#181818]/95 border-t border-white/5 py-2.5 px-4 sm:px-6 lg:px-8 md:overflow-x-auto md:scrollbar-none">
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
-              <div className="flex flex-wrap items-center gap-3 md:gap-5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
-                {/* Home Button */}
-                <a 
-                  href="#products" 
-                  onClick={() => { setSelectedCategory('All'); setSearchQuery(''); }}
-                  className="text-white hover:text-[#26af5f] transition-colors flex items-center space-x-1.5"
-                >
-                  <Home className="h-3.5 w-3.5 text-[#26af5f]" />
-                  <span>হোম কালেকশন</span>
-                </a>
-
-                {/* Categories Dropdown Menu */}
-                <div className="relative group py-1">
-                  <button className="text-white group-hover:text-[#26af5f] transition-colors flex items-center space-x-1 cursor-pointer">
-                    <span>ক্যাটাগরি সমূহ</span>
-                    <span className="text-[8px] opacity-60">▼</span>
-                  </button>
-
-                  {/* Hover dropdown pane */}
-                  <div className="absolute left-0 top-full mt-1.5 bg-[#111111] border border-white/10 rounded-xl shadow-2xl p-2 w-48 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 z-50 space-y-1">
-                    {[
-                      { label: '👨 ম্যান কালেকশন (Men)', value: 'man', category: 'All' },
-                      { label: '👩 উইমেন কালেকশন (Women)', value: 'woman', category: 'All' },
-                      { label: '👶 চাইল্ড কালেকশন (Kids)', value: 'child', category: 'All' },
-                      { label: '🧸 বেবি কটন কম্বো (Baby)', value: '', category: 'Baby Category' },
-                      { label: '⚽ ফুটবল জার্সি (Football)', value: '', category: 'Football' },
-                      { label: '🏏 ক্রিকেট জার্সি (Cricket)', value: '', category: 'Cricket' },
-                      { label: '🏃 অ্যাথলেটিকস (Activewear)', value: '', category: 'Activewear' },
-                      // Dynamic custom categories added via Bulk Upload or others
-                      ...storefrontCategories
-                        .filter(cat => cat !== 'All' && !['Football', 'Cricket', 'Activewear', 'Baby Category'].includes(cat))
-                        .map(cat => ({
-                          label: `✨ ${cat}`,
-                          value: '',
-                          category: cat
-                        }))
-                    ].map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          if (item.value) {
-                            setSearchQuery(item.value);
-                          } else {
-                            setSearchQuery('');
-                          }
-                          if (item.category) {
-                            setSelectedCategory(item.category);
-                          }
-                          const el = document.getElementById('products');
-                          if (el) el.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                        onMouseEnter={() => item.category && handleCategoryMouseEnter(item.category)}
-                        className="w-full text-left px-3 py-2.5 hover:bg-[#26af5f]/15 hover:text-white rounded-lg text-[10px] font-extrabold text-white/80 transition-all cursor-pointer"
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Direct Dynamic Category Links */}
-                {storefrontCategories.filter(cat => cat !== 'All').map((cat) => (
-                  <a
-                    key={cat}
-                    href="#products"
-                    onClick={() => {
-                      setSelectedCategory(cat);
-                      setSearchQuery('');
-                      const el = document.getElementById('products');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    onMouseEnter={() => handleCategoryMouseEnter(cat)}
-                    className={`transition-colors flex items-center space-x-1 whitespace-nowrap px-1.5 py-0.5 rounded-lg hover:text-[#26af5f] hover:bg-white/5
-                      ${selectedCategory === cat ? 'text-[#26af5f] bg-[#26af5f]/10 font-black' : 'text-white/80'}`}
-                  >
-                    <span>
-                      {cat === 'Football' ? 'ফুটবল ⚽' : 
-                       cat === 'Cricket' ? 'ক্রিকেট 🏏' : 
-                       cat === 'Activewear' ? 'অ্যাক্টিভওয়্যার 👕' : 
-                       cat === 'Baby Category' ? 'বেবি কটন 🧸' : cat}
-                    </span>
-                  </a>
-                ))}
-
-                {/* Tracking Action */}
-                <button 
-                  onClick={() => {
-                    setShowTracking(true);
-                    setTrackedOrder(null);
-                    setTrackingId('');
-                  }} 
-                  className="text-white hover:text-[#26af5f] transition-colors text-left cursor-pointer whitespace-nowrap"
-                >
-                  অর্ডার ট্র্যাকিং
-                </button>
-
-                {/* Premium Fabric Guarantee Link */}
-                <a href="#about" className="text-white hover:text-[#26af5f] transition-colors hidden sm:inline-block whitespace-nowrap">প্রিমিয়াম ফেব্রিক গ্যারান্টি</a>
-              </div>
-
-              {/* Support Hotline Info Tag */}
-              <div className="flex items-center space-x-1.5 text-[10px] text-white/80 font-black">
-                <span className="animate-pulse h-2 w-2 rounded-full bg-[#26af5f]" />
-                <span className="hidden sm:inline">সাপোর্ট হটলাইন:</span>
-                <a href="tel:01792572306" className="text-[#26af5f] hover:underline">01792572306</a>
-              </div>
+          {/* Line 2: Navigation Bar (Home, Shop, Categories, About Us, Contact Us) */}
+          <div className="border-t border-white/10 bg-black/30 backdrop-blur-md">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-center space-x-6 sm:space-x-10 text-[11px] sm:text-xs font-black uppercase tracking-widest text-white/90">
+              <button 
+                onClick={() => {
+                  setSelectedCategory('All');
+                  setSearchQuery('');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="hover:text-[#26af5f] transition-all cursor-pointer flex items-center space-x-1"
+              >
+                <span>{t('হোম', 'Home')}</span>
+              </button>
+              <button 
+                onClick={() => {
+                  const el = document.getElementById('products');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="hover:text-[#26af5f] transition-all cursor-pointer"
+              >
+                <span>{t('শপ', 'Shop')}</span>
+              </button>
+              <button 
+                onClick={() => {
+                  const el = document.getElementById('products');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="hover:text-[#26af5f] transition-all cursor-pointer"
+              >
+                <span>{t('ক্যাটাগরি', 'Categories')}</span>
+              </button>
+              <button 
+                onClick={() => {
+                  const el = document.getElementById('about');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="hover:text-[#26af5f] transition-all cursor-pointer"
+              >
+                <span>{t('আমাদের সম্পর্কে', 'About Us')}</span>
+              </button>
+              <button 
+                onClick={() => {
+                  const el = document.getElementById('about');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="hover:text-[#26af5f] transition-all cursor-pointer"
+              >
+                <span>{t('যোগাযোগ', 'Contact Us')}</span>
+              </button>
             </div>
           </div>
         </header>
@@ -1615,14 +1602,14 @@ export default function CustomerStorefront({
                 style={{ backgroundColor: activeSlide.overlayColor || 'rgba(0,0,0,0.15)' }}
               />
 
-              {/* Backgound Image Slider Layer with Cross-fade and subtle scale zoom */}
+              {/* Backgound Image Slider Layer with Cross-fade and smooth slide */}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentSlide}
-                  initial={{ opacity: 0, scale: 1.02 }}
-                  animate={{ opacity: 0.15, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.8 }}
+                  initial={{ opacity: 0, x: 80, scale: 1.02 }}
+                  animate={{ opacity: 0.15, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -80 }}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                   className="absolute inset-0 w-full h-full pointer-events-none select-none z-0"
                 >
                   <picture className="w-full h-full">
@@ -1649,7 +1636,10 @@ export default function CustomerStorefront({
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={currentSlide}
-                      {...motionProps}
+                      initial={{ opacity: 0, x: 50 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -50 }}
+                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                       className="space-y-4"
                     >
                       <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-widest font-mono">
@@ -1732,10 +1722,10 @@ export default function CustomerStorefront({
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={currentSlide}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 1.05 }}
-                          transition={{ duration: 0.4 }}
+                          initial={{ opacity: 0, x: 60 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -60 }}
+                          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                           className="absolute inset-0 w-full h-full"
                         >
                           <picture className="w-full h-full">
@@ -2213,7 +2203,7 @@ export default function CustomerStorefront({
               >
                 <div className="flex items-center space-x-2">
                   <ShoppingBag className="h-5 w-5 text-teal-500" />
-                  <span className="font-extrabold text-sm sm:text-base tracking-tight uppercase">শপিং কার্ট ও চেকআউট (Shopping Cart)</span>
+                  <span className="font-extrabold text-sm sm:text-base tracking-tight uppercase">{t('শপিং কার্ট ও চেকআউট (Shopping Cart)', 'Shopping Cart & Checkout')}</span>
                 </div>
                 <button
                   onClick={() => {
@@ -2236,9 +2226,9 @@ export default function CustomerStorefront({
                   </div>
                   
                   <div className="space-y-2">
-                    <h3 className="text-lg sm:text-xl font-black tracking-tight text-emerald-500">🎉 আপনার অর্ডারটি সফলভাবে গৃহীতো হয়েছে!</h3>
+                    <h3 className="text-lg sm:text-xl font-black tracking-tight text-emerald-500">{t('🎉 আপনার অর্ডারটি সফলভাবে গৃহীতো হয়েছে!', '🎉 Your Order Has Been Placed Successfully!')}</h3>
                     <p className="text-xs opacity-90 max-w-sm mx-auto leading-relaxed">
-                      আমাদের কাছ থেকে কেনাকাটা করার জন্য আপনাকে অসংখ্য ধন্যবাদ। আপনার অর্ডারটি আমাদের সিস্টেমে যুক্ত হয়ে গেছে।
+                      {t('আমাদের কাছ থেকে কেনাকাটা করার জন্য আপনাকে অসংখ্য ধন্যবাদ। আপনার অর্ডারটি আমাদের সিস্টেমে যুক্ত হয়ে গেছে।', 'Thank you so much for shopping with us. Your order has been successfully logged in our system.')}
                     </p>
                   </div>
 
@@ -2246,7 +2236,7 @@ export default function CustomerStorefront({
                   <div className="w-full p-4.5 rounded-2xl bg-teal-500/5 border border-teal-500/10 text-left space-y-2.5">
                     <div className="flex items-center space-x-2 text-xs font-black text-teal-600 dark:text-teal-400">
                       <ShoppingBag className="h-4 w-4 shrink-0" />
-                      <span>📦 অর্ডার ট্র্যাকিং কোড:</span>
+                      <span>{t('📦 অর্ডার ট্র্যাকিং কোড:', '📦 Order Tracking Code:')}</span>
                     </div>
                     
                     <div className="flex items-center justify-between bg-neutral-100 dark:bg-white/5 p-3 rounded-xl border border-inherit">
@@ -2258,12 +2248,12 @@ export default function CustomerStorefront({
                         onClick={() => handleCopyNumber(orderSuccessData.id)}
                         className="px-2.5 py-1.5 bg-teal-500 hover:bg-teal-600 text-white rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center space-x-1 shrink-0"
                       >
-                        {copiedNumber ? <span>কপি হয়েছে!</span> : <span>কপি করুন</span>}
+                        {copiedNumber ? <span>{t('কপি হয়েছে!', 'Copied!')}</span> : <span>{t('কপি করুন', 'Copy Code')}</span>}
                       </button>
                     </div>
                     
                     <p className="text-[10px] opacity-70 leading-relaxed text-center">
-                      (এই কোডটি সংরক্ষণ করুন। এটি দিয়ে পরবর্তীতে আপনি আপনার অর্ডারের বর্তমান অবস্থা জানতে পারবেন)
+                      {t('(এই কোডটি সংরক্ষণ করুন। এটি দিয়ে পরবর্তীতে আপনি আপনার অর্ডারের বর্তমান অবস্থা জানতে পারবেন)', '(Please save this code. You can use this to track your order status in the future)')}
                     </p>
                   </div>
 
@@ -2273,20 +2263,20 @@ export default function CustomerStorefront({
                       <>
                         <div className="flex items-center space-x-2 font-black text-neutral-800 dark:text-neutral-200">
                           <Truck className="h-4 w-4 text-teal-500" />
-                          <span className="font-bold">🚚 ডেলিভারি আপডেট (ঢাকার ভিতরে):</span>
+                          <span className="font-bold">{t('🚚 ডেলিভারি আপডেট (ঢাকার ভিতরে):', '🚚 Delivery Update (Inside Dhaka):')}</span>
                         </div>
                         <p className="opacity-80 leading-relaxed text-[11px]">
-                          আমাদের ডেলিভারি পার্সন সর্বোচ্চ <strong>১ থেকে ২ দিনের মধ্যে</strong> আপনার পার্সেলটি নিয়ে আপনার ঠিকানায় পৌঁছে যাবে। খুব দ্রুত আপনি <strong>হোম ডেলিভারি</strong> পেয়ে যাচ্ছেন। অনুগ্রহ করে একটু ধৈর্য ধরে অপেক্ষা করুন এবং পার্সেলটি রিসিভ করুন। আমাদের সাথে থাকার জন্য ধন্যবাদ!
+                          {t('আমাদের ডেলিভারি পার্সন সর্বোচ্চ ১ থেকে ২ দিনের মধ্যে আপনার পার্সেলটি নিয়ে আপনার ঠিকানায় পৌঁছে যাবে। খুব দ্রুত আপনি হোম ডেলিভারি পেয়ে যাচ্ছেন। অনুগ্রহ করে একটু ধৈর্য ধরে অপেক্ষা করুন এবং পার্সেলটি রিসিভ করুন। আমাদের সাথে থাকার জন্য ধন্যবাদ!', 'Our delivery agent will reach your address with your package within 1 to 2 days maximum. You are getting fast home delivery. Please wait patiently and receive the package. Thank you for staying with us!')}
                         </p>
                       </>
                     ) : (
                       <>
                         <div className="flex items-center space-x-2 font-black text-neutral-800 dark:text-neutral-200">
                           <Truck className="h-4 w-4 text-teal-500" />
-                          <span className="font-bold">🚚 ডেলিভারি আপডেট (ঢাকার বাইরে):</span>
+                          <span className="font-bold">{t('🚚 ডেলিভারি আপডেট (ঢাকার বাইরে):', '🚚 Delivery Update (Outside Dhaka):')}</span>
                         </div>
                         <p className="opacity-80 leading-relaxed text-[11px]">
-                          ঢাকার বাইরে সুন্দরবন বা রেডিয়েন্ট কুরিয়ারের মাধ্যমে সর্বোচ্চ <strong>২ থেকে ৩ দিনের মধ্যে</strong> পার্সেলটি আপনার এলাকায় পৌঁছে যাবে। কুরিয়ার অফিস থেকে আপনাকে ফোন করা হবে। দয়া করে একটু ধৈর্য ধরুন এবং কুরিয়ার থেকে পার্সেলটি যত্নসহকারে রিসিভ করুন। আপনার কেনাকাটা শুভ হোক!
+                          {t('ঢাকার বাইরে সুন্দরবন বা রেডিয়েন্ট কুরিয়ারের মাধ্যমে সর্বোচ্চ ২ থেকে ৩ দিনের মধ্যে পার্সেলটি আপনার এলাকায় পৌঁছে যাবে। কুরিয়ার অফিস থেকে আপনাকে ফোন করা হবে। দয়া করে একটু ধৈর্য ধরুন এবং কুরিয়ার থেকে পার্সেলটি যত্নসহকারে রিসিভ করুন। আপনার কেনাকাটা শুভ হোক!', 'Outside Dhaka, your parcel will reach your area within 2 to 3 days maximum via Sundarban or Radiant Courier. You will be called from the courier branch. Please be patient and collect your package from the courier. Happy shopping!')}
                         </p>
                       </>
                     )}
@@ -2295,22 +2285,22 @@ export default function CustomerStorefront({
                   {/* Order Items Info Summary */}
                   <div className="w-full p-3.5 rounded-xl border border-inherit/40 text-[11px] text-left space-y-2 opacity-80">
                     <div className="flex justify-between">
-                      <span className="opacity-60">গ্রাহক:</span>
+                      <span className="opacity-60">{t('গ্রাহক:', 'Customer:')}</span>
                       <span className="font-bold">{orderSuccessData.customerName}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="opacity-60">মোবাইল নাম্বার:</span>
+                      <span className="opacity-60">{t('মোবাইল নাম্বার:', 'Phone Number:')}</span>
                       <span className="font-bold">{orderSuccessData.customerPhone}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="opacity-60">মোট পরিশোধযোগ্য মূল্য:</span>
+                      <span className="opacity-60">{t('মোট পরিশোধযোগ্য মূল্য:', 'Net Payable Amount:')}</span>
                       <span className="font-bold text-teal-500">{formatCurrency(orderSuccessData.total)}</span>
                     </div>
                   </div>
 
                   <div className="space-y-4 w-full pt-2">
                     <p className="text-xs font-extrabold text-teal-600 dark:text-teal-400">
-                      কোনো প্রয়োজনে আমাদের সাথে যোগাযোগ করতে পারেন। আপনার দিনটি শুভ হোক!
+                      {t('কোনো প্রয়োজনে আমাদের সাথে যোগাযোগ করতে পারেন। আপনার দিনটি শুভ হোক!', 'Feel free to contact us for any assistance. Have a wonderful day!')}
                     </p>
 
                     <button
@@ -2321,7 +2311,7 @@ export default function CustomerStorefront({
                       }}
                       className="w-full py-3 bg-teal-500 hover:bg-teal-600 text-white font-extrabold rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md shadow-teal-500/10"
                     >
-                      কেনাকাটা চালিয়ে যান
+                      {t('কেনাকাটা চালিয়ে যান', 'Continue Shopping')}
                     </button>
                   </div>
                 </div>
@@ -2331,15 +2321,15 @@ export default function CustomerStorefront({
                   <div className="h-16 w-16 rounded-full bg-neutral-100 dark:bg-white/5 flex items-center justify-center text-neutral-400">
                     <ShoppingBag className="h-8 w-8" />
                   </div>
-                  <h3 className="font-black text-base">আপনার শপিং কার্ট খালি আছে</h3>
+                  <h3 className="font-black text-base">{t('আপনার শপিং কার্ট খালি আছে', 'Your Shopping Cart is Empty')}</h3>
                   <p className="text-xs opacity-60 max-w-xs leading-relaxed">
-                    কার্টে কোনো স্পোর্টস জার্সি বা প্রোডাক্ট যোগ করা হয়নি। জার্সি কালেকশন থেকে আপনার পছন্দের জার্সি নির্বাচন করে কার্টে যোগ করুন।
+                    {t('কার্টে কোনো স্পোর্টস জার্সি বা প্রোডাক্ট যোগ করা হয়নি। জার্সি কালেকশন থেকে আপনার পছন্দের জার্সি নির্বাচন করে কার্টে যোগ করুন।', 'No sports jersey or product has been added to the cart yet. Select your favorite jersey from the jersey collection and add it to the cart.')}
                   </p>
                   <button
                     onClick={() => setShowCart(false)}
                     className="px-6 py-2.5 bg-teal-500 hover:bg-teal-600 text-white text-xs font-black rounded-xl transition-all cursor-pointer"
                   >
-                    শপিং শুরু করুন
+                    {t('শপিং শুরু করুন', 'Start Shopping')}
                   </button>
                 </div>
               ) : (
@@ -2350,7 +2340,7 @@ export default function CustomerStorefront({
                     {/* Cart Items List */}
                     <div className="space-y-3">
                       <span className="text-[11px] font-black uppercase tracking-wider opacity-60 flex items-center space-x-1">
-                        <span>আপনার কার্টের পণ্যসমূহ (Cart Items):</span>
+                        <span>{t('আপনার কার্টের পণ্যসমূহ (Cart Items):', 'Your Cart Items:')}</span>
                         <span className="text-teal-500">({cart.reduce((s, i) => s + i.quantity, 0)})</span>
                       </span>
                       
@@ -2369,7 +2359,7 @@ export default function CustomerStorefront({
                             <div className="flex-1 min-w-0 space-y-1">
                               <h4 className="font-extrabold line-clamp-1 text-xs">{item.name}</h4>
                               <div className="flex items-center space-x-2 text-[10px]">
-                                <span className="opacity-50">সাইজ:</span>
+                                <span className="opacity-50">{t('সাইজ:', 'Size:')}</span>
                                 <span className="font-black text-teal-500">{item.size}</span>
                                 <span className="opacity-30">|</span>
                                 <span className="opacity-60">{formatCurrency(item.price)}</span>
@@ -2415,24 +2405,24 @@ export default function CustomerStorefront({
                     <div className="space-y-4">
                       <span className="text-[11px] font-black uppercase tracking-wider opacity-60 flex items-center space-x-1">
                         <User className="h-3.5 w-3.5 text-teal-500" />
-                        <span>১. কাস্টমার ডেলিভারি তথ্য (Delivery Information):</span>
+                        <span>{t('১. কাস্টমার ডেলিভারি তথ্য (Delivery Information):', '1. Customer Delivery Information:')}</span>
                       </span>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold opacity-75">আপনার সম্পূর্ণ নাম *</label>
+                          <label className="text-[10px] font-bold opacity-75">{t('আপনার সম্পূর্ণ নাম *', 'Your Full Name *')}</label>
                           <input
                             type="text"
                             required
                             value={customerName}
                             onChange={(e) => setCustomerName(e.target.value)}
-                            placeholder="যেমন: তৌহিদুল ইসলাম"
+                            placeholder={t('যেমন: তৌহিদুল ইসলাম', 'e.g. John Doe')}
                             className="w-full px-3.5 py-2 rounded-lg border border-inherit bg-transparent text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none focus:border-teal-500"
                           />
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold opacity-75">মোবাইল নাম্বার (১১ ডিজিট) *</label>
+                          <label className="text-[10px] font-bold opacity-75">{t('মোবাইল নাম্বার (১১ ডিজিট) *', 'Mobile Number (11 Digits) *')}</label>
                           <input
                             type="tel"
                             required
@@ -2440,27 +2430,27 @@ export default function CustomerStorefront({
                             maxLength={11}
                             value={customerPhone}
                             onChange={(e) => setCustomerPhone(e.target.value)}
-                            placeholder="যেমন: 017XXXXXXXX"
+                            placeholder={t('যেমন: 017XXXXXXXX', 'e.g. 017XXXXXXXX')}
                             className="w-full px-3.5 py-2 rounded-lg border border-inherit bg-transparent text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none focus:border-teal-500"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold opacity-75">ডেলিভারি ঠিকানা (জেলা, থানা ও এলাকা উল্লেখ করুন) *</label>
+                        <label className="text-[10px] font-bold opacity-75">{t('ডেলিভারি ঠিকানা (জেলা, থানা ও এলাকা উল্লেখ করুন) *', 'Delivery Address (District, Police Station & Area) *')}</label>
                         <textarea
                           required
                           rows={2}
                           value={customerAddress}
                           onChange={(e) => setCustomerAddress(e.target.value)}
-                          placeholder="যেমন: বাসা #৪, ফ্ল্যাট #৩এ, রোড #৮, ধানমণ্ডি, ঢাকা"
+                          placeholder={t('যেমন: বাসা #৪, ফ্ল্যাট #৩এ, রোড #৮, ধানমণ্ডি, ঢাকা', 'e.g. House #4, Flat #3A, Road #8, Dhanmondi, Dhaka')}
                           className="w-full px-3.5 py-2 rounded-lg border border-inherit bg-transparent text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none focus:border-teal-500 resize-none"
                         />
                       </div>
 
                       {/* Delivery Area Picker */}
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold opacity-75">ডেলিভারি এলাকা নির্বাচন করুন:</label>
+                        <label className="text-[10px] font-bold opacity-75">{t('ডেলিভারি এলাকা নির্বাচন করুন:', 'Select Delivery Area:')}</label>
                         <div className="grid grid-cols-2 gap-3">
                           <button
                             type="button"
@@ -2470,8 +2460,8 @@ export default function CustomerStorefront({
                                 ? 'border-teal-500 bg-teal-500/5' 
                                 : 'border-inherit hover:bg-neutral-50 dark:hover:bg-white/2'}`}
                           >
-                            <span className="block font-black text-xs">ঢাকার ভেতরে</span>
-                            <span className="text-[9px] opacity-65">চার্জ: ৳৮০ (২ দিন)</span>
+                            <span className="block font-black text-xs">{t('ঢাকার ভেতরে', 'Inside Dhaka')}</span>
+                            <span className="text-[9px] opacity-65">{t('চার্জ: ৳৮০ (২ দিন)', 'Charge: ৳80 (2 Days)')}</span>
                           </button>
                           
                           <button
@@ -2482,8 +2472,8 @@ export default function CustomerStorefront({
                                 ? 'border-teal-500 bg-teal-500/5' 
                                 : 'border-inherit hover:bg-neutral-50 dark:hover:bg-white/2'}`}
                           >
-                            <span className="block font-black text-xs">ঢাকার বাইরে</span>
-                            <span className="text-[9px] opacity-65">চার্জ: ৳১৫০ (৩-৪ দিন)</span>
+                            <span className="block font-black text-xs">{t('ঢাকার বাইরে', 'Outside Dhaka')}</span>
+                            <span className="text-[9px] opacity-65">{t('চার্জ: ৳১৫০ (৩-৪ দিন)', 'Charge: ৳150 (3-4 Days)')}</span>
                           </button>
                         </div>
                       </div>
@@ -2495,7 +2485,7 @@ export default function CustomerStorefront({
                     <div className="space-y-4">
                       <span className="text-[11px] font-black uppercase tracking-wider opacity-60 flex items-center space-x-1">
                         <CreditCard className="h-3.5 w-3.5 text-teal-500" />
-                        <span>২. পেমেন্ট পদ্ধতি (Payment Methods) ও ট্রানজেকশন:</span>
+                        <span>{t('২. পেমেন্ট পদ্ধতি (Payment Methods) ও ট্রানজেকশন:', '2. Payment Methods & Transactions:')}</span>
                       </span>
 
                       {/* 2x2 Payment Methods Selection Grid */}
@@ -2514,10 +2504,10 @@ export default function CustomerStorefront({
                               : 'border-inherit hover:bg-neutral-100 dark:hover:bg-white/5'}`}
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span className="text-xs font-black">ক্যাশ অন ডেলিভারি</span>
+                            <span className="text-xs font-black">{t('ক্যাশ অন ডেলিভারি', 'Cash on Delivery')}</span>
                             <Truck className="h-4 w-4 text-teal-500" />
                           </div>
-                          <span className="text-[9px] opacity-60 mt-1.5">পণ্য রিসিভ করার সময় পেমেন্ট</span>
+                          <span className="text-[9px] opacity-60 mt-1.5">{t('পণ্য রিসিভ করার সময় পেমেন্ট', 'Payment upon receiving the product')}</span>
                           {paymentMethod === 'COD' && (
                             <span className="absolute bottom-1 right-2 h-1.5 w-1.5 rounded-full bg-teal-500" />
                           )}
@@ -2533,10 +2523,10 @@ export default function CustomerStorefront({
                               : 'border-inherit hover:bg-neutral-100 dark:hover:bg-white/5'}`}
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span className="text-xs font-black text-[#e2136e] dark:text-pink-400">বিকাশ (bKash)</span>
+                            <span className="text-xs font-black text-[#e2136e] dark:text-pink-400">{t('বিকাশ (bKash)', 'bKash')}</span>
                             <span className="text-[10px] bg-[#e2136e] text-white px-1 rounded font-bold">bK</span>
                           </div>
-                          <span className="text-[9px] opacity-60 mt-1.5">সেন্ড মানি পেমেন্ট (Send Money)</span>
+                          <span className="text-[9px] opacity-60 mt-1.5">{t('সেন্ড মানি পেমেন্ট (Send Money)', 'Send Money Payment')}</span>
                           {paymentMethod === 'bKash' && (
                             <span className="absolute bottom-1 right-2 h-1.5 w-1.5 rounded-full bg-[#e2136e]" />
                           )}
@@ -2552,10 +2542,10 @@ export default function CustomerStorefront({
                               : 'border-inherit hover:bg-neutral-100 dark:hover:bg-white/5'}`}
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span className="text-xs font-black text-[#f15a22] dark:text-orange-400">নগদ (Nagad)</span>
+                            <span className="text-xs font-black text-[#f15a22] dark:text-orange-400">{t('নগদ (Nagad)', 'Nagad')}</span>
                             <span className="text-[10px] bg-[#f15a22] text-white px-1 rounded font-bold">Nagad</span>
                           </div>
-                          <span className="text-[9px] opacity-60 mt-1.5">সেন্ড মানি পেমেন্ট (Send Money)</span>
+                          <span className="text-[9px] opacity-60 mt-1.5">{t('সেন্ড মানি পেমেন্ট (Send Money)', 'Send Money Payment')}</span>
                           {paymentMethod === 'Nagad' && (
                             <span className="absolute bottom-1 right-2 h-1.5 w-1.5 rounded-full bg-[#f15a22]" />
                           )}
@@ -2571,10 +2561,10 @@ export default function CustomerStorefront({
                               : 'border-inherit hover:bg-neutral-100 dark:hover:bg-white/5'}`}
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span className="text-xs font-black text-[#8c3494] dark:text-purple-400 font-mono">রকেট / কার্ড</span>
+                            <span className="text-xs font-black text-[#8c3494] dark:text-purple-400 font-mono">{t('রকেট / কার্ড', 'Rocket / Card')}</span>
                             <span className="text-[10px] bg-[#8c3494] text-white px-1 rounded font-bold">R</span>
                           </div>
-                          <span className="text-[9px] opacity-60 mt-1.5">পার্সোনাল সেন্ড মানি (Rocket)</span>
+                          <span className="text-[9px] opacity-60 mt-1.5">{t('পার্সোনাল সেন্ড মানি (Rocket)', 'Personal Send Money (Rocket)')}</span>
                           {paymentMethod === 'Rocket' && (
                             <span className="absolute bottom-1 right-2 h-1.5 w-1.5 rounded-full bg-[#8c3494]" />
                           )}
@@ -2591,7 +2581,7 @@ export default function CustomerStorefront({
                         >
                           <div className="flex justify-between items-center">
                             <div>
-                              <p className="font-extrabold text-[11px] uppercase tracking-wide opacity-80">আমাদের পার্সোনাল অ্যাকাউন্ট নাম্বার:</p>
+                              <p className="font-extrabold text-[11px] uppercase tracking-wide opacity-80">{t('আমাদের পার্সোনাল অ্যাকাউন্ট নাম্বার:', 'Our Personal Account Number:')}</p>
                               <p className="text-base font-black font-mono tracking-wider mt-0.5 select-all">
                                 {paymentMethod === 'bKash' ? '01712-345678' :
                                  paymentMethod === 'Nagad' ? '01912-345678' :
@@ -2609,27 +2599,27 @@ export default function CustomerStorefront({
                               className="px-2.5 py-1.5 rounded-lg border border-current hover:bg-current/10 flex items-center space-x-1.5 transition-all text-[10px] font-bold cursor-pointer shrink-0"
                             >
                               <Copy className="h-3 w-3" />
-                              <span>{copiedNumber ? 'কপি হয়েছে!' : 'নাম্বার কপি'}</span>
+                              <span>{copiedNumber ? t('কপি হয়েছে!', 'Copied!') : t('নাম্বার কপি', 'Copy Number')}</span>
                             </button>
                           </div>
 
                           <div className="space-y-1 leading-normal opacity-90 text-[11px]">
-                            <p>১. আপনার ফোন থেকে পেমেন্ট পদ্ধতিটির অ্যাপে যান অথবা ডায়াল কোড ব্যবহার করুন।</p>
-                            <p>২. উপরে প্রদত্ত নাম্বারে ৳<span className="font-extrabold">{grandTotal}</span> টাকা **Send Money** করুন।</p>
-                            <p>৩. টাকা পাঠানো সফল হওয়ার পর যে **Transaction ID (TrxID)** পাবেন, তা প্রমাণস্বরূপ নিচের বক্সে বসান।</p>
+                            <p>{t('১. আপনার ফোন থেকে পেমেন্ট পদ্ধতিটির অ্যাপে যান অথবা ডায়াল কোড ব্যবহার করুন।', '1. Go to your payment app or dial the mobile menu code on your phone.')}</p>
+                            <p>{t('২. উপরে প্রদত্ত নাম্বারে ৳', '2. Send Money of ৳')}<span className="font-extrabold">{grandTotal}</span>{t(' টাকা **Send Money** করুন।', ' to the above number.')}</p>
+                            <p>{t('৩. টাকা পাঠানো সফল হওয়ার পর যে **Transaction ID (TrxID)** পাবেন, তা প্রমাণস্বরূপ নিচের বক্সে বসান।', '3. After successful transaction, put the Transaction ID (TrxID) in the input below as proof.')}</p>
                           </div>
 
                           {/* Required Transaction ID Input */}
                           <div className="space-y-1 pt-1 border-t border-current/20">
                             <label className="text-[10px] font-black uppercase tracking-wider block">
-                              Transaction ID (ট্রানজেকশন আইডি) *
+                              {t('Transaction ID (ট্রানজেকশন আইডি) *', 'Transaction ID (TrxID) *')}
                             </label>
                             <input
                               type="text"
                               required={paymentMethod !== 'COD'}
                               value={transactionId}
                               onChange={(e) => setTransactionId(e.target.value)}
-                              placeholder="যেমন: K8H9L2P1"
+                              placeholder={t('যেমন: K8H9L2P1', 'e.g. K8H9L2P1')}
                               className="w-full px-3 py-2 rounded-lg border border-current bg-transparent text-xs font-mono tracking-widest placeholder:opacity-50 uppercase focus:ring-1 focus:outline-none"
                             />
                           </div>
@@ -2644,15 +2634,15 @@ export default function CustomerStorefront({
                   <div className="p-5 sm:p-6 border-t border-inherit bg-neutral-50 dark:bg-black/15 space-y-3 relative pb-safe md:sticky md:bottom-0 md:z-20 md:shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between opacity-70">
-                        <span>পণ্যের উপমোট (Subtotal):</span>
+                        <span>{t('পণ্যের উপমোট (Subtotal):', 'Subtotal:')}</span>
                         <span>{formatCurrency(itemsTotal)}</span>
                       </div>
                       <div className="flex justify-between opacity-70">
-                        <span>ডেলিভারি চার্জ ({deliveryRegion === 'dhaka' ? 'ঢাকার ভেতরে' : 'ঢাকার বাইরে'}):</span>
+                        <span>{t('ডেলিভারি চার্জ (', 'Delivery Charge (')}{deliveryRegion === 'dhaka' ? t('ঢাকার ভেতরে', 'Inside Dhaka') : t('ঢাকার বাইরে', 'Outside Dhaka')}{t('):', '):')}</span>
                         <span>{formatCurrency(shippingCost)}</span>
                       </div>
                       <div className="flex justify-between font-black text-sm pt-2 border-t border-dashed border-inherit text-teal-500">
-                        <span>সর্বমোট বিল (Net Payable):</span>
+                        <span>{t('সর্বমোট বিল (Net Payable):', 'Net Payable:')}</span>
                         <span>{formatCurrency(grandTotal)}</span>
                       </div>
                     </div>
@@ -2665,19 +2655,19 @@ export default function CustomerStorefront({
                       {isOrdering ? (
                         <>
                           <RefreshCcw className="h-4 w-4 animate-spin" />
-                          <span>অর্ডার সম্পন্ন হচ্ছে...</span>
+                          <span>{t('অর্ডার সম্পন্ন হচ্ছে...', 'Placing Order...')}</span>
                         </>
                       ) : (
                         <>
                           <Check className="h-4 w-4" />
-                          <span>{paymentMethod === 'COD' ? 'অর্ডার নিশ্চিত করুন (ক্যাশ অন ডেলিভারি)' : 'পেমেন্ট ও অর্ডার নিশ্চিত করুন'}</span>
+                          <span>{paymentMethod === 'COD' ? t('অর্ডার নিশ্চিত করুন (ক্যাশ অন ডেলিভারি)', 'Confirm Order (COD)') : t('পেমেন্ট ও অর্ডার নিশ্চিত করুন', 'Confirm Payment & Order')}</span>
                         </>
                       )}
                     </button>
                     
                     <p className="text-[9px] text-center opacity-50 flex items-center justify-center space-x-1">
                       <ShieldCheck className="h-3.5 w-3.5 text-teal-500 shrink-0" />
-                      <span>{paymentMethod === 'COD' ? 'ডেলিভারি পাওয়ার পর চেক করে টাকা পরিশোধের ১০০% গ্যারান্টি।' : 'আপনার পেমেন্ট বিবরণ সম্পূর্ণ নিরাপদ ও সুরক্ষিত থাকবে।'}</span>
+                      <span>{paymentMethod === 'COD' ? t('ডেলিভারি পাওয়ার পর চেক করে টাকা পরিশোধের ১০০% গ্যারান্টি।', '100% money back guarantee after inspecting the product upon delivery.') : t('আপনার পেমেন্ট বিবরণ সম্পূর্ণ নিরাপদ ও সুরক্ষিত থাকবে।', 'Your payment details will remain completely safe and secure.')}</span>
                     </p>
                   </div>
                 </form>

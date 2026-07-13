@@ -38,6 +38,7 @@ interface SidebarProps {
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   onGoToStore?: () => void;
+  t: (bengali: string, english: string) => string;
 }
 
 export default function Sidebar({ 
@@ -50,23 +51,24 @@ export default function Sidebar({
   openAiAssistant,
   isMobileOpen = false,
   onCloseMobile,
-  onGoToStore
+  onGoToStore,
+  t
 }: SidebarProps) {
   
   const menuItems = [
-    { id: 'dashboard', label: 'ড্যাশবোর্ড (Dashboard)', icon: LayoutDashboard },
-    { id: 'orders', label: 'অর্ডারস (Orders)', icon: ShoppingBag, badge: 12 },
-    { id: 'customers', label: 'CRM কাস্টমার (CRM)', icon: Users },
-    { id: 'products', label: 'প্রোডাক্টস (Products)', icon: Layers },
-    { id: 'inventory', label: 'ইনভেন্টরি (Stock)', icon: Warehouse, badge: 2 },
-    { id: 'collections', label: 'কালেকশন (Collections)', icon: FolderHeart },
-    { id: 'analytics', label: 'রিপোর্টস (Reports)', icon: BarChart3 },
-    { id: 'marketing', label: 'মার্কেটিং (Marketing)', icon: Sparkles },
-    { id: 'returns', label: 'রিটার্নস (Returns)', icon: Undo2, badge: 1 },
-    { id: 'tech-stack', label: 'WordPress সিঙ্ক (Sync)', icon: RefreshCcw },
-    { id: 'settings', label: 'সেটিংস (Settings)', icon: Settings },
-    { id: 'user-management', label: 'ইউজার ম্যানেজমেন্ট', icon: UserCheck },
-    { id: 'support', label: 'সাপোর্ট (Support)', icon: HelpCircle },
+    { id: 'dashboard', label: t('ড্যাশবোর্ড (Dashboard)', 'Dashboard'), icon: LayoutDashboard },
+    { id: 'orders', label: t('অর্ডারস (Orders)', 'Orders'), icon: ShoppingBag, badge: 12 },
+    { id: 'customers', label: t('CRM কাস্টমার (CRM)', 'CRM Customers'), icon: Users },
+    { id: 'products', label: t('প্রোডাক্টস (Products)', 'Products'), icon: Layers },
+    { id: 'inventory', label: t('ইনভেন্টরি (Stock)', 'Inventory (Stock)'), icon: Warehouse, badge: 2 },
+    { id: 'collections', label: t('কালেকশন (Collections)', 'Collections'), icon: FolderHeart },
+    { id: 'analytics', label: t('রিপোর্টস (Reports)', 'Reports'), icon: BarChart3 },
+    { id: 'marketing', label: t('মার্কেটিং (Marketing)', 'Marketing'), icon: Sparkles },
+    { id: 'returns', label: t('রিটার্নস (Returns)', 'Returns'), icon: Undo2, badge: 1 },
+    { id: 'tech-stack', label: t('WordPress সিঙ্ক (Sync)', 'WordPress Sync'), icon: RefreshCcw },
+    { id: 'settings', label: t('সেটিংস (Settings)', 'Settings'), icon: Settings },
+    { id: 'user-management', label: t('ইউজার ম্যানেজমেন্ট', 'User Management'), icon: UserCheck },
+    { id: 'support', label: t('সাপোর্ট (Support)', 'Support'), icon: HelpCircle },
   ];
 
   const toggleTheme = () => {
@@ -141,7 +143,7 @@ export default function Sidebar({
             >
               <div className="flex items-center space-x-2">
                 <ShoppingBag className="h-4 w-4 animate-pulse" />
-                <span>ই-কমার্স ওয়েবসাইট (Visit Store)</span>
+                <span>{t('ই-কমার্স ওয়েবসাইট (Visit Store)', 'Visit E-commerce Store')}</span>
               </div>
               <ExternalLink className="h-3.5 w-3.5 opacity-80 group-hover:translate-x-0.5 transition-transform" />
             </button>
@@ -207,7 +209,7 @@ export default function Sidebar({
           className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-tr from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white shadow-lg shadow-orange-600/10 transition-all duration-200 transform active:scale-95"
         >
           <Sparkles className="h-4 w-4" />
-          <span>AI সেলস অ্যাসিস্ট্যান্ট</span>
+          <span>{t('AI সেলস অ্যাসিস্ট্যান্ট', 'AI Sales Assistant')}</span>
         </button>
 
         {/* Notifications & System Quick controls */}
@@ -264,7 +266,7 @@ export default function Sidebar({
         {/* Eye Protection Banner Status */}
         {settings.eyeProtectionEnabled && (
           <div className="p-2.5 rounded-lg text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 leading-relaxed text-center font-medium">
-            👁️ চোখের আরাম মোড (Amber Filter) সক্রিয়। আরামদায়ক ভিউইং {settings.blueLightFilterLevel}% এ সেট করা।
+            {t('👁️ চোখের আরাম মোড (Amber Filter) সক্রিয়। আরামদায়ক ভিউইং', '👁️ Eye Comfort Mode (Amber Filter) active. Comfortable viewing')} {settings.blueLightFilterLevel}% {t('এ সেট করা।', 'set.')}
           </div>
         )}
       </div>

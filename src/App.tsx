@@ -23,6 +23,7 @@ import {
 import Sidebar from './components/Sidebar';
 import CustomerStorefront from './components/CustomerStorefront';
 import LoginPage from './components/LoginPage';
+import { motion, AnimatePresence } from 'motion/react';
 
 const DEFAULT_HOMEPAGE_SETTINGS: HomepageSettings = {
   id: 'hero_banner',
@@ -91,6 +92,7 @@ import {
   ShoppingBag, 
   Clock, 
   CheckCircle2, 
+  Check,
   XCircle, 
   Search, 
   Filter, 
@@ -151,7 +153,8 @@ import {
   Sliders,
   Calendar,
   Smartphone,
-  Monitor
+  Monitor,
+  Globe
 } from 'lucide-react';
 import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb, mapProductToDb } from './lib/supabaseService';
 
@@ -265,6 +268,25 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('aura_admin_authenticated') === 'true';
   });
+
+  // --- Language switcher state & translator helper ---
+  const [lang, setLang] = useState<'bn' | 'en'>(() => {
+    try {
+      const saved = localStorage.getItem('preferred_language');
+      return (saved === 'bn' || saved === 'en') ? saved : 'bn';
+    } catch (e) {
+      return 'bn';
+    }
+  });
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
+
+  const t = (bengali: string, english: string) => {
+    return lang === 'bn' ? bengali : english;
+  };
+
+  useEffect(() => {
+    localStorage.setItem('preferred_language', lang);
+  }, [lang]);
 
   // --- Core State ---
   const [products, setProducts] = useState<Product[]>(() => {
@@ -2980,6 +3002,7 @@ export default function App() {
         isMobileOpen={sidebarOpen}
         onCloseMobile={() => setSidebarOpen(false)}
         onGoToStore={() => setView('storefront')}
+        t={t}
       />
 
       {/* Main Container */}
@@ -3013,7 +3036,7 @@ export default function App() {
               <Search className="h-4 w-4 opacity-55" />
               <input 
                 type="text" 
-                placeholder="অর্ডার, প্রোডাক্ট বা কাস্টমার খুঁজুন..." 
+                placeholder={t('অর্ডার, প্রোডাক্ট বা কাস্টমার খুঁজুন...', 'Search orders, products or customers...')} 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-transparent border-none outline-none w-full text-inherit placeholder:opacity-50 text-xs py-0.5"
@@ -3027,10 +3050,10 @@ export default function App() {
             <div className="hidden md:flex items-center space-x-4">
               <span className="flex items-center space-x-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span className="opacity-70">সিস্টেম স্ট্যাটাস: অনলাইন</span>
+                <span className="opacity-70">{t('সিস্টেম স্ট্যাটাস: অনলাইন', 'System Status: Online')}</span>
               </span>
               <span className="opacity-30">|</span>
-              <span className="opacity-70">কারেন্সি: {settings.currency} ($)</span>
+              <span className="opacity-70">{t('কারেন্সি:', 'Currency:')} {settings.currency} ($)</span>
             </div>
 
             {/* Bulk & Mixed Upload Quick Actions */}
@@ -3051,6 +3074,68 @@ export default function App() {
               </button>
             </div>
 
+            {/* Language Switcher */}
+            <div className="relative flex items-center space-x-2 border-l pl-4 border-inherit">
+              <button
+                onClick={() => setShowLangDropdown(!showLangDropdown)}
+                className="px-3 py-1.5 rounded-xl border border-inherit text-[10px] font-bold uppercase tracking-wider hover:bg-neutral-100 dark:hover:bg-white/5 transition-all flex items-center space-x-1.5 cursor-pointer text-inherit"
+                title={lang === 'bn' ? "ভাষা পরিবর্তন করুন" : "Change Language"}
+              >
+                <Globe className="h-3.5 w-3.5 text-teal-500" />
+                <span>{lang === 'bn' ? 'বাংলা' : 'English'}</span>
+              </button>
+
+              <AnimatePresence>
+                {showLangDropdown && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowLangDropdown(false)} 
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className={`absolute right-0 top-full mt-2 w-32 border rounded-2xl shadow-2xl p-1.5 z-50 overflow-hidden
+                        ${settings.themeMode === 'dark' 
+                          ? 'bg-[#1a1614] border-[#322822]/60' 
+                          : 'bg-white border-[#e8e4dc]'
+                        }`}
+                    >
+                      <button
+                        onClick={() => {
+                          setLang('bn');
+                          setShowLangDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
+                          lang === 'bn' 
+                            ? 'bg-teal-500 text-white' 
+                            : 'text-neutral-500 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <span>বাংলা</span>
+                        {lang === 'bn' && <Check className="h-3 w-3" />}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setLang('en');
+                          setShowLangDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between mt-1 ${
+                          lang === 'en' 
+                            ? 'bg-teal-500 text-white' 
+                            : 'text-neutral-500 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <span>English</span>
+                        {lang === 'en' && <Check className="h-3 w-3" />}
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* Storefront & Logout Actions */}
             <div className="flex items-center space-x-2 border-l pl-4 border-inherit">
               <button
@@ -3058,7 +3143,7 @@ export default function App() {
                 className="px-3 py-1.5 rounded-xl border border-inherit text-[10px] font-bold uppercase tracking-wider hover:bg-neutral-100 dark:hover:bg-white/5 transition-all flex items-center space-x-1 cursor-pointer"
               >
                 <ShoppingBag className="h-3.5 w-3.5 text-teal-500" />
-                <span className="hidden sm:inline">স্টোরফ্রন্ট</span>
+                <span className="hidden sm:inline">{t('স্টোরফ্রন্ট', 'Storefront')}</span>
               </button>
               <button
                 onClick={() => {
@@ -3069,7 +3154,7 @@ export default function App() {
                 className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-[10px] font-bold uppercase tracking-wider transition-all flex items-center space-x-1 cursor-pointer"
               >
                 <XCircle className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">লগআউট</span>
+                <span className="hidden sm:inline">{t('লগআউট', 'Logout')}</span>
               </button>
             </div>
 
@@ -3591,18 +3676,18 @@ export default function App() {
                       onClick={() => setActiveTab('orders')}
                       className="text-xs text-[#e07a5f] hover:underline font-bold"
                     >
-                      সকল অর্ডার দেখুন →
+                      {t('সকল অর্ডার দেখুন →', 'View All Orders →')}
                     </button>
                   </div>
 
                   <table className="w-full text-left border-collapse min-w-[500px]">
                     <thead>
                       <tr className="border-b border-[#322822]/10 opacity-60 text-xs">
-                        <th className="pb-3">অর্ডার আইডি</th>
-                        <th className="pb-3">কাস্টমার</th>
-                        <th className="pb-3">তারিখ</th>
-                        <th className="pb-3 text-right">মূল্য</th>
-                        <th className="pb-3 text-center">স্ট্যাটাস</th>
+                        <th className="pb-3">{t('অর্ডার আইডি', 'Order ID')}</th>
+                        <th className="pb-3">{t('কাস্টমার', 'Customer')}</th>
+                        <th className="pb-3">{t('তারিখ', 'Date')}</th>
+                        <th className="pb-3 text-right">{t('মূল্য', 'Price')}</th>
+                        <th className="pb-3 text-center">{t('স্ট্যাটাস', 'Status')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#322822]/5">
@@ -3887,15 +3972,15 @@ export default function App() {
                           }}
                         />
                       </th>
-                      <th className="p-4">অর্ডার আইডি</th>
-                      <th className="p-4">কাস্টমার নাম</th>
-                      <th className="p-4">ফোন নাম্বার</th>
-                      <th className="p-4">তারিখ</th>
-                      <th className="p-4 text-right">মোট মূল্য</th>
-                      <th className="p-4">পেমেন্ট গেটওয়ে</th>
-                      <th className="p-4">ডেলিভারি লোকেশন</th>
-                      <th className="p-4 text-center">স্ট্যাটাস</th>
-                      <th className="p-4 text-right">অ্যাকশন</th>
+                      <th className="p-4">{t('অর্ডার আইডি', 'Order ID')}</th>
+                      <th className="p-4">{t('কাস্টমার নাম', 'Customer Name')}</th>
+                      <th className="p-4">{t('ফোন নাম্বার', 'Phone Number')}</th>
+                      <th className="p-4">{t('তারিখ', 'Date')}</th>
+                      <th className="p-4 text-right">{t('মোট মূল্য', 'Total Price')}</th>
+                      <th className="p-4">{t('পেমেন্ট গেটওয়ে', 'Payment Gateway')}</th>
+                      <th className="p-4">{t('ডেলিভারি লোকেশন', 'Delivery Location')}</th>
+                      <th className="p-4 text-center">{t('স্ট্যাটাস', 'Status')}</th>
+                      <th className="p-4 text-right">{t('অ্যাকশন', 'Action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#322822]/5">
@@ -4941,30 +5026,57 @@ export default function App() {
                             <h3 className="text-base font-black tracking-tight mt-1">প্রিমিয়াম ব্যানার ম্যানেজার (Premium Banner Manager)</h3>
                             <p className="opacity-60 text-xs">আপনার স্টোরের মূল স্লাইডার ব্যানারগুলো পরিচালনা করুন। এগুলো গ্রাহকদের স্টোরে স্বয়ংক্রিয়ভাবে পরিবর্তিত (Auto Slide) হবে।</p>
                           </div>
-                          <button
-                            onClick={() => {
-                              setEditingBannerId(null);
-                              setBannerForm({
-                                desktopImageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=1200',
-                                mobileImageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=600',
-                                title: 'নতুন কালেকশন ২০২৬',
-                                subtitle: 'Aura Premium Casuals',
-                                description: 'আমাদের নতুন এবং এক্সক্লুসিভ স্টাইলিশ ফ্যাশন পণ্যের সমাহার এখন আপনার হাতের মুঠোয়। চমৎকার ফেব্রিক এবং আকর্ষণীয় ডিজাইন!',
-                                button1Text: 'এখনই কিনুন (Buy Now)',
-                                button1Link: '#products',
-                                button2Text: 'সব প্রোডাক্ট দেখুন',
-                                button2Link: '#products',
-                                overlayColor: 'rgba(0,0,0,0.4)',
-                                textPosition: 'left',
-                                isActive: true,
-                                order: banners.length + 1
-                              });
-                            }}
-                            className="px-4 py-2 bg-[#e07a5f] hover:bg-[#d06a4f] text-white text-xs font-black rounded-xl transition-all flex items-center space-x-1.5 shadow-lg shadow-orange-500/15"
-                          >
-                            <Plus className="h-4 w-4" />
-                            <span>নতুন ব্যানার যুক্ত করুন</span>
-                          </button>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => {
+                                const newId = 'banner_' + Date.now();
+                                const newB: Banner = {
+                                  id: newId,
+                                  desktopImageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=1200',
+                                  mobileImageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=600',
+                                  title: 'নতুন ধামাকা অফার ২০২৬',
+                                  subtitle: 'Aura Premium Sports',
+                                  description: 'আমাদের নতুন এবং এক্সক্লুসিভ স্টাইলিশ ফ্যাশন পণ্যের সমাহার এখন আপনার হাতের মুঠোয়। চমৎকার ফেব্রিক এবং আকর্ষণীয় ডিজাইন!',
+                                  button1Text: 'এখনই কিনুন (Buy Now)',
+                                  button1Link: '#products',
+                                  button2Text: 'সব প্রোডাক্ট দেখুন',
+                                  button2Link: '#products',
+                                  overlayColor: 'rgba(0,0,0,0.45)',
+                                  textPosition: 'left',
+                                  isActive: true,
+                                  order: banners.length + 1
+                                };
+                                setBanners(prev => [...prev, newB]);
+                                setEditingBannerId(newId);
+                                setBannerForm({ ...newB });
+                                setDesignerSuccessMessage('সফলতা: নতুন ব্যানারটি তালিকায় যোগ করা হয়েছে এবং নিচে সম্পাদনার জন্য ফর্মটি লোড করা হয়েছে!');
+                                setTimeout(() => {
+                                  document.getElementById('classic-banner-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }, 150);
+                              }}
+                              className="px-4 py-2 bg-[#e07a5f] hover:bg-[#d06a4f] text-white text-xs font-black rounded-xl transition-all flex items-center space-x-1.5 shadow-lg shadow-orange-500/15 cursor-pointer border-none"
+                            >
+                              <Plus className="h-4 w-4" />
+                              <span>নতুন ব্যানার যুক্ত করুন</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setView('storefront');
+                                setPublishedTheme('classic');
+                                localStorage.setItem('aura_published_theme', 'classic');
+                                setDesignerSuccessMessage('লাইভ প্রিভিউ মুড চালু হয়েছে! কাস্টমার হোমপেজে ব্যানারগুলো স্লাইড হওয়া দেখতে পাচ্ছেন।');
+                              }}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all flex items-center space-x-1.5 shadow-lg shadow-emerald-500/15 cursor-pointer border-none"
+                              title="লাইভ স্টোরফ্রন্টে প্রিভিউ দেখুন"
+                            >
+                              <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              <span>লাইভ প্রিভিউ (Live Preview)</span>
+                            </button>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
@@ -4973,10 +5085,19 @@ export default function App() {
                             <h4 className="text-xs font-bold uppercase tracking-wider opacity-60">ব্যানার সমূহের তালিকা ({banners.length})</h4>
                             
                             {banners.length === 0 ? (
-                              <div className="p-8 text-center bg-black/10 rounded-2xl border border-dashed border-[#322822] space-y-2">
+                              <div className="p-8 text-center bg-black/10 rounded-2xl border border-dashed border-[#322822] space-y-3">
                                 <span className="text-2xl">🖼️</span>
-                                <p className="text-xs font-bold">কোনো ব্যানার খুঁজে পাওয়া যায়নি</p>
-                                <p className="text-[10px] opacity-60">ডানদিকের ফর্মটি ব্যবহার করে আপনার প্রথম ব্যানার যোগ করুন।</p>
+                                <p className="text-xs font-bold text-neutral-300">কোনো ব্যানার খুঁজে পাওয়া যায়নি</p>
+                                <p className="text-[10px] opacity-60">ডানদিকের ফর্মটি ব্যবহার করে আপনার প্রথম ব্যানার যোগ করুন অথবা নিচে ক্লিক করে ৩টি চমৎকার প্রিমিয়াম ডিফল্ট ব্যানার লোড করুন।</p>
+                                <button
+                                  onClick={() => {
+                                    setBanners(DEFAULT_BANNERS);
+                                    setDesignerSuccessMessage('সফলতা: ৩টি চমৎকার প্রিমিয়াম ডিফল্ট ব্যানার সফলভাবে রিস্টোর করা হয়েছে!');
+                                  }}
+                                  className="px-3 py-1.5 bg-[#e07a5f]/10 hover:bg-[#e07a5f] text-[#e07a5f] hover:text-white text-[10px] font-bold rounded-lg transition-all cursor-pointer border border-[#e07a5f]/20"
+                                >
+                                  🔄 ডিফল্ট ব্যানারগুলো রিস্টোর করুন
+                                </button>
                               </div>
                             ) : (
                               <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
@@ -5167,56 +5288,7 @@ export default function App() {
                                 </div>
                               </div>
 
-                              {/* Mobile Image Upload & URL */}
-                              <div className="space-y-1.5">
-                                <label className="font-bold opacity-75">Mobile Banner Image URL:</label>
-                                <input 
-                                  type="text"
-                                  value={bannerForm.mobileImageUrl || ''}
-                                  onChange={(e) => setBannerForm(prev => ({ ...prev, mobileImageUrl: e.target.value }))}
-                                  placeholder="যেমন: https://images.unsplash.com/..."
-                                  className="w-full p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-inherit outline-none focus:border-[#e07a5f]/50 font-mono"
-                                />
-                                
-                                <div 
-                                  className="border-2 border-dashed border-[#322822] hover:border-[#e07a5f]/40 rounded-xl p-3 bg-black/20 text-center cursor-pointer transition-all relative group"
-                                  onDragOver={(e) => e.preventDefault()}
-                                  onDrop={(e) => {
-                                    e.preventDefault();
-                                    const file = e.dataTransfer.files?.[0];
-                                    if (file && file.type.startsWith('image/')) {
-                                      const reader = new FileReader();
-                                      reader.onloadend = () => {
-                                        setBannerForm(prev => ({ ...prev, mobileImageUrl: reader.result as string }));
-                                      };
-                                      reader.readAsDataURL(file);
-                                    }
-                                  }}
-                                >
-                                  <input 
-                                    type="file"
-                                    accept="image/*"
-                                    id="mobile-banner-file"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) {
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => {
-                                          setBannerForm(prev => ({ ...prev, mobileImageUrl: reader.result as string }));
-                                        };
-                                        reader.readAsDataURL(file);
-                                      }
-                                    }}
-                                  />
-                                  <label htmlFor="mobile-banner-file" className="cursor-pointer block">
-                                    <div className="flex items-center justify-center space-x-1.5">
-                                      <PlusCircle className="h-4 w-4 text-[#e07a5f] opacity-80" />
-                                      <span className="font-bold text-[10px]">Mobile ছবি আপলোড বা ড্রপ করুন</span>
-                                    </div>
-                                  </label>
-                                </div>
-                              </div>
+                              {/* Mobile Image Upload is now removed, desktop image is auto-reused for both desktop and mobile layouts */}
 
                               {/* Title & Subtitle */}
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -5389,7 +5461,7 @@ export default function App() {
                                     }
                                     
                                     if (editingBannerId) {
-                                      const updated = banners.map(b => b.id === editingBannerId ? { ...b, ...bannerForm } as Banner : b);
+                                      const updated = banners.map(b => b.id === editingBannerId ? { ...b, ...bannerForm, mobileImageUrl: bannerForm.desktopImageUrl } as Banner : b);
                                       setBanners(updated);
                                       setDesignerSuccessMessage('অভিনন্দন! আপনার ব্যানার বিবরণটি সফলভাবে আপডেট করা হয়েছে এবং লাইভ স্টোরে পরিবর্তন প্রতিফলিত হয়েছে।');
                                       setEditingBannerId(null);
@@ -5397,7 +5469,7 @@ export default function App() {
                                       const newBanner: Banner = {
                                         id: 'banner_' + Date.now(),
                                         desktopImageUrl: bannerForm.desktopImageUrl || '',
-                                        mobileImageUrl: bannerForm.mobileImageUrl || bannerForm.desktopImageUrl || '',
+                                        mobileImageUrl: bannerForm.desktopImageUrl || '',
                                         title: bannerForm.title || '',
                                         subtitle: bannerForm.subtitle || '',
                                         description: bannerForm.description || '',
@@ -9732,7 +9804,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                       <div className="flex items-center justify-between pb-2 border-b border-inherit">
                         <h3 className="text-sm font-extrabold flex items-center space-x-2">
                           <Truck className="h-4.5 w-4.5 text-[#e07a5f]" />
-                          <span>কুরিয়ার এপিআই ইন্টিগ্রেশন সেটিংস (Courier API Integration Settings)</span>
+                          <span>{t('কুরিয়ার এপিআই ইন্টিগ্রেশন সেটিংস (Courier API Integration Settings)', 'Courier API Integration Settings')}</span>
                         </h3>
                         <button
                           type="button"
@@ -9747,7 +9819,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                           className="px-3 py-1.5 bg-[#e07a5f] hover:bg-[#d06a4f] text-white font-bold rounded-xl text-[10px] flex items-center space-x-1.5 transition-all shadow-sm"
                         >
                           <Plus className="h-3.5 w-3.5" />
-                          <span>{showAddCourierRow ? 'বন্ধ করুন' : 'নতুন কুরিয়ার (+ Add)'}</span>
+                          <span>{showAddCourierRow ? t('বন্ধ করুন', 'Close') : t('নতুন কুরিয়ার (+ Add)', 'Add New Courier (+ Add)')}</span>
                         </button>
                       </div>
 
@@ -9767,7 +9839,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                           <div className="space-y-4 pt-2">
                             {/* Courier selector */}
                             <div>
-                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">১. কুরিয়ার সিলেক্ট করুন (Courier Service)</label>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">{t('১. কুরিয়ার সিলেক্ট করুন (Courier Service)', '1. Select Courier Service')}</label>
                               <select
                                 value={newCourierName}
                                 onChange={(e) => setNewCourierName(e.target.value)}
@@ -9783,12 +9855,12 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
 
                             {/* Client ID Field */}
                             <div>
-                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">Client ID</label>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">{t('ক্লায়েন্ট আইডি (Client ID)', 'Client ID')}</label>
                               <input
                                 type="text"
                                 value={newCourierClientId}
                                 onChange={(e) => setNewCourierClientId(e.target.value)}
-                                placeholder="যেমন: 1392697"
+                                placeholder={t("যেমন: 1392697", "e.g. 1392697")}
                                 className={`w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] text-xs font-mono
                                   ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/50 text-white border-[#322822]' : 'bg-white text-neutral-800 border-neutral-200'}`}
                               />
@@ -9796,12 +9868,12 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
 
                             {/* API Key Field */}
                             <div>
-                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">API Key</label>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">{t('এপিআই কী (API Key)', 'API Key')}</label>
                               <input
                                 type="text"
                                 value={newCourierApiKey}
                                 onChange={(e) => setNewCourierApiKey(e.target.value)}
-                                placeholder="কুরিয়ারের মেইন টোকেন ইনপুট ফিল্ড"
+                                placeholder={t("কুরিয়ারের মেইন টোকেন ইনপুট ফিল্ড", "Courier main token input field")}
                                 className={`w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] text-xs font-mono
                                   ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/50 text-white border-[#322822]' : 'bg-white text-neutral-800 border-neutral-200'}`}
                               />
@@ -9809,12 +9881,12 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
 
                             {/* Secret Key Field */}
                             <div>
-                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">Secret Key</label>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">{t('সিক্রেট কী (Secret Key)', 'Secret Key')}</label>
                               <input
                                 type="text"
                                 value={newCourierSecretKey}
                                 onChange={(e) => setNewCourierSecretKey(e.target.value)}
-                                placeholder="কুরিয়ারের সিক্রেট টোকেন ইনপুট ফিল্ড"
+                                placeholder={t("কুরিয়ারের সিক্রেট টোকেন ইনপুট ফিল্ড", "Courier secret token input field")}
                                 className={`w-full p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-[#e07a5f] text-xs font-mono
                                   ${settings.themeMode === 'dark' ? 'bg-[#120e0c]/50 text-white border-[#322822]' : 'bg-white text-neutral-800 border-neutral-200'}`}
                               />
@@ -9822,7 +9894,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
 
                             {/* Default Weight Field */}
                             <div>
-                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">Default Weight (Parcel Weight)</label>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">{t('ডিফল্ট ওজন (Default Weight - Parcel Weight)', 'Default Weight (Parcel Weight)')}</label>
                               <input
                                 type="text"
                                 value={newCourierDefaultWeight}
@@ -9835,7 +9907,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
 
                             {/* Default Note Field */}
                             <div>
-                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">Default Note</label>
+                              <label className="block text-[10px] font-extrabold mb-1.5 opacity-60 uppercase tracking-wider">{t('ডিফল্ট নোট (Default Note)', 'Default Note')}</label>
                               <textarea
                                 value={newCourierDefaultNote}
                                 onChange={(e) => setNewCourierDefaultNote(e.target.value)}
@@ -9861,13 +9933,13 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                                 className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-colors border
                                   ${settings.themeMode === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700 text-neutral-300 border-zinc-700' : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-200'}`}
                               >
-                                Cancel
+                                {t('Cancel', 'Cancel')}
                               </button>
                               <button
                                 type="button"
                                 onClick={async () => {
                                   if (!newCourierApiKey.trim()) {
-                                    alert('দয়া করে এপিআই কী টাইপ করুন!');
+                                    alert(t('দয়া করে এপিআই কী টাইপ করুন!', 'Please type the API Key!'));
                                     return;
                                   }
                                   
@@ -9905,20 +9977,20 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                                     
                                     const newNotif = {
                                       id: `notif-${Date.now()}`,
-                                      title: 'কুরিয়ার সেটিংস সংরক্ষিত',
-                                      message: `${newCourierName} এপিআই কী ও কনফিগারেশন সফলভাবে ক্লাউড এবং লোকালে সেভ করা হয়েছে।`,
+                                      title: t('কুরিয়ার সেটিংস সংরক্ষিত', 'Courier Settings Saved'),
+                                      message: `${newCourierName} ` + t('এপিআই কী ও কনফিগারেশন সফলভাবে ক্লাউড এবং লোকালে সেভ করা হয়েছে।', 'API Key and configuration successfully saved to Cloud and Local.'),
                                       timestamp: new Date().toISOString(),
                                       read: false
                                     };
                                     setNotifications(prev => [newNotif, ...prev]);
                                   } else {
-                                    alert('সংরক্ষণ ব্যর্থ হয়েছে! সুপাবেজ কানেকশন চেক করুন।');
+                                    alert(t('সংরক্ষণ ব্যর্থ হয়েছে! সুপাবেজ কানেকশন চেক করুন।', 'Save failed! Please check your Supabase connection.'));
                                   }
                                 }}
                                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs transition-all flex items-center space-x-1.5 shadow-md shadow-emerald-500/10"
                               >
                                 <Save className="h-4 w-4" />
-                                <span>Save Settings</span>
+                                <span>{t('Save Settings', 'Save Settings')}</span>
                               </button>
                             </div>
                           </div>
@@ -11943,16 +12015,16 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
                       </span>
                       <span className="text-[10px] font-black uppercase text-orange-500 tracking-wider">
-                        Steadfast 1-Click Auto-Booking
+                        {t('Steadfast 1-Click Auto-Booking', 'Steadfast 1-Click Auto-Booking')}
                       </span>
                     </div>
                     <p className="text-[10px] leading-relaxed opacity-80">
-                      সরাসরি Steadfast Courier পোর্টালে এই পার্সেলটি অটো বুকিং করতে এবং রিয়েল-টাইম ট্র্যাকিং কোড পেতে বাটনটি চাপুনঃ
+                      {t('সরাসরি Steadfast Courier পোর্টালে এই পার্সেলটি অটো বুকিং করতে এবং রিয়েল-টাইম ট্র্যাকিং কোড পেতে বাটনটি চাপুনঃ', 'Press the button to automatically book this parcel directly to the Steadfast Courier portal and get a real-time tracking code:')}
                     </p>
                     
                     {bookingError && (
                       <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-[10px] text-red-500 font-bold leading-normal">
-                        ⚠️ বুকিং ব্যর্থ হয়েছেঃ {bookingError}
+                        {t('⚠️ বুকিং ব্যর্থ হয়েছেঃ', '⚠️ Booking failed:')} {bookingError}
                       </div>
                     )}
 
@@ -12027,10 +12099,10 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                             }, 1500);
 
                           } else {
-                            setBookingError(data.error || "অটো বুকিং ব্যর্থ হয়েছে। API Key এবং Secret Key সঠিক আছে কিনা চেক করুন।");
+                            setBookingError(data.error || t("অটো বুকিং ব্যর্থ হয়েছে। API Key এবং Secret Key সঠিক আছে কিনা চেক করুন।", "Auto booking failed. Please check if your API Key and Client ID/Secret are correct."));
                           }
                         } catch (err: any) {
-                          setBookingError(err.message || "সার্ভার এর সাথে কানেকশন দেওয়া যায়নি।");
+                          setBookingError(err.message || t("সার্ভার এর সাথে কানেকশন দেওয়া যায়নি।", "Could not connect to the server."));
                         } finally {
                           setIsBooking(false);
                         }
@@ -12043,11 +12115,11 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          <span>বুকিং হচ্ছে, অপেক্ষা করুন...</span>
+                          <span>{t('বুকিং হচ্ছে, অপেক্ষা করুন...', 'Booking in progress, please wait...')}</span>
                         </>
                       ) : (
                         <>
-                          <span>⚡ ওয়ান-ক্লিক অটো বুকিং করুন</span>
+                          <span>{t('⚡ ওয়ান-ক্লিক অটো বুকিং করুন', '⚡ One-Click Auto-Book Now')}</span>
                         </>
                       )}
                     </button>
