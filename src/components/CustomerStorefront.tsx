@@ -824,11 +824,18 @@ export default function CustomerStorefront({
   // Dynamic Banner Image URL for the active category
   const categoryBannerUrl = useMemo(() => {
     if (selectedCategory === 'All') return null;
+    
+    // Check if there is a custom banner assigned to this category
+    const customBanner = resolvedBanners.find(b => b.category === selectedCategory);
+    if (customBanner && customBanner.desktopImageUrl) {
+      return customBanner.desktopImageUrl;
+    }
+
     const prodWithBanner = allStoreProducts.find(
       p => p.category === selectedCategory && p.season && (p.season.startsWith('http://') || p.season.startsWith('https://') || p.season.startsWith('/') || p.season.startsWith('data:'))
     );
     return prodWithBanner ? prodWithBanner.season : null;
-  }, [allStoreProducts, selectedCategory]);
+  }, [allStoreProducts, selectedCategory, resolvedBanners]);
 
   // Placeholder for moved babyBannerUrl
 
@@ -864,6 +871,12 @@ export default function CustomerStorefront({
   }, [filteredProducts]);
 
   const getCategoryBanner = (catName: string) => {
+    // Check if there is a custom banner assigned to this category
+    const customBanner = resolvedBanners.find(b => b.category === catName);
+    if (customBanner && customBanner.desktopImageUrl) {
+      return customBanner.desktopImageUrl;
+    }
+
     const prodWithBanner = allStoreProducts.find(
       p => p.category === catName && p.season && (p.season.startsWith('http://') || p.season.startsWith('https://') || p.season.startsWith('/') || p.season.startsWith('data:'))
     );
@@ -1610,12 +1623,19 @@ export default function CustomerStorefront({
             button2Text: b.button2Text,
             button2Link: b.button2Link,
             overlayColor: b.overlayColor,
-            textPosition: b.textPosition || 'left'
+            textPosition: b.textPosition || 'left',
+            category: b.category
           }));
 
           const activeSlide = HERO_SLIDES[currentSlide] || HERO_SLIDES[0];
 
           const handleHeroCta = (productId: string) => {
+            if (activeSlide && activeSlide.category) {
+              setSelectedCategory(activeSlide.category);
+              const el = document.getElementById('products');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              return;
+            }
             if (productId && productId.startsWith('#')) {
               const el = document.getElementById(productId.substring(1));
               if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -1633,12 +1653,12 @@ export default function CustomerStorefront({
           if (!activeSlide) return null;
 
           return (
-            <div className="relative rounded-[2rem] border border-[#eae5de] dark:border-[#28211c] overflow-hidden bg-neutral-100 dark:bg-[#181412]/80 shadow-2xl h-[33.33vh] min-h-[33.33vh] max-h-[33.33vh] flex flex-col justify-between" id="dynamic-banner-container">
+            <div className="relative rounded-[2rem] border border-[#eae5de] dark:border-[#28211c] overflow-hidden bg-neutral-100 dark:bg-[#181412]/80 shadow-2xl h-[180px] sm:h-[240px] md:h-[350px] min-h-[180px] sm:min-h-[240px] md:min-h-[350px] max-h-[180px] sm:max-h-[240px] md:max-h-[350px] flex flex-col justify-between" id="dynamic-banner-container">
               
               {/* Overlay Color layer */}
               <div 
                 className="absolute inset-0 z-[1] pointer-events-none transition-all duration-500" 
-                style={{ backgroundColor: activeSlide.overlayColor || 'rgba(0,0,0,0.25)' }}
+                style={{ backgroundColor: activeSlide.overlayColor || 'rgba(0,0,0,0.4)' }}
               />
 
               {/* Backgound Image Slider Layer with Cross-fade and smooth slide (Full Opacity, Sharp) */}
@@ -1663,22 +1683,84 @@ export default function CustomerStorefront({
                 </motion.div>
               </AnimatePresence>
 
+              {/* Breathtaking Premium Banner Text & Details Overlay */}
+              <div 
+                onClick={() => {
+                  if (activeSlide.category) {
+                    setSelectedCategory(activeSlide.category);
+                    const el = document.getElementById('products');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                className={`absolute inset-0 z-[2] flex flex-col justify-center p-6 sm:p-12 text-left select-none ${activeSlide.category ? 'cursor-pointer pointer-events-auto' : 'pointer-events-none'}`}
+              >
+                <div className="max-w-xl space-y-1 sm:space-y-2">
+                  {activeSlide.subtitle && (
+                    <motion.p 
+                      key={`sub-${currentSlide}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1, duration: 0.4 }}
+                      className="text-[9px] sm:text-[11px] font-black tracking-widest text-amber-400 uppercase drop-shadow-md"
+                    >
+                      {activeSlide.subtitle}
+                    </motion.p>
+                  )}
+                  {activeSlide.title && (
+                    <motion.h2 
+                      key={`title-${currentSlide}`}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2, duration: 0.4 }}
+                      className="text-xs sm:text-xl md:text-3xl font-black text-white leading-tight drop-shadow-lg"
+                    >
+                      {activeSlide.title}
+                    </motion.h2>
+                  )}
+                  {activeSlide.description && (
+                    <motion.p 
+                      key={`desc-${currentSlide}`}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3, duration: 0.4 }}
+                      className="text-[10px] sm:text-xs text-neutral-200 line-clamp-1 sm:line-clamp-2 leading-relaxed drop-shadow-md hidden sm:block"
+                    >
+                      {activeSlide.description}
+                    </motion.p>
+                  )}
+                </div>
+              </div>
+
               {/* Dual Call To Actions centered over banner graphics */}
-              <div className="absolute inset-x-0 bottom-4 sm:bottom-6 z-10 flex flex-wrap gap-3 items-center justify-center px-4">
+              <div className="absolute inset-x-0 bottom-4 sm:bottom-6 z-10 flex flex-wrap gap-2.5 items-center justify-center px-4">
                 <button 
                   onClick={() => handleHeroCta(activeSlide.button1Link || '#products')}
-                  className="px-5 py-2.5 sm:px-7 sm:py-3.5 bg-teal-500 hover:bg-teal-600 text-white font-extrabold rounded-xl text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center space-x-1.5 shadow-lg shadow-teal-500/20 hover:scale-105 active:scale-95 cursor-pointer border-none"
+                  className="px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-extrabold rounded-xl text-[10px] sm:text-xs uppercase tracking-wider transition-all flex items-center space-x-1.5 shadow-lg shadow-teal-500/20 hover:scale-105 active:scale-95 cursor-pointer border-none"
                   id="banner-btn-buy-now"
                 >
-                  <ShoppingBag className="h-4 w-4" />
-                  <span>{t('এখনই কিনুন', 'Buy Now')}</span>
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                  <span>{activeSlide.button1Text || t('এখনই কিনুন', 'Buy Now')}</span>
                 </button>
                 <a 
                   href={activeSlide.button2Link || "#products"}
-                  className="px-5 py-2.5 sm:px-7 sm:py-3.5 rounded-xl border-2 border-white/80 hover:border-white bg-black/40 hover:bg-black/60 text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider transition-all inline-flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs"
+                  onClick={(e) => {
+                    if (activeSlide.category) {
+                      e.preventDefault();
+                      setSelectedCategory(activeSlide.category);
+                      const el = document.getElementById('products');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      return;
+                    }
+                    if (activeSlide.button2Link && activeSlide.button2Link.startsWith('#')) {
+                      e.preventDefault();
+                      const el = document.getElementById(activeSlide.button2Link.substring(1));
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
+                  className="px-4 py-2 sm:px-6 sm:py-3 rounded-xl border-2 border-white/80 hover:border-white bg-black/40 hover:bg-black/60 text-white text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all inline-flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs"
                   id="banner-btn-shop-all"
                 >
-                  <span>{t('সব প্রোডাক্ট দেখুন', 'Shop All')}</span>
+                  <span>{activeSlide.button2Text || t('সব প্রোডাক্ট দেখুন', 'Shop All')}</span>
                 </a>
               </div>
 

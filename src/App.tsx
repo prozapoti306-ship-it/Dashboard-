@@ -430,6 +430,7 @@ export default function App() {
   const [isSavingTracking, setIsSavingTracking] = useState(false);
 
   const [isSavingBanner, setIsSavingBanner] = useState(false);
+  const [isSavingIndividual, setIsSavingIndividual] = useState<Record<number, boolean>>({});
   const [bannerSaveStatus, setBannerSaveStatus] = useState<{ success: boolean; error?: string } | null>(null);
 
   // Synchronize state changes to IndexedDB and localStorage caches
@@ -2001,12 +2002,21 @@ export default function App() {
     // Ensure we also register any brand/category if not already in the selection lists
     if (productForm.category && !categoriesList.includes(productForm.category)) {
       setCategoriesList(prev => [...prev, productForm.category]);
+      if (supabaseStatus.connected) {
+        supabaseService.insertCategory(productForm.category).catch(e => console.warn("Error inserting category:", e));
+      }
     }
     if (productForm.brand && !brandsList.includes(productForm.brand)) {
       setBrandsList(prev => [...prev, productForm.brand]);
+      if (supabaseStatus.connected) {
+        supabaseService.insertBrand(productForm.brand).catch(e => console.warn("Error inserting brand:", e));
+      }
     }
     if (productForm.collection && !collectionsList.includes(productForm.collection)) {
       setCollectionsList(prev => [...prev, productForm.collection]);
+      if (supabaseStatus.connected) {
+        supabaseService.insertCollectionList(productForm.collection).catch(e => console.warn("Error inserting collection:", e));
+      }
     }
 
     if (editingProduct) {
@@ -2097,6 +2107,15 @@ export default function App() {
     const sizeArray = bulkUploadForm.sizes ? bulkUploadForm.sizes.split(',').map(s => s.trim()).filter(Boolean) : [];
     const calculatedDiscount = calculateDiscountPercentage(bulkUploadForm.regularPrice, bulkUploadForm.salePrice);
     
+    // Register category if not already in list
+    const bulkCategory = bulkUploadForm.category || 'Baby Category';
+    if (bulkCategory && !categoriesList.includes(bulkCategory)) {
+      setCategoriesList(prev => [...prev, bulkCategory]);
+      if (supabaseStatus.connected) {
+        supabaseService.insertCategory(bulkCategory).catch(e => console.warn("Error inserting bulk category:", e));
+      }
+    }
+
     // Create new products
     const newProducts: Product[] = bulkUploadForm.images.map((img, idx) => {
       const uniqueId = `PROD-BULK-${Date.now()}-${idx}`;
@@ -2187,6 +2206,15 @@ export default function App() {
     const sizeArray = mixedUploadForm.sizes ? mixedUploadForm.sizes.split(',').map(s => s.trim()).filter(Boolean) : [];
     const uniqueId = `PROD-MIX-${Date.now()}`;
     const calculatedDiscount = calculateDiscountPercentage(mixedUploadForm.regularPrice, mixedUploadForm.salePrice);
+
+    // Register category if not already in list
+    const mixedCategory = mixedUploadForm.category || 'Baby Category';
+    if (mixedCategory && !categoriesList.includes(mixedCategory)) {
+      setCategoriesList(prev => [...prev, mixedCategory]);
+      if (supabaseStatus.connected) {
+        supabaseService.insertCategory(mixedCategory).catch(e => console.warn("Error inserting mixed category:", e));
+      }
+    }
 
     const newProduct: Product = {
       id: uniqueId,
@@ -5019,9 +5047,11 @@ export default function App() {
                         <span>ডিজাইনার বন্ধ করুন (Back to Designer Home)</span>
                       </button>
                     ) : (
-                      <span className="px-3.5 py-1.5 bg-[#e07a5f]/15 border border-[#e07a5f]/30 text-[#e07a5f] text-[10px] font-bold rounded-full self-start md:self-auto tracking-wider uppercase">
-                        Visual Editor v2.1
-                      </span>
+                      <div className="flex flex-wrap gap-3 items-center">
+                        <span className="px-3.5 py-1.5 bg-[#e07a5f]/15 border border-[#e07a5f]/30 text-[#e07a5f] text-[10px] font-bold rounded-full self-start md:self-auto tracking-wider uppercase">
+                          Visual Editor v2.1
+                        </span>
+                      </div>
                     )}
                   </div>
 
@@ -9412,6 +9442,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                   <div className="text-left sm:text-right">
                     <span className="text-[10px] font-bold text-[#e07a5f] uppercase tracking-wider">Aura Lux Preferences</span>
                     <p className="text-xs font-extrabold opacity-60">
+                      {activeSettingsTab === 'three-banner' && '⚡ ৩-ব্যানার ম্যাজিক কাস্টমাইজার (3-Banner Customizer)'}
                       {activeSettingsTab === 'courier' && '📦 কুরিয়ার এপিআই সেটিংস (Courier API Settings)'}
                       {activeSettingsTab === 'brand' && '🏷️ ব্র্যান্ড পরিচিতি সেটিংস (Brand Slogan Settings)'}
                       {activeSettingsTab === 'eye' && '🛡️ আই প্রোটেকশন ফিল্টার (Eye Protection Filter)'}
@@ -9430,6 +9461,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
               {activeSettingsTab === 'grid' && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 w-full py-2 animate-fade-in">
                   {[
+                    { id: 'three-banner', label: '⚡ ৩-ব্যানার কাস্টমাইজার', sub: '3-Banner Customizer', icon: Sparkles, color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', hoverColor: 'hover:border-emerald-500/50 hover:shadow-emerald-500/5' },
                     { id: 'courier', label: '📦 কুরিয়ার এপিআই সেটিংস', sub: 'Courier API Settings', icon: Truck, color: 'text-rose-500', bgColor: 'bg-rose-500/10', hoverColor: 'hover:border-rose-500/50 hover:shadow-rose-500/5' },
                     { id: 'brand', label: '🏷️ ব্র্যান্ড পরিচিতি সেটিংস', sub: 'Brand Slogan Settings', icon: Tag, color: 'text-amber-500', bgColor: 'bg-amber-500/10', hoverColor: 'hover:border-amber-500/50 hover:shadow-amber-500/5' },
                     { id: 'eye', label: '🛡️ আই প্রোটেকশন ফিল্টার', sub: 'Eye Protection Filter', icon: ShieldAlert, color: 'text-orange-500', bgColor: 'bg-orange-500/10', hoverColor: 'hover:border-orange-500/50 hover:shadow-orange-500/5' },
@@ -9445,7 +9477,31 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => setActiveSettingsTab(item.id)}
+                        onClick={() => {
+                          setActiveSettingsTab(item.id);
+                          if (item.id === 'three-banner') {
+                            let initialBanners = [...banners];
+                            while (initialBanners.length < 3) {
+                              initialBanners.push({
+                                id: `banner_${Date.now()}_${initialBanners.length}`,
+                                desktopImageUrl: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200',
+                                mobileImageUrl: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=600',
+                                title: `কাস্টম ব্যানার ${initialBanners.length + 1}`,
+                                subtitle: 'এলিগেন্ট ফ্যাশন স্টাইল কালেকশন',
+                                description: 'আমাদের স্টোরের কাস্টম এবং এক্সক্লুসিভ কালেকশন উপভোগ করুন সরাসরি অর্ডার করে।',
+                                button1Text: 'অর্ডার নাও (Order Now)',
+                                button1Link: '#products',
+                                button2Text: 'বিস্তারিত (Details)',
+                                button2Link: '#products',
+                                overlayColor: 'rgba(0,0,0,0.4)',
+                                textPosition: 'left',
+                                isActive: true,
+                                order: initialBanners.length + 1
+                              });
+                            }
+                            setBanners(initialBanners.slice(0, 3));
+                          }
+                        }}
                         className={`group relative flex flex-col items-center justify-center text-center p-6 rounded-[2.5rem] border transition-all duration-300 cursor-pointer aspect-square hover:-translate-y-1 hover:shadow-lg
                           ${settings.themeMode === 'dark'
                             ? 'bg-[#1a1614]/80 border-[#322822]/60 hover:bg-[#221c19] text-neutral-200'
@@ -9472,6 +9528,454 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
 
               {/* Full Width Settings Sub-tab view with elegant fade-in */}
               <div className="w-full pt-2">
+                {activeSettingsTab === 'three-banner' && (
+                  <div className="animate-fade-in duration-300">
+                    {/* ⚡ Quick 3-Banner Custom Designer Block */}
+                    <div className="space-y-6 text-left">
+                      {/* Controller & Save Header */}
+                      <div className="bg-[#1a1614] p-5 rounded-3xl border border-[#322822]/40 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="h-2.5 w-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest font-mono font-sans">Premium Customization Mode</span>
+                          </div>
+                          <h3 className="text-base font-black text-white">৩-ব্যানার ম্যাজিক কাস্টমাইজার (3-Banner Custom Designer)</h3>
+                          <p className="opacity-70 text-xs text-neutral-300">একসাথে ৩টি হিরো ব্যানার, স্লাইড ডিউরেশন এবং অ্যাকশন বাটন সহজে কাস্টমাইজ করুন ও ক্লাউডে সেভ করুন।</p>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-3">
+                          {/* Slide Duration Dropdown */}
+                          <div className="flex items-center space-x-2 bg-black/30 px-3.5 py-2 rounded-xl border border-white/5">
+                            <Clock className="h-4 w-4 text-teal-400" />
+                            <span className="text-xs font-bold text-teal-300">⏱️ স্লাইড টাইম (Slide Time):</span>
+                            <select 
+                              value={bannerSlideInterval}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setBannerSlideInterval(val);
+                                localStorage.setItem('aura_banner_slide_interval', val.toString());
+                              }}
+                              className="bg-[#120e0c] text-white text-xs font-black border border-white/10 rounded-lg p-1.5 focus:outline-none focus:border-teal-400 cursor-pointer font-sans"
+                            >
+                              <option value={3}>3 Seconds</option>
+                              <option value={4}>4 Seconds</option>
+                              <option value={5}>5 Seconds</option>
+                            </select>
+                          </div>
+
+                          {/* Save Button */}
+                          <button
+                            onClick={async () => {
+                              setIsSavingBanner(true);
+                              try {
+                                // Save locally
+                                localStorage.setItem('aura_premium_banners', JSON.stringify(banners));
+                                localStorage.setItem('aura_banner_slide_interval', String(bannerSlideInterval));
+                                setPublishedTheme('classic');
+                                localStorage.setItem('aura_published_theme', 'classic');
+
+                                // Sync to Supabase system_settings
+                                const { error: intervalErr } = await supabase.from('system_settings').upsert({
+                                  id: 'banner_slide_interval',
+                                  tagline: JSON.stringify({ interval: Number(bannerSlideInterval) }),
+                                  currency: 'BDT'
+                                });
+                                
+                                const { error: bannersErr } = await supabase.from('system_settings').upsert({
+                                  id: 'premium_banners',
+                                  tagline: JSON.stringify(banners),
+                                  currency: 'BDT'
+                                });
+
+                                if (intervalErr || bannersErr) {
+                                  console.warn("Supabase sync issue:", intervalErr || bannersErr);
+                                  setDesignerSuccessMessage("ব্যানারগুলো লোকাল ব্রাউজারে সেভ হয়েছে! (ক্লাউড ব্যাকআপে কিছুটা সমস্যা হয়েছে)");
+                                } else {
+                                  setDesignerSuccessMessage("অভিনন্দন! ৩টি ব্যানার এবং স্লাইড ডিউরেশন সফলভাবে ক্লাউড ও লোকাল স্টোরে সেভ ও লাইভ করা হয়েছে! 🚀");
+                                }
+                              } catch (err: any) {
+                                console.error("Save failed:", err);
+                                setDesignerSuccessMessage("সেভ করার সময় ত্রুটি: " + err.message);
+                              } finally {
+                                setIsSavingBanner(false);
+                              }
+                            }}
+                            disabled={isSavingBanner}
+                            className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5 border-none cursor-pointer"
+                          >
+                            <Upload className="h-4 w-4" />
+                            <span>{isSavingBanner ? 'সেভ হচ্ছে...' : 'সংরক্ষণ ও লাইভ পাবলিশ করুন (Save)'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Designer Success Message Banner inside Settings view */}
+                      {designerSuccessMessage && (
+                        <div className="p-4 bg-emerald-500/10 border-2 border-emerald-500/30 text-emerald-400 rounded-2xl text-xs font-bold animate-pulse">
+                          {designerSuccessMessage}
+                        </div>
+                      )}
+
+                      {/* 3 Banners Forms Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {[0, 1, 2].map((idx) => {
+                          const b = banners[idx] || {
+                            id: `banner_${Date.now()}_${idx}`,
+                            desktopImageUrl: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200',
+                            mobileImageUrl: 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=600',
+                            title: `ব্যানার শিরোনাম ${idx + 1}`,
+                            subtitle: 'এলিগেন্ট ফ্যাশন স্টাইল কালেকশন',
+                            description: 'আমাদের স্টোরের কাস্টম এবং এক্সক্লুসিভ কালেকশন উপভোগ করুন সরাসরি অর্ডার করে।',
+                            button1Text: 'অর্ডার নাও (Order Now)',
+                            button1Link: '#products',
+                            button2Text: 'বিস্তারিত (Details)',
+                            button2Link: '#products',
+                            overlayColor: 'rgba(0,0,0,0.4)',
+                            textPosition: 'left',
+                            isActive: true,
+                            order: idx + 1
+                          };
+
+                          return (
+                            <div key={idx} className="bg-[#1a1614] p-5 rounded-3xl border-2 border-[#322822]/50 hover:border-teal-500/30 transition-all space-y-4 shadow-md text-left text-white">
+                              {/* Card Title Header */}
+                              <div className="flex items-center justify-between border-b border-[#322822]/40 pb-3">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-teal-400 flex items-center space-x-2">
+                                  <Sparkles className="h-3.5 w-3.5 text-teal-400" />
+                                  <span>ব্যানার #{idx + 1} (Slide {idx + 1})</span>
+                                </h4>
+                                <span className="text-[9px] bg-teal-500/10 text-teal-400 font-mono font-bold px-2 py-0.5 rounded-full border border-teal-500/20">
+                                  {b.isActive ? 'Active' : 'Disabled'}
+                                </span>
+                              </div>
+
+                              {/* Form Inputs */}
+                              <div className="space-y-3.5 text-left">
+                                {/* Title */}
+                                <div>
+                                  <label className="block text-[10px] opacity-70 mb-1 font-bold text-neutral-300">ব্যানার টাইটেল (Title):</label>
+                                  <input
+                                    type="text"
+                                    value={b.title || ''}
+                                    onChange={(e) => {
+                                      const updated = [...banners];
+                                      updated[idx] = { ...b, title: e.target.value };
+                                      setBanners(updated);
+                                    }}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-teal-500/50"
+                                    placeholder="যেমন: প্রিমিয়াম সাব্লিমেশন জার্সি"
+                                  />
+                                </div>
+
+                                {/* Subtitle */}
+                                <div>
+                                  <label className="block text-[10px] opacity-70 mb-1 font-bold text-neutral-300">ব্যানার সাবটাইটেল (Subtitle):</label>
+                                  <input
+                                    type="text"
+                                    value={b.subtitle || ''}
+                                    onChange={(e) => {
+                                      const updated = [...banners];
+                                      updated[idx] = { ...b, subtitle: e.target.value };
+                                      setBanners(updated);
+                                    }}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-teal-500/50"
+                                    placeholder="যেমন: Bangladesh Official Kit 2026"
+                                  />
+                                </div>
+
+                                {/* Description */}
+                                <div>
+                                  <label className="block text-[10px] opacity-70 mb-1 font-bold text-neutral-300">ব্যানার ডেসক্রিপশন (Description):</label>
+                                  <textarea
+                                    value={b.description || ''}
+                                    onChange={(e) => {
+                                      const updated = [...banners];
+                                      updated[idx] = { ...b, description: e.target.value };
+                                      setBanners(updated);
+                                    }}
+                                    rows={2}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-teal-500/50"
+                                    placeholder="ব্যানারের সুন্দর বিবরণ বা অফার..."
+                                  />
+                                </div>
+
+                                {/* Image Section: URL Input and Direct File Upload */}
+                                <div className="space-y-2 border-t border-[#322822]/40 pt-3">
+                                  <label className="block text-[10px] opacity-70 font-bold text-neutral-300">ব্যানার ইমেজ (Banner Image):</label>
+                                  
+                                  {/* Computer File Picker */}
+                                  <div className="flex items-center space-x-2">
+                                    <input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      id={`settings-file-upload-quick-new-${idx}`} 
+                                      className="hidden" 
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          const reader = new FileReader();
+                                          reader.onloadend = () => {
+                                            const base64 = reader.result as string;
+                                            const updated = [...banners];
+                                            updated[idx] = {
+                                              ...b,
+                                              desktopImageUrl: base64,
+                                              mobileImageUrl: base64
+                                            };
+                                            setBanners(updated);
+                                            setDesignerSuccessMessage(`ব্যানার ${idx + 1} এর ছবি সফলভাবে কম্পিউটার থেকে আপলোড করা হয়েছে!`);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => document.getElementById(`settings-file-upload-quick-new-${idx}`)?.click()}
+                                      className="w-full py-2 bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-500 border border-amber-500/30 rounded-xl text-xs font-black transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                                    >
+                                      <Upload className="h-3.5 w-3.5" />
+                                      <span>🖥️ কম্পিউটার থেকে ছবি আপলোড করুন</span>
+                                    </button>
+                                  </div>
+
+                                  {/* Paste Image URL as fallback */}
+                                  <input
+                                    type="text"
+                                    value={b.desktopImageUrl || ''}
+                                    onChange={(e) => {
+                                      const updated = [...banners];
+                                      updated[idx] = { ...b, desktopImageUrl: e.target.value, mobileImageUrl: e.target.value };
+                                      setBanners(updated);
+                                    }}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-teal-500/50 font-mono"
+                                    placeholder="অথবা সরাসরি ইমেজ লিংক (URL) পেস্ট করুন..."
+                                  />
+
+                                  {/* Immediate Miniature Preview */}
+                                  {b.desktopImageUrl && (
+                                    <div className="relative h-16 w-full rounded-xl overflow-hidden border border-white/10 bg-black/20 mt-1">
+                                      <img 
+                                        src={b.desktopImageUrl} 
+                                        alt="" 
+                                        className="h-full w-full object-cover"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-[9px] text-white font-mono font-bold">
+                                        Live Preview Active
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Connected Category Selector (Dropdown selection) */}
+                                <div className="space-y-2 border-t border-[#322822]/40 pt-3">
+                                  <label className="block text-[10px] opacity-70 font-bold text-neutral-300 font-sans flex items-center space-x-1">
+                                    <span>📂 কানেক্টেড ক্যাটাগরি (Connected Category):</span>
+                                  </label>
+                                  <select
+                                    value={b.category || ''}
+                                    onChange={(e) => {
+                                      const updated = [...banners];
+                                      updated[idx] = { ...b, category: e.target.value };
+                                      setBanners(updated);
+                                    }}
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-teal-500/50 font-sans cursor-pointer"
+                                  >
+                                    <option value="" className="bg-[#1a1614] text-neutral-400">যেমন: Baby Category, Mens... (কোনো ক্যাটাগরি যুক্ত নেই)</option>
+                                    {categoriesList.map(cat => (
+                                      <option key={cat} value={cat} className="bg-[#1a1614] text-white">
+                                        📁 {cat}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <p className="text-[9px] text-teal-400/80 leading-relaxed font-sans">
+                                    এই ব্যানারটিতে ক্লিক করলে নিচের প্রোডাক্ট লিস্টে শুধুমাত্র এই ক্যাটাগরির প্রোডাক্টগুলোই ফিল্টার হয়ে দেখাবে।
+                                  </p>
+                                </div>
+
+                                <div className="space-y-3 border-t border-[#322822]/40 pt-3">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="block text-[9px] opacity-65 mb-0.5 font-bold">বাটন ১ লেখা (অর্ডার বাটন):</label>
+                                      <input
+                                        type="text"
+                                        value={b.button1Text || 'এখনই অর্ডার করুন'}
+                                        onChange={(e) => {
+                                          const updated = [...banners];
+                                          updated[idx] = { ...b, button1Text: e.target.value };
+                                          setBanners(updated);
+                                        }}
+                                        className="w-full bg-black/30 border border-white/10 rounded-xl p-2 text-xs text-white font-sans"
+                                        placeholder="Buy Now"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[9px] opacity-65 mb-0.5 font-bold">বাটন ২ লেখা (বিস্তারিত বাটন):</label>
+                                      <input
+                                        type="text"
+                                        value={b.button2Text || 'বিস্তারিত দেখুন'}
+                                        onChange={(e) => {
+                                          const updated = [...banners];
+                                          updated[idx] = { ...b, button2Text: e.target.value };
+                                          setBanners(updated);
+                                        }}
+                                        className="w-full bg-black/30 border border-white/10 rounded-xl p-2 text-xs text-white font-sans"
+                                        placeholder="Details"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Text Alignment & Style */}
+                                <div className="grid grid-cols-2 gap-2 border-t border-[#322822]/40 pt-3 text-white">
+                                  <div>
+                                    <label className="block text-[9px] opacity-65 mb-1 font-sans">অ্যালাইনমেন্ট (Text Position):</label>
+                                    <select
+                                      value={b.textPosition || 'left'}
+                                      onChange={(e) => {
+                                        const updated = [...banners];
+                                        updated[idx] = { ...b, textPosition: e.target.value as any };
+                                        setBanners(updated);
+                                      }}
+                                      className="w-full bg-black/40 border border-white/10 rounded-xl p-1.5 text-[10px] text-white cursor-pointer"
+                                    >
+                                      <option value="left" className="bg-[#1a1614]">Left (বাম)</option>
+                                      <option value="center" className="bg-[#1a1614]">Center (মাঝখানে)</option>
+                                      <option value="right" className="bg-[#1a1614]">Right (ডান)</option>
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[9px] opacity-65 mb-1 font-sans">ওভারলে অস্বচ্ছতা (Overlay):</label>
+                                    <select
+                                      value={b.overlayColor || 'rgba(0,0,0,0.4)'}
+                                      onChange={(e) => {
+                                        const updated = [...banners];
+                                        updated[idx] = { ...b, overlayColor: e.target.value };
+                                        setBanners(updated);
+                                      }}
+                                      className="w-full bg-black/40 border border-white/10 rounded-xl p-1.5 text-[10px] text-white cursor-pointer font-sans"
+                                    >
+                                      <option value="rgba(0,0,0,0.25)" className="bg-[#1a1614]">হালকা অন্ধকার (Light)</option>
+                                      <option value="rgba(0,0,0,0.45)" className="bg-[#1a1614]">মাঝারি অন্ধকার (Medium)</option>
+                                      <option value="rgba(0,0,0,0.65)" className="bg-[#1a1614]">বেশি অন্ধকার (Dark)</option>
+                                    </select>
+                                  </div>
+                                </div>
+
+                                {/* Individual Banner Save Button */}
+                                <div className="pt-3 border-t border-[#322822]/40 flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setIsSavingIndividual(prev => ({ ...prev, [idx]: true }));
+                                      try {
+                                        // Save locally
+                                        localStorage.setItem('aura_premium_banners', JSON.stringify(banners));
+                                        setPublishedTheme('classic');
+                                        localStorage.setItem('aura_published_theme', 'classic');
+
+                                        // Sync to Supabase system_settings
+                                        const { error: bannersErr } = await supabase.from('system_settings').upsert({
+                                          id: 'premium_banners',
+                                          tagline: JSON.stringify(banners),
+                                          currency: 'BDT'
+                                        });
+
+                                        if (bannersErr) {
+                                          console.warn("Supabase individual sync issue:", bannersErr);
+                                          setDesignerSuccessMessage(`ব্যানার ${idx + 1} লোকাল ব্রাউজারে সেভ হয়েছে! (ক্লাউড ব্যাকআপে কিছুটা সমস্যা হয়েছে)`);
+                                        } else {
+                                          setDesignerSuccessMessage(`অভিনন্দন! শুধুমাত্র ব্যানার #${idx + 1} সফলভাবে ক্লাউড ও লোকাল স্টোরে সংরক্ষণ করা হয়েছে! 🚀`);
+                                        }
+                                      } catch (err: any) {
+                                        console.error("Individual save failed:", err);
+                                        setDesignerSuccessMessage(`ব্যানার ${idx + 1} সেভ করার সময় ত্রুটি: ` + err.message);
+                                      } finally {
+                                        setIsSavingIndividual(prev => ({ ...prev, [idx]: false }));
+                                      }
+                                    }}
+                                    disabled={isSavingIndividual[idx]}
+                                    className="w-full py-2 bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-white font-extrabold text-[11px] rounded-xl shadow-md transition-all flex items-center justify-center space-x-1.5 border-none cursor-pointer"
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                    <span>{isSavingIndividual[idx] ? 'সংরক্ষণ হচ্ছে...' : `ব্যানার ${idx + 1} সংরক্ষণ করুন`}</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Interactive responsive banner size simulator */}
+                      <div className="bg-[#1a1614] p-5 rounded-3xl border border-[#322822]/40 space-y-4 shadow-xl">
+                        <div className="flex items-center justify-between border-b border-[#322822]/30 pb-3">
+                          <h4 className="text-xs font-black uppercase tracking-wider text-[#e07a5f] flex items-center space-x-2">
+                            <Eye className="h-3.5 w-3.5 text-[#e07a5f]" />
+                            <span>রিস্পন্সিভ ব্যানার প্রিভিউ সিমুলেটর (Responsive Banner Size Preview)</span>
+                          </h4>
+                          <span className="text-[10px] text-neutral-400 font-bold font-sans">মোবাইল ও কম্পিউটারে সাইজ কেমন দেখাবে টেস্ট করুন</span>
+                        </div>
+
+                        {/* Interactive Simulator Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                          {/* Computer Friendly Size Preview (7 cols) */}
+                          <div className="lg:col-span-7 space-y-2">
+                            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider font-sans">💻 কম্পিউটার প্রিভিউ (Computer View - Compact Size):</p>
+                            <div className="w-full rounded-2xl border-4 border-neutral-800 bg-neutral-900 overflow-hidden shadow-2xl relative" style={{ height: '240px' }}>
+                              <div className="absolute inset-0 z-10" style={{ backgroundColor: banners[0]?.overlayColor || 'rgba(0,0,0,0.4)' }} />
+                              <img 
+                                src={banners[0]?.desktopImageUrl || 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200'} 
+                                alt="" 
+                                className="absolute inset-0 w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                              {/* Text & Buttons */}
+                              <div className="absolute inset-0 z-20 p-6 flex flex-col justify-center text-left">
+                                <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest font-sans">{banners[0]?.subtitle || 'Premium Product'}</span>
+                                <h3 className="text-sm sm:text-base font-black text-white leading-tight mt-0.5">{banners[0]?.title || 'ব্যানার শিরোনাম'}</h3>
+                                <p className="text-[10px] text-neutral-200 line-clamp-1 max-w-md mt-1">{banners[0]?.description || 'ব্যানার ডেসক্রিপশন...'}</p>
+                                <div className="mt-3 flex items-center space-x-2">
+                                  <span className="px-3 py-1.5 bg-teal-500 text-white text-[9px] font-black rounded-lg cursor-pointer">{banners[0]?.button1Text || 'অর্ডার নাও'}</span>
+                                  <span className="px-3 py-1.5 bg-black/40 text-white text-[9px] font-bold border border-white/20 rounded-lg cursor-pointer">{banners[0]?.button2Text || 'বিস্তারিত'}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Mobile Friendly Size Preview (5 cols) */}
+                          <div className="lg:col-span-5 space-y-2">
+                            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider font-sans">📱 মোবাইল প্রিভিউ (Mobile View - Compact Size):</p>
+                            <div className="w-64 mx-auto rounded-3xl border-8 border-neutral-800 bg-neutral-900 overflow-hidden shadow-2xl relative" style={{ height: '180px' }}>
+                              <div className="absolute inset-0 z-10" style={{ backgroundColor: banners[0]?.overlayColor || 'rgba(0,0,0,0.4)' }} />
+                              <img 
+                                src={banners[0]?.desktopImageUrl || 'https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200'} 
+                                alt="" 
+                                className="absolute inset-0 w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                              {/* Text & Buttons */}
+                              <div className="absolute inset-0 z-20 p-4 flex flex-col justify-center text-left font-sans">
+                                <span className="text-[7px] font-black text-amber-400 uppercase tracking-widest">{banners[0]?.subtitle || 'Premium Product'}</span>
+                                <h3 className="text-[10px] font-black text-white leading-tight mt-0.5 line-clamp-1">{banners[0]?.title || 'ব্যানার শিরোনাম'}</h3>
+                                <p className="text-[8px] text-neutral-200 line-clamp-1 mt-0.5">{banners[0]?.description || 'ব্যানার ডেসক্রিপশন...'}</p>
+                                <div className="mt-2.5 flex items-center space-x-1.5">
+                                  <span className="px-2 py-1 bg-teal-500 text-white text-[8px] font-black rounded-md">{banners[0]?.button1Text || 'অর্ডার নাও'}</span>
+                                  <span className="px-2 py-1 bg-black/40 text-white text-[8px] font-bold border border-white/20 rounded-md">{banners[0]?.button2Text || 'বিস্তারিত'}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+
                 {activeSettingsTab === 'brand' && (
                   <div className="animate-fade-in duration-300">
                     {/* Brand Branding Card */}

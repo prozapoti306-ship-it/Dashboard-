@@ -178,6 +178,7 @@ export interface Banner {
   textPosition: 'left' | 'center' | 'right';
   isActive: boolean;
   order: number;
+  category?: string;
 }
 
 
