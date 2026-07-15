@@ -487,6 +487,75 @@ export default function CustomerStorefront({
   }, []);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
+  // Dynamic Banner Image URL for the active category
+  const categoryBannerUrl = useMemo(() => {
+    if (selectedCategory === 'All') return null;
+    
+    // Check if there is a custom banner assigned to this category
+    const customBanner = resolvedBanners.find(b => b.category === selectedCategory);
+    if (customBanner && customBanner.desktopImageUrl) {
+      return customBanner.desktopImageUrl;
+    }
+
+    const prodWithBanner = allStoreProducts.find(
+      p => p.category === selectedCategory && p.season && (p.season.startsWith('http://') || p.season.startsWith('https://') || p.season.startsWith('/') || p.season.startsWith('data:'))
+    );
+    return prodWithBanner ? prodWithBanner.season : null;
+  }, [allStoreProducts, selectedCategory, resolvedBanners]);
+
+  const storefrontHeroSlides = useMemo(() => {
+    const mappedSlides = resolvedBanners.map((b: any) => ({
+      id: b.id,
+      title: b.title,
+      subtitle: b.subtitle,
+      desktopImageUrl: b.desktopImageUrl,
+      mobileImageUrl: b.mobileImageUrl,
+      image: b.desktopImageUrl,
+      badge: "PREMIUM OFFER",
+      accentText: b.subtitle,
+      description: b.description,
+      button1Text: b.button1Text,
+      button1Link: b.button1Link,
+      button2Text: b.button2Text,
+      button2Link: b.button2Link,
+      overlayColor: b.overlayColor,
+      textPosition: b.textPosition || 'left',
+      category: b.category
+    }));
+
+    let HERO_SLIDES = mappedSlides;
+    if (selectedCategory !== 'All') {
+      HERO_SLIDES = mappedSlides.filter((b: any) => b.category === selectedCategory);
+      
+      if (HERO_SLIDES.length === 0 && categoryBannerUrl) {
+        HERO_SLIDES = [{
+          id: `dynamic-${selectedCategory}`,
+          title: `${selectedCategory} স্পেশাল কালেকশন!`,
+          subtitle: `Premium ${selectedCategory} Series`,
+          desktopImageUrl: categoryBannerUrl,
+          mobileImageUrl: categoryBannerUrl,
+          image: categoryBannerUrl,
+          badge: "PREMIUM OFFER",
+          accentText: selectedCategory,
+          description: `${selectedCategory} এর আকর্ষণীয় এবং প্রিমিয়াম কোয়ালিটি পণ্য এখন আকর্ষণীয় মূল্যে সরাসরি অর্ডার করুন।`,
+          button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
+          button1Link: "#products",
+          button2Text: "সব প্রোডাক্ট দেখুন",
+          button2Link: "#products",
+          overlayColor: "rgba(0,0,0,0.45)",
+          textPosition: 'left',
+          category: selectedCategory
+        }];
+      }
+    }
+
+    if (HERO_SLIDES.length === 0) {
+      HERO_SLIDES = mappedSlides;
+    }
+
+    return HERO_SLIDES;
+  }, [resolvedBanners, selectedCategory, categoryBannerUrl]);
   const [cartProduct, setCartProduct] = useState<any | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('M');
   const [quantity, setQuantity] = useState<number>(1);
@@ -610,16 +679,24 @@ export default function CustomerStorefront({
 
   // Auto-sliding Banner rotation with dynamic speed
   React.useEffect(() => {
-    if (resolvedBanners.length <= 1) return;
+    if (storefrontHeroSlides.length <= 1) {
+      setCurrentSlide(0);
+      return;
+    }
     const isSmartMode = smartTheme?.isPreview || publishedTheme === 'smart';
     const intervalFromDb = bannerSlideInterval ?? Number(localStorage.getItem('aura_banner_slide_interval') || 3);
     const duration = isSmartMode && smartTheme?.slideDuration ? smartTheme.slideDuration * 1000 : (intervalFromDb * 1000);
     
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % resolvedBanners.length);
+      setCurrentSlide((prev) => (prev + 1) % storefrontHeroSlides.length);
     }, duration);
     return () => clearInterval(timer);
-  }, [resolvedBanners.length, publishedTheme, smartTheme, bannerSlideInterval]);
+  }, [storefrontHeroSlides.length, publishedTheme, smartTheme, bannerSlideInterval]);
+
+  // Safely keep currentSlide in bounds when active slides change
+  React.useEffect(() => {
+    setCurrentSlide(0);
+  }, [storefrontHeroSlides.length, selectedCategory]);
 
   // Checkout Form State
   const [customerName, setCustomerName] = useState('');
@@ -811,91 +888,7 @@ export default function CustomerStorefront({
     return allStoreProducts[0] || null;
   };
 
-  const renderCategorySpecificBanner = (catName: string) => {
-    // Filter resolvedBanners for ones matching this category
-    const catBanners = resolvedBanners.filter((b: any) => b.category === catName);
-    
-    // Fallback if none are found in the list
-    let displayBanners = catBanners;
-    if (displayBanners.length === 0) {
-      const bannerImg = getCategoryBanner(catName);
-      if (bannerImg) {
-        displayBanners = [{
-          id: `dynamic-cat-${catName}`,
-          title: `${catName === 'All' ? 'সবগুলো' : (catName === 'Football' ? 'ফুটবল' : catName === 'Cricket' ? 'ক্রীকেট' : catName)} স্পেশাল ধামাকা কালেকশন!`,
-          subtitle: `Premium ${catName} Series 2026`,
-          desktopImageUrl: bannerImg,
-          mobileImageUrl: bannerImg,
-          badge: "PREMIUM SELECTION",
-          description: `${catName} এর আকর্ষণীয় এবং প্রিমিয়াম কোয়ালিটি পণ্য এখন আকর্ষণীয় মূল্যে সরাসরি অর্ডার করুন। আমাদের প্রতিটি পণ্য প্রিমিয়াম কোয়ালিটি সম্পন্ন।`,
-          category: catName,
-          overlayColor: "rgba(0,0,0,0.5)"
-        }];
-      }
-    }
 
-    if (displayBanners.length === 0) return null;
-
-    // Use a single highly-polished banner block under each category
-    const activeSlide = displayBanners[0];
-
-    const handleDetailsClick = () => {
-      setSelectedCategory(catName);
-      const el = document.getElementById('products');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    return (
-      <div className="relative mt-10 rounded-[2rem] border border-[#eae5de] dark:border-[#28211c] overflow-hidden bg-neutral-100 dark:bg-[#181412]/80 shadow-xl h-[180px] sm:h-[220px] md:h-[260px] flex flex-col justify-between" id={`cat-banner-${catName}`}>
-        {/* Overlay Layer */}
-        <div 
-          className="absolute inset-0 z-[1] pointer-events-none" 
-          style={{ backgroundColor: activeSlide.overlayColor || 'rgba(0,0,0,0.45)' }}
-        />
-
-        {/* Banner Image */}
-        <div className="absolute inset-0 w-full h-full pointer-events-none select-none z-0">
-          <img
-            src={activeSlide.desktopImageUrl || activeSlide.mobileImageUrl}
-            alt=""
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-
-        {/* Banner Text content */}
-        <div className="absolute inset-0 z-[2] flex flex-col justify-center p-6 sm:p-10 text-left">
-          <div className="max-w-xl space-y-1 sm:space-y-1.5">
-            {activeSlide.subtitle && (
-              <p className="text-[9px] sm:text-[10px] font-black tracking-widest text-amber-400 uppercase drop-shadow-md">
-                {activeSlide.subtitle}
-              </p>
-            )}
-            {activeSlide.title && (
-              <h2 className="text-xs sm:text-lg md:text-2xl font-black text-white leading-tight drop-shadow-lg">
-                {activeSlide.title}
-              </h2>
-            )}
-            {activeSlide.description && (
-              <p className="text-[10px] sm:text-xs text-neutral-200 line-clamp-1 sm:line-clamp-2 leading-relaxed drop-shadow-md hidden sm:block">
-                {activeSlide.description}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Banner Buttons */}
-        <div className="absolute inset-x-0 bottom-4 sm:bottom-6 z-10 flex gap-2.5 items-center justify-center px-4">
-          <button 
-            onClick={handleDetailsClick}
-            className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl border-2 border-white/80 hover:border-white bg-black/40 hover:bg-black/60 text-white text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all inline-flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs"
-          >
-            <span>বিস্তারিত দেখুন (Details)</span>
-          </button>
-        </div>
-      </div>
-    );
-  };
 
   // Category pre-fetching and asset preloading on mouse hover (Requirement 3)
   const handleCategoryMouseEnter = (cat: string) => {
@@ -928,22 +921,6 @@ export default function CustomerStorefront({
     const list = new Set(allStoreProducts.map(p => p.category));
     return ['All', ...Array.from(list)];
   }, [allStoreProducts, categoriesList]);
-
-  // Dynamic Banner Image URL for the active category
-  const categoryBannerUrl = useMemo(() => {
-    if (selectedCategory === 'All') return null;
-    
-    // Check if there is a custom banner assigned to this category
-    const customBanner = resolvedBanners.find(b => b.category === selectedCategory);
-    if (customBanner && customBanner.desktopImageUrl) {
-      return customBanner.desktopImageUrl;
-    }
-
-    const prodWithBanner = allStoreProducts.find(
-      p => p.category === selectedCategory && p.season && (p.season.startsWith('http://') || p.season.startsWith('https://') || p.season.startsWith('/') || p.season.startsWith('data:'))
-    );
-    return prodWithBanner ? prodWithBanner.season : null;
-  }, [allStoreProducts, selectedCategory, resolvedBanners]);
 
   // Placeholder for moved babyBannerUrl
 
@@ -1712,59 +1689,10 @@ export default function CustomerStorefront({
         </header>
       </div>
 
-      <div className="flex flex-col">
-        {/* Immersive Sports Apparel Hero (2026 Auto-sliding Premium Banner) */}
-        <section className="relative overflow-hidden pt-6 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto z-10" style={sectionStyles.hero}>
+      {/* Immersive Sports Apparel Hero (2026 Auto-sliding Premium Banner) - GUARANTEED AT THE TOP */}
+      <section className="relative overflow-hidden pt-6 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto z-10 w-full" style={{ display: sectionStyles.hero.display }}>
         {(() => {
-          const mappedSlides = resolvedBanners.map((b: any) => ({
-            id: b.id,
-            title: b.title,
-            subtitle: b.subtitle,
-            desktopImageUrl: b.desktopImageUrl,
-            mobileImageUrl: b.mobileImageUrl,
-            image: b.desktopImageUrl,
-            badge: "PREMIUM OFFER",
-            accentText: b.subtitle,
-            description: b.description,
-            button1Text: b.button1Text,
-            button1Link: b.button1Link,
-            button2Text: b.button2Text,
-            button2Link: b.button2Link,
-            overlayColor: b.overlayColor,
-            textPosition: b.textPosition || 'left',
-            category: b.category
-          }));
-
-          let HERO_SLIDES = mappedSlides;
-          if (selectedCategory !== 'All') {
-            HERO_SLIDES = mappedSlides.filter((b: any) => b.category === selectedCategory);
-            
-            if (HERO_SLIDES.length === 0 && categoryBannerUrl) {
-              HERO_SLIDES = [{
-                id: `dynamic-${selectedCategory}`,
-                title: `${selectedCategory} স্পেশাল কালেকশন!`,
-                subtitle: `Premium ${selectedCategory} Series`,
-                desktopImageUrl: categoryBannerUrl,
-                mobileImageUrl: categoryBannerUrl,
-                image: categoryBannerUrl,
-                badge: "PREMIUM OFFER",
-                accentText: selectedCategory,
-                description: `${selectedCategory} এর আকর্ষণীয় এবং প্রিমিয়াম কোয়ালিটি পণ্য এখন আকর্ষণীয় মূল্যে সরাসরি অর্ডার করুন।`,
-                button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
-                button1Link: "#products",
-                button2Text: "সব প্রোডাক্ট দেখুন",
-                button2Link: "#products",
-                overlayColor: "rgba(0,0,0,0.45)",
-                textPosition: 'left',
-                category: selectedCategory
-              }];
-            }
-          }
-
-          if (HERO_SLIDES.length === 0) {
-            HERO_SLIDES = mappedSlides;
-          }
-
+          const HERO_SLIDES = storefrontHeroSlides;
           const activeSlide = HERO_SLIDES[currentSlide] || HERO_SLIDES[0];
 
           const handleHeroCta = (productId: string) => {
@@ -1802,7 +1730,7 @@ export default function CustomerStorefront({
               {/* Backgound Image Slider Layer with Cross-fade and smooth slide (Full Opacity, Sharp) */}
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={currentSlide}
+                  key={activeSlide.id}
                   initial={{ opacity: 0, x: 80, scale: 1.01 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: -80 }}
@@ -1835,7 +1763,7 @@ export default function CustomerStorefront({
                 <div className="max-w-xl space-y-1 sm:space-y-2">
                   {activeSlide.subtitle && (
                     <motion.p 
-                      key={`sub-${currentSlide}`}
+                      key={`sub-${activeSlide.id}`}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1, duration: 0.4 }}
@@ -1846,7 +1774,7 @@ export default function CustomerStorefront({
                   )}
                   {activeSlide.title && (
                     <motion.h2 
-                      key={`title-${currentSlide}`}
+                      key={`title-${activeSlide.id}`}
                       initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.2, duration: 0.4 }}
@@ -1857,7 +1785,7 @@ export default function CustomerStorefront({
                   )}
                   {activeSlide.description && (
                     <motion.p 
-                      key={`desc-${currentSlide}`}
+                      key={`desc-${activeSlide.id}`}
                       initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3, duration: 0.4 }}
@@ -1942,8 +1870,9 @@ export default function CustomerStorefront({
         })()}
       </section>
 
-      {/* Main Catalog Section */}
-      <section id="products" className="py-16 border-t border-inherit px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto z-10 relative" style={sectionStyles.products}>
+      <div className="flex flex-col">
+        {/* Main Catalog Section */}
+        <section id="products" className="py-16 border-t border-inherit px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto z-10 relative" style={sectionStyles.products}>
         
         {/* Smart AI Recommendation Panel: Renders in Smart AI Theme */}
         {activeLayoutTheme === 'smart' && (
@@ -2186,8 +2115,7 @@ export default function CustomerStorefront({
                     })}
                   </div>
 
-                  {/* Category-Specific Premium Banner */}
-                  {renderCategorySpecificBanner(catName)}
+
                 </div>
               );
             })}
