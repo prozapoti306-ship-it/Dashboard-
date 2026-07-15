@@ -260,8 +260,8 @@ export default function CustomerStorefront({
 
     return {
       hero: {
-        order: heroIndex !== -1 ? heroIndex : 0,
-        display: (heroSec?.visible !== false) ? 'block' : 'none'
+        order: -99,
+        display: 'block'
       },
       products: {
         order: productsIndex !== -1 ? productsIndex : 1,
@@ -367,7 +367,8 @@ export default function CustomerStorefront({
             overlayColor: "rgba(0,0,0,0.45)",
             textPosition: "left" as const,
             isActive: true,
-            order: 1
+            order: 1,
+            category: p.category || ''
           });
         }
       }
@@ -788,6 +789,113 @@ export default function CustomerStorefront({
   }, [viewingProduct, showCart, showTracking, showAuthModal, showWishlistModal, showSuggestions]);
 
   // Placeholder for moved allStoreProducts
+  const getProductForSlide = (slide: any) => {
+    if (!slide) return null;
+    // 1. Direct match by slide ID
+    let p = allStoreProducts.find(prod => prod.id === slide.id);
+    if (p) return p;
+    
+    // 2. Check if bulk-uploaded banner contains product ID
+    if (slide.id && typeof slide.id === 'string' && slide.id.startsWith('BULK-BANNER-')) {
+      const rawId = slide.id.replace('BULK-BANNER-', '');
+      p = allStoreProducts.find(prod => prod.id === rawId);
+      if (p) return p;
+    }
+    
+    // 3. Fallback: match by category
+    if (slide.category) {
+      p = allStoreProducts.find(prod => prod.category === slide.category);
+      if (p) return p;
+    }
+    
+    return allStoreProducts[0] || null;
+  };
+
+  const renderCategorySpecificBanner = (catName: string) => {
+    // Filter resolvedBanners for ones matching this category
+    const catBanners = resolvedBanners.filter((b: any) => b.category === catName);
+    
+    // Fallback if none are found in the list
+    let displayBanners = catBanners;
+    if (displayBanners.length === 0) {
+      const bannerImg = getCategoryBanner(catName);
+      if (bannerImg) {
+        displayBanners = [{
+          id: `dynamic-cat-${catName}`,
+          title: `${catName === 'All' ? 'সবগুলো' : (catName === 'Football' ? 'ফুটবল' : catName === 'Cricket' ? 'ক্রীকেট' : catName)} স্পেশাল ধামাকা কালেকশন!`,
+          subtitle: `Premium ${catName} Series 2026`,
+          desktopImageUrl: bannerImg,
+          mobileImageUrl: bannerImg,
+          badge: "PREMIUM SELECTION",
+          description: `${catName} এর আকর্ষণীয় এবং প্রিমিয়াম কোয়ালিটি পণ্য এখন আকর্ষণীয় মূল্যে সরাসরি অর্ডার করুন। আমাদের প্রতিটি পণ্য প্রিমিয়াম কোয়ালিটি সম্পন্ন।`,
+          category: catName,
+          overlayColor: "rgba(0,0,0,0.5)"
+        }];
+      }
+    }
+
+    if (displayBanners.length === 0) return null;
+
+    // Use a single highly-polished banner block under each category
+    const activeSlide = displayBanners[0];
+
+    const handleDetailsClick = () => {
+      setSelectedCategory(catName);
+      const el = document.getElementById('products');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    return (
+      <div className="relative mt-10 rounded-[2rem] border border-[#eae5de] dark:border-[#28211c] overflow-hidden bg-neutral-100 dark:bg-[#181412]/80 shadow-xl h-[180px] sm:h-[220px] md:h-[260px] flex flex-col justify-between" id={`cat-banner-${catName}`}>
+        {/* Overlay Layer */}
+        <div 
+          className="absolute inset-0 z-[1] pointer-events-none" 
+          style={{ backgroundColor: activeSlide.overlayColor || 'rgba(0,0,0,0.45)' }}
+        />
+
+        {/* Banner Image */}
+        <div className="absolute inset-0 w-full h-full pointer-events-none select-none z-0">
+          <img
+            src={activeSlide.desktopImageUrl || activeSlide.mobileImageUrl}
+            alt=""
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+
+        {/* Banner Text content */}
+        <div className="absolute inset-0 z-[2] flex flex-col justify-center p-6 sm:p-10 text-left">
+          <div className="max-w-xl space-y-1 sm:space-y-1.5">
+            {activeSlide.subtitle && (
+              <p className="text-[9px] sm:text-[10px] font-black tracking-widest text-amber-400 uppercase drop-shadow-md">
+                {activeSlide.subtitle}
+              </p>
+            )}
+            {activeSlide.title && (
+              <h2 className="text-xs sm:text-lg md:text-2xl font-black text-white leading-tight drop-shadow-lg">
+                {activeSlide.title}
+              </h2>
+            )}
+            {activeSlide.description && (
+              <p className="text-[10px] sm:text-xs text-neutral-200 line-clamp-1 sm:line-clamp-2 leading-relaxed drop-shadow-md hidden sm:block">
+                {activeSlide.description}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Banner Buttons */}
+        <div className="absolute inset-x-0 bottom-4 sm:bottom-6 z-10 flex gap-2.5 items-center justify-center px-4">
+          <button 
+            onClick={handleDetailsClick}
+            className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl border-2 border-white/80 hover:border-white bg-black/40 hover:bg-black/60 text-white text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all inline-flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs"
+          >
+            <span>বিস্তারিত দেখুন (Details)</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // Category pre-fetching and asset preloading on mouse hover (Requirement 3)
   const handleCategoryMouseEnter = (cat: string) => {
@@ -1608,7 +1716,7 @@ export default function CustomerStorefront({
         {/* Immersive Sports Apparel Hero (2026 Auto-sliding Premium Banner) */}
         <section className="relative overflow-hidden pt-6 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto z-10" style={sectionStyles.hero}>
         {(() => {
-          const HERO_SLIDES = resolvedBanners.map((b: any) => ({
+          const mappedSlides = resolvedBanners.map((b: any) => ({
             id: b.id,
             title: b.title,
             subtitle: b.subtitle,
@@ -1626,6 +1734,36 @@ export default function CustomerStorefront({
             textPosition: b.textPosition || 'left',
             category: b.category
           }));
+
+          let HERO_SLIDES = mappedSlides;
+          if (selectedCategory !== 'All') {
+            HERO_SLIDES = mappedSlides.filter((b: any) => b.category === selectedCategory);
+            
+            if (HERO_SLIDES.length === 0 && categoryBannerUrl) {
+              HERO_SLIDES = [{
+                id: `dynamic-${selectedCategory}`,
+                title: `${selectedCategory} স্পেশাল কালেকশন!`,
+                subtitle: `Premium ${selectedCategory} Series`,
+                desktopImageUrl: categoryBannerUrl,
+                mobileImageUrl: categoryBannerUrl,
+                image: categoryBannerUrl,
+                badge: "PREMIUM OFFER",
+                accentText: selectedCategory,
+                description: `${selectedCategory} এর আকর্ষণীয় এবং প্রিমিয়াম কোয়ালিটি পণ্য এখন আকর্ষণীয় মূল্যে সরাসরি অর্ডার করুন।`,
+                button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
+                button1Link: "#products",
+                button2Text: "সব প্রোডাক্ট দেখুন",
+                button2Link: "#products",
+                overlayColor: "rgba(0,0,0,0.45)",
+                textPosition: 'left',
+                category: selectedCategory
+              }];
+            }
+          }
+
+          if (HERO_SLIDES.length === 0) {
+            HERO_SLIDES = mappedSlides;
+          }
 
           const activeSlide = HERO_SLIDES[currentSlide] || HERO_SLIDES[0];
 
@@ -1732,37 +1870,26 @@ export default function CustomerStorefront({
               </div>
 
               {/* Dual Call To Actions centered over banner graphics */}
-              <div className="absolute inset-x-0 bottom-4 sm:bottom-6 z-10 flex flex-wrap gap-2.5 items-center justify-center px-4">
-                <button 
-                  onClick={() => handleHeroCta(activeSlide.button1Link || '#products')}
-                  className="px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-extrabold rounded-xl text-[10px] sm:text-xs uppercase tracking-wider transition-all flex items-center space-x-1.5 shadow-lg shadow-teal-500/20 hover:scale-105 active:scale-95 cursor-pointer border-none"
-                  id="banner-btn-buy-now"
-                >
-                  <ShoppingBag className="h-3.5 w-3.5" />
-                  <span>{activeSlide.button1Text || t('এখনই কিনুন', 'Buy Now')}</span>
-                </button>
-                <a 
-                  href={activeSlide.button2Link || "#products"}
-                  onClick={(e) => {
-                    if (activeSlide.category) {
-                      e.preventDefault();
-                      setSelectedCategory(activeSlide.category);
-                      const el = document.getElementById('products');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                      return;
-                    }
-                    if (activeSlide.button2Link && activeSlide.button2Link.startsWith('#')) {
-                      e.preventDefault();
-                      const el = document.getElementById(activeSlide.button2Link.substring(1));
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
-                  className="px-4 py-2 sm:px-6 sm:py-3 rounded-xl border-2 border-white/80 hover:border-white bg-black/40 hover:bg-black/60 text-white text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all inline-flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs"
-                  id="banner-btn-shop-all"
-                >
-                  <span>{activeSlide.button2Text || t('সব প্রোডাক্ট দেখুন', 'Shop All')}</span>
-                </a>
-              </div>
+              {(() => {
+                const handleDetailsClick = () => {
+                  const categoryName = activeSlide.category || 'All';
+                  setSelectedCategory(categoryName);
+                  const el = document.getElementById('products');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                };
+
+                return (
+                  <div className="absolute inset-x-0 bottom-4 sm:bottom-6 z-10 flex flex-wrap gap-2.5 items-center justify-center px-4">
+                    <button 
+                      onClick={handleDetailsClick}
+                      className="px-4 py-2 sm:px-6 sm:py-3 rounded-xl border-2 border-white/80 hover:border-white bg-black/40 hover:bg-black/60 text-white text-[10px] sm:text-xs font-extrabold uppercase tracking-wider transition-all inline-flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs"
+                      id="banner-btn-shop-all"
+                    >
+                      <span>{t('বিস্তারিত দেখুন', 'Details')}</span>
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Swipe/Touch Friendly Floating Navigation Arrows (44px target) */}
               <button
@@ -2058,6 +2185,9 @@ export default function CustomerStorefront({
                       );
                     })}
                   </div>
+
+                  {/* Category-Specific Premium Banner */}
+                  {renderCategorySpecificBanner(catName)}
                 </div>
               );
             })}

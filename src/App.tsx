@@ -395,6 +395,54 @@ export default function App() {
     return 3;
   });
 
+  const updateBannerSlideInterval = async (val: number) => {
+    setBannerSlideInterval(val);
+    try {
+      localStorage.setItem('aura_banner_slide_interval', val.toString());
+    } catch (e) {
+      console.warn("localStorage cache write failed for banner slide interval");
+    }
+
+    console.log(`[SYNC] Syncing Banner Slide Interval ${val}s to Supabase...`);
+    try {
+      // 1. Try 'settings' table first as per user's prompt instruction
+      const { error: settingsError } = await supabase.from('settings').upsert({
+        id: 'banner_slide_interval',
+        value: String(val),
+        updated_at: new Date().toISOString()
+      });
+
+      if (settingsError) {
+        console.warn("Supabase upsert to 'settings' table failed (table may not exist yet, falling back):", settingsError.message);
+        
+        // 2. Fallback to 'system_settings' table
+        const { error: fallbackError } = await supabase.from('system_settings').upsert({
+          id: 'banner_slide_interval',
+          tagline: JSON.stringify({ interval: val }),
+          currency: 'BDT'
+        });
+
+        if (fallbackError) {
+          console.error("Supabase fallback to 'system_settings' table also failed:", fallbackError.message);
+        } else {
+          console.log("Successfully synced interval to fallback 'system_settings' table.");
+        }
+      } else {
+        console.log("Successfully synced interval to 'settings' table.");
+      }
+    } catch (err: any) {
+      console.error("Failed to execute interval database sync:", err.message || err);
+      // Inline catch-all fallback
+      try {
+        await supabase.from('system_settings').upsert({
+          id: 'banner_slide_interval',
+          tagline: JSON.stringify({ interval: val }),
+          currency: 'BDT'
+        });
+      } catch (_) {}
+    }
+  };
+
   useEffect(() => {
     try {
       localStorage.setItem('aura_premium_banners', JSON.stringify(banners));
@@ -1343,6 +1391,81 @@ export default function App() {
         supabaseService.getCategories(categoriesList).then(db => db && setCategoriesList(db)).catch(() => {});
         supabaseService.getBrands(brandsList).then(db => db && setBrandsList(db)).catch(() => {});
         supabaseService.getCollectionsList(collectionsList).then(db => db && setCollectionsList(db)).catch(() => {});
+
+        // Fetch Banner Slide Interval and Premium Banners from Supabase on mount!
+        (async () => {
+          try {
+            console.log("[SYNC] Fetching banner slide interval and premium banners from Supabase...");
+            
+            // 1. Try fetching from 'settings' table first (user's preferred table)
+            let loadedInterval: number | null = null;
+            try {
+              const { data: settingsData, error: settingsError } = await supabase
+                .from('settings')
+                .select('value')
+                .eq('id', 'banner_slide_interval')
+                .maybeSingle();
+              
+              if (!settingsError && settingsData && settingsData.value) {
+                loadedInterval = Number(settingsData.value);
+                console.log("[SYNC] Loaded banner slide interval from 'settings' table:", loadedInterval);
+              }
+            } catch (err) {
+              console.warn("Could not fetch from 'settings' table (expected if settings table does not exist):", err);
+            }
+
+            // 2. If not loaded from 'settings' table, try 'system_settings'
+            if (loadedInterval === null) {
+              try {
+                const { data: sysData, error: sysError } = await supabase
+                  .from('system_settings')
+                  .select('tagline')
+                  .eq('id', 'banner_slide_interval')
+                  .maybeSingle();
+                
+                if (!sysError && sysData && sysData.tagline) {
+                  const parsed = JSON.parse(sysData.tagline);
+                  if (parsed && typeof parsed.interval === 'number') {
+                    loadedInterval = parsed.interval;
+                    console.log("[SYNC] Loaded banner slide interval from 'system_settings' table:", loadedInterval);
+                  }
+                }
+              } catch (err) {
+                console.warn("Could not fetch from 'system_settings' table:", err);
+              }
+            }
+
+            // Apply loaded interval if valid
+            if (loadedInterval !== null && !isNaN(loadedInterval)) {
+              setBannerSlideInterval(loadedInterval);
+              localStorage.setItem('aura_banner_slide_interval', String(loadedInterval));
+            }
+
+            // Fetch premium banners
+            let loadedBanners: any[] | null = null;
+            try {
+              const { data: sysBData, error: sysBError } = await supabase
+                .from('system_settings')
+                .select('tagline')
+                .eq('id', 'premium_banners')
+                .maybeSingle();
+              
+              if (!sysBError && sysBData && sysBData.tagline) {
+                loadedBanners = JSON.parse(sysBData.tagline);
+                console.log("[SYNC] Loaded premium banners from 'system_settings' table:", loadedBanners?.length);
+              }
+            } catch (err) {
+              console.warn("Could not fetch premium banners from 'system_settings' table:", err);
+            }
+
+            if (loadedBanners && Array.isArray(loadedBanners)) {
+              setBanners(loadedBanners);
+              localStorage.setItem('aura_premium_banners', JSON.stringify(loadedBanners));
+            }
+          } catch (err: any) {
+            console.error("Failed to load custom banners/slide interval from Supabase:", err.message);
+          }
+        })();
         
         supabaseService.getHomepageSettings(DEFAULT_HOMEPAGE_SETTINGS).then(db => {
           if (db) {
@@ -5073,8 +5196,7 @@ export default function App() {
                                 value={bannerSlideInterval}
                                 onChange={(e) => {
                                   const val = Number(e.target.value);
-                                  setBannerSlideInterval(val);
-                                  localStorage.setItem('aura_banner_slide_interval', val.toString());
+                                  updateBannerSlideInterval(val);
                                   setDesignerSuccessMessage(`স্লাইডার পরিবর্তনের সময়সীমা ${val} সেকেন্ডে সেট করা হয়েছে!`);
                                 }}
                                 className="bg-[#120e0c] text-white text-[10px] font-bold border border-[#322822] rounded-lg p-1 outline-none focus:border-[#e07a5f] cursor-pointer"
@@ -9552,8 +9674,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                               value={bannerSlideInterval}
                               onChange={(e) => {
                                 const val = Number(e.target.value);
-                                setBannerSlideInterval(val);
-                                localStorage.setItem('aura_banner_slide_interval', val.toString());
+                                updateBannerSlideInterval(val);
                               }}
                               className="bg-[#120e0c] text-white text-xs font-black border border-white/10 rounded-lg p-1.5 focus:outline-none focus:border-teal-400 cursor-pointer font-sans"
                             >
@@ -13048,8 +13169,7 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
                     value={bannerSlideInterval}
                     onChange={(e) => {
                       const val = Number(e.target.value);
-                      setBannerSlideInterval(val);
-                      localStorage.setItem('aura_banner_slide_interval', val.toString());
+                      updateBannerSlideInterval(val);
                     }}
                     className="p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-amber-300 font-bold outline-none focus:border-amber-500/50 cursor-pointer min-w-[140px]"
                     id="bulk-banner-interval-select"
