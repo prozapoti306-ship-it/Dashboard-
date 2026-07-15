@@ -345,6 +345,34 @@ export default function CustomerStorefront({
       }
     }
 
+    // Extract unique banners from bulk-uploaded products (from the 'season' field)
+    const bulkUploadedBanners: any[] = [];
+    const seenBanners = new Set<string>();
+
+    allStoreProducts.forEach(p => {
+      if (p.season && (p.season.startsWith('http://') || p.season.startsWith('https://') || p.season.startsWith('/') || p.season.startsWith('data:'))) {
+        if (!seenBanners.has(p.season)) {
+          seenBanners.add(p.season);
+          bulkUploadedBanners.push({
+            id: `BULK-BANNER-${p.id}`,
+            desktopImageUrl: p.season,
+            mobileImageUrl: p.season,
+            title: `${p.category || 'নতুন ক্যাটাগরি'} স্পেশাল কালেকশন!`,
+            subtitle: p.name ? p.name.split('(')[0].trim() : 'Premium Collection',
+            description: p.description || `${p.category || 'নতুন কালেকশন'} এর আকর্ষণীয় এবং প্রিমিয়াম কোয়ালিটি পণ্য এখন আকর্ষণীয় মূল্যে সরাসরি অর্ডার করুন।`,
+            button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
+            button1Link: `#products`, // Links directly to product grid/collection
+            button2Text: "সব প্রোডাক্ট দেখুন",
+            button2Link: "#products",
+            overlayColor: "rgba(0,0,0,0.45)",
+            textPosition: "left" as const,
+            isActive: true,
+            order: 1
+          });
+        }
+      }
+    });
+
     const list = banners || (() => {
       try {
         const cached = localStorage.getItem('aura_premium_banners');
@@ -353,23 +381,32 @@ export default function CustomerStorefront({
       return [];
     })();
     const activeList = list.filter((b: any) => b.isActive).sort((a: any, b: any) => (Number(a.order) || 0) - (Number(b.order) || 0));
-    if (activeList.length === 0) {
-      return [
+    
+    // Combine both list of banners
+    let finalBannersList = [...activeList];
+    
+    const mappedBulkBanners = bulkUploadedBanners.map((b, idx) => ({
+      ...b,
+      order: b.order + idx
+    }));
+
+    if (finalBannersList.length === 0) {
+      const defaults = [
         {
           id: "JERSEY-001",
           desktopImageUrl: "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200",
           mobileImageUrl: "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=600",
           title: "খেলার মাঠের শ্রেষ্ঠত্ব",
           subtitle: "Bangladesh Premium Cricket Jersey 2026",
-          description: "জাতীয় দলের অফিশিয়াল ক্রিকেট জার্সি ২০২৬। চমৎকার সাব্লিমেশন প্রিন্ট এবং প্রিমিয়াম ডাবল-মেস আরামদায়ক অ্যাথলেটিক ফিট। ঘাম শোষণ ক্ষমতা সম্পন্ন এবং খেলা বা পরার জন্য অত্যন্ত উপযোগী।",
+          description: "জাতীয় দলের অফিশিয়াল cricket জার্সি ২০২৬। চমৎকার সাব্লিমেশন প্রিন্ট এবং প্রিমিয়াম ডাবল-মেস আরামদায়ক অ্যাথলেটিক ফিট। ঘাম শোষণ ক্ষমতা সম্পন্ন এবং খেলা বা পরার জন্য অত্যন্ত উপযোগী।",
           button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
           button1Link: "JERSEY-001",
-          button2Text: "সব জার্সি দেখুন",
+          button2Text: "সব প্রোডাক্ট দেখুন",
           button2Link: "#products",
           overlayColor: "rgba(0,0,0,0.4)",
           textPosition: "left" as const,
           isActive: true,
-          order: 1
+          order: 10
         },
         {
           id: "JERSEY-002",
@@ -380,12 +417,12 @@ export default function CustomerStorefront({
           description: "কিংবদন্তি ম্যারাডোনার ১৯৮৬ বিশ্বকাপের স্মারক জার্সি। চমৎকার ফেব্রিক কোয়ালিটি, এমব্রয়ডারি করা লোগো এবং ঐতিহ্যবাহী আকাশী-সাদা স্ট্রাইপ ডিজাইন।",
           button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
           button1Link: "JERSEY-002",
-          button2Text: "সব জার্সি দেখুন",
+          button2Text: "সব প্রোডাক্ট দেখুন",
           button2Link: "#products",
           overlayColor: "rgba(0,0,0,0.5)",
           textPosition: "center" as const,
           isActive: true,
-          order: 2
+          order: 11
         },
         {
           id: "JERSEY-003",
@@ -396,36 +433,23 @@ export default function CustomerStorefront({
           description: "রিয়াল মাদ্রিদের অল-ব্ল্যাক স্পেশাল লিমিটেড এডিশন কিট। ম্যাট ব্ল্যাক এমবস করা লোগো, গোলেন কার্বন ফাইবার প্যাটার্ন অ্যাকসেন্ট এবং সম্পূর্ণ ঘাম নিরোধক অ্যাক্টিভ-কুল প্রযুক্তি।",
           button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
           button1Link: "JERSEY-003",
-          button2Text: "সব জার্সি দেখুন",
+          button2Text: "সব প্রোডাক্ট দেখুন",
           button2Link: "#products",
           overlayColor: "rgba(0,0,0,0.6)",
           textPosition: "right" as const,
           isActive: true,
-          order: 3
-        },
-        {
-          id: "KIDS-COMBO-04",
-          desktopImageUrl: babyBannerUrl || "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=1200",
-          mobileImageUrl: babyBannerUrl || "https://images.unsplash.com/photo-1485546246426-74dc88dec4d9?auto=format&fit=crop&q=80&w=600",
-          title: "শিশুদের রঙিন ও আরামদায়ক কালেকশন!",
-          subtitle: "Kids & Baby Summer Special Cotton Combo",
-          description: "১০০% প্রিমিয়াম সুতি কাপড়ে তৈরি আমাদের বেবি ট্যাংক টপ কম্বো সেটগুলো অত্যন্ত সফট এবং গরমে শিশুদের আরামের কথা চিন্তা করে ডিজাইন করা। ৭টি সাইজ ভ্যারিয়েশন (১ থেকে ১৪ বছর) নিয়ে ৪ পিসের দুর্দান্ত সেট মাত্র ৬৯০ টাকায়!",
-          button1Text: "সরাসরি অর্ডার করুন (Buy Now)",
-          button1Link: "KIDS-COMBO-04",
-          button2Text: "সব জার্সি দেখুন",
-          button2Link: "#products",
-          overlayColor: "rgba(0,0,0,0.4)",
-          textPosition: "left" as const,
-          isActive: true,
-          order: 4
+          order: 12
         }
       ];
+      
+      return [...mappedBulkBanners, ...defaults];
+    } else {
+      return [...mappedBulkBanners, ...finalBannersList].map((b: any) => ({
+        ...b,
+        mobileImageUrl: b.mobileImageUrl || b.desktopImageUrl || "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200"
+      }));
     }
-    return activeList.map((b: any) => ({
-      ...b,
-      mobileImageUrl: b.mobileImageUrl || b.desktopImageUrl || "https://images.unsplash.com/photo-1580087443171-70f90fc925eb?auto=format&fit=crop&q=80&w=1200"
-    }));
-  }, [banners, babyBannerUrl, publishedTheme, smartTheme]);
+  }, [banners, babyBannerUrl, publishedTheme, smartTheme, allStoreProducts]);
 
   React.useEffect(() => {
     setLocalProducts(products);
