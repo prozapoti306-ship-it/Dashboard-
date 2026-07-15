@@ -41,6 +41,7 @@ import {
   Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import AnimatedConfirmButton from './AnimatedConfirmButton';
 import { Product, Order, Notification, Customer, CustomerActivity, CustomerSegment, SystemSettings, Banner } from '../types';
 import { formatCurrency } from '../App';
 import { supabase, mapProductFromDb } from '../lib/supabaseService';
@@ -59,6 +60,7 @@ interface CustomerStorefrontProps {
   collectionsList?: string[];
   brandsList?: string[];
   banners?: Banner[];
+  bannerSlideInterval?: number;
   publishedTheme?: 'classic' | 'dynamic' | 'smart';
   homepageSections?: any[];
   smartTheme?: any;
@@ -153,6 +155,7 @@ export default function CustomerStorefront({
   collectionsList,
   brandsList,
   banners,
+  bannerSlideInterval,
   publishedTheme,
   homepageSections,
   smartTheme,
@@ -584,13 +587,14 @@ export default function CustomerStorefront({
   React.useEffect(() => {
     if (resolvedBanners.length <= 1) return;
     const isSmartMode = smartTheme?.isPreview || publishedTheme === 'smart';
-    const duration = isSmartMode && smartTheme?.slideDuration ? smartTheme.slideDuration * 1000 : 3000;
+    const intervalFromDb = bannerSlideInterval ?? Number(localStorage.getItem('aura_banner_slide_interval') || 3);
+    const duration = isSmartMode && smartTheme?.slideDuration ? smartTheme.slideDuration * 1000 : (intervalFromDb * 1000);
     
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % resolvedBanners.length);
     }, duration);
     return () => clearInterval(timer);
-  }, [resolvedBanners.length, publishedTheme, smartTheme]);
+  }, [resolvedBanners.length, publishedTheme, smartTheme, bannerSlideInterval]);
 
   // Checkout Form State
   const [customerName, setCustomerName] = useState('');
@@ -674,6 +678,7 @@ export default function CustomerStorefront({
   
   // Checkout Status State
   const [isOrdering, setIsOrdering] = useState(false);
+  const [isOrderSuccessAnim, setIsOrderSuccessAnim] = useState(false);
   const [orderSuccessData, setOrderSuccessData] = useState<Order | null>(null);
   
   // Tracking State
@@ -1179,6 +1184,12 @@ export default function CustomerStorefront({
         console.log(`[GTM Tracker] GTM purchase event pushed for: ${newOrderId}`);
       }
 
+      // Start the success animation phase on the button!
+      setIsOrderSuccessAnim(true);
+      
+      // Delay for 10.0 seconds to allow the full animated delivery van truck and checkmark pop to complete beautifully!
+      await new Promise(resolve => setTimeout(resolve, 10000));
+
       // Set success screen state
       setOrderSuccessData(orderPayload);
       
@@ -1191,15 +1202,19 @@ export default function CustomerStorefront({
       setTransactionId('');
       setPaymentMethod('COD');
       setIncompleteOrderId(null);
+      setIsOrderSuccessAnim(false);
     } catch (err) {
       console.error("Order submission error:", err);
       // Fallback update to local memory state
       setOrders(prev => [orderPayload, ...prev]);
+      setIsOrderSuccessAnim(true);
+      await new Promise(resolve => setTimeout(resolve, 10000));
       setOrderSuccessData(orderPayload);
       setCart([]);
       setTransactionId('');
       setPaymentMethod('COD');
       setIncompleteOrderId(null);
+      setIsOrderSuccessAnim(false);
     } finally {
       setIsOrdering(false);
     }
@@ -1594,20 +1609,20 @@ export default function CustomerStorefront({
           if (!activeSlide) return null;
 
           return (
-            <div className="relative rounded-[2.5rem] border border-[#eae5de] dark:border-[#28211c] overflow-hidden bg-neutral-100 dark:bg-[#181412]/80 shadow-2xl min-h-[460px] md:min-h-[520px] flex flex-col justify-between">
+            <div className="relative rounded-[2rem] border border-[#eae5de] dark:border-[#28211c] overflow-hidden bg-neutral-100 dark:bg-[#181412]/80 shadow-2xl h-[33.33vh] min-h-[33.33vh] max-h-[33.33vh] flex flex-col justify-between" id="dynamic-banner-container">
               
               {/* Overlay Color layer */}
               <div 
                 className="absolute inset-0 z-[1] pointer-events-none transition-all duration-500" 
-                style={{ backgroundColor: activeSlide.overlayColor || 'rgba(0,0,0,0.15)' }}
+                style={{ backgroundColor: activeSlide.overlayColor || 'rgba(0,0,0,0.25)' }}
               />
 
-              {/* Backgound Image Slider Layer with Cross-fade and smooth slide */}
+              {/* Backgound Image Slider Layer with Cross-fade and smooth slide (Full Opacity, Sharp) */}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentSlide}
-                  initial={{ opacity: 0, x: 80, scale: 1.02 }}
-                  animate={{ opacity: 0.15, x: 0, scale: 1 }}
+                  initial={{ opacity: 0, x: 80, scale: 1.01 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: -80 }}
                   transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                   className="absolute inset-0 w-full h-full pointer-events-none select-none z-0"
@@ -1617,182 +1632,76 @@ export default function CustomerStorefront({
                     <img
                       src={activeSlide.desktopImageUrl}
                       alt=""
-                      className="w-full h-full object-cover filter blur-[2px]"
+                      className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />
                   </picture>
                 </motion.div>
               </AnimatePresence>
 
-              {/* Content Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center p-6 sm:p-10 lg:p-14 relative z-10 w-full">
-                
-                {/* Dynamic animated text details */}
-                <div className={`lg:col-span-7 space-y-5 ${
-                  activeSlide.textPosition === 'center' ? 'lg:col-span-12 text-center flex flex-col items-center justify-center' :
-                  activeSlide.textPosition === 'right' ? 'lg:col-span-7 lg:col-start-6 text-right flex flex-col items-end justify-end' :
-                  'lg:col-span-7 text-left'
-                }`}>
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={currentSlide}
-                      initial={{ opacity: 0, x: 50 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -50 }}
-                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                      className="space-y-4"
-                    >
-                      <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-widest font-mono">
-                        <Sparkles className="h-3.5 w-3.5 animate-pulse text-teal-500" />
-                        <span>{activeLayoutTheme === 'smart' && smartTheme?.bannerBadge ? smartTheme.bannerBadge : activeSlide.badge}</span>
-                      </div>
-                      
-                      <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] font-sans">
-                        {activeSlide.title} <br className="hidden sm:inline" />
-                        <span className="text-teal-500">{activeSlide.subtitle}</span>
-                      </h1>
-
-                      <p className="text-xs sm:text-sm font-bold text-teal-600/90 dark:text-teal-400 font-mono">
-                        ✨ {activeSlide.accentText}
-                      </p>
-                      
-                      <p className="text-xs sm:text-sm opacity-75 leading-relaxed max-w-xl">
-                        {activeSlide.description}
-                      </p>
-                    </motion.div>
-                  </AnimatePresence>
-
-                  {/* Micro features built into slider */}
-                  <div className={`hidden sm:grid grid-cols-3 gap-3 pt-2 max-w-lg w-full ${activeSlide.textPosition === 'center' ? 'mx-auto' : activeSlide.textPosition === 'right' ? 'ml-auto mr-0' : 'mr-auto ml-0'}`}>
-                    <div className="p-2.5 rounded-xl border border-inherit bg-neutral-100/40 dark:bg-white/2 flex items-center space-x-2">
-                      <Activity className="h-4 w-4 text-teal-500 shrink-0" />
-                      <div className="text-left">
-                        <span className="block text-[10px] font-extrabold leading-tight">ড্রাই-ফিট প্রযুক্তি</span>
-                        <span className="text-[8px] opacity-60">দ্রুত ঘাম শোষণ</span>
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded-xl border border-inherit bg-neutral-100/40 dark:bg-white/2 flex items-center space-x-2">
-                      <Truck className="h-4 w-4 text-teal-500 shrink-0" />
-                      <div className="text-left">
-                        <span className="block text-[10px] font-extrabold leading-tight">ক্যাশ অন ডেলিভারি</span>
-                        <span className="text-[8px] opacity-60">সারাদেশে</span>
-                      </div>
-                    </div>
-                    <div className="p-2.5 rounded-xl border border-inherit bg-neutral-100/40 dark:bg-white/2 flex items-center space-x-2">
-                      <ShieldCheck className="h-4 w-4 text-teal-500 shrink-0" />
-                      <div className="text-left">
-                        <span className="block text-[10px] font-extrabold leading-tight">প্রিমিয়াম কোয়ালিটি</span>
-                        <span className="text-[8px] opacity-60">রিপ্লেসমেন্ট গ্যারান্টি</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dual Call To Actions */}
-                  <div className={`pt-4 flex items-center space-x-4 w-full ${
-                    activeSlide.textPosition === 'center' ? 'justify-center' :
-                    activeSlide.textPosition === 'right' ? 'justify-end' :
-                    'justify-start'
-                  }`}>
-                    {activeSlide.button1Text && (
-                      <button 
-                        onClick={() => handleHeroCta(activeSlide.button1Link)}
-                        className="px-6 py-3.5 bg-teal-500 hover:bg-teal-600 text-white font-extrabold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center space-x-2 shadow-lg shadow-teal-500/20 cursor-pointer border-none outline-none"
-                      >
-                        <ShoppingBag className="h-4 w-4" />
-                        <span>{activeSlide.button1Text}</span>
-                      </button>
-                    )}
-                    {activeSlide.button2Text && (
-                      <a 
-                        href={activeSlide.button2Link || "#products"}
-                        className="px-6 py-3.5 rounded-xl border border-inherit hover:bg-neutral-200 dark:hover:bg-white/5 text-xs font-extrabold uppercase tracking-wider transition-all inline-block text-center"
-                      >
-                        {activeSlide.button2Text}
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                {/* Right Column Image Banner Container */}
-                {activeSlide.textPosition !== 'center' && (
-                  <div className="lg:col-span-5 relative mt-4 lg:mt-0 flex justify-center">
-                    <div className="absolute inset-0 bg-teal-500/10 rounded-[2.5rem] rotate-2 scale-105 blur-sm" />
-                    
-                    <div className="relative rounded-[2.5rem] border border-inherit overflow-hidden shadow-xl bg-white dark:bg-neutral-900 group w-full max-w-[320px] aspect-square flex items-center justify-center">
-                      <AnimatePresence mode="wait">
-                        <motion.div
-                          key={currentSlide}
-                          initial={{ opacity: 0, x: 60 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -60 }}
-                          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                          className="absolute inset-0 w-full h-full"
-                        >
-                          <picture className="w-full h-full">
-                            <source media="(max-width: 640px)" srcSet={activeSlide.mobileImageUrl || activeSlide.desktopImageUrl} />
-                            <img 
-                              src={activeSlide.desktopImageUrl} 
-                              alt="Banner Product" 
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                          </picture>
-                        </motion.div>
-                      </AnimatePresence>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent flex flex-col justify-end p-6 text-white text-left z-10">
-                        <span className="text-[9px] font-black tracking-widest text-teal-400 uppercase font-mono">Exclusive Drop 2026</span>
-                        <h3 className="text-base font-black tracking-tight">{activeSlide.subtitle}</h3>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
+              {/* Dual Call To Actions centered over banner graphics */}
+              <div className="absolute inset-x-0 bottom-4 sm:bottom-6 z-10 flex flex-wrap gap-3 items-center justify-center px-4">
+                <button 
+                  onClick={() => handleHeroCta(activeSlide.button1Link || '#products')}
+                  className="px-5 py-2.5 sm:px-7 sm:py-3.5 bg-teal-500 hover:bg-teal-600 text-white font-extrabold rounded-xl text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center space-x-1.5 shadow-lg shadow-teal-500/20 hover:scale-105 active:scale-95 cursor-pointer border-none"
+                  id="banner-btn-buy-now"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  <span>{t('এখনই কিনুন', 'Buy Now')}</span>
+                </button>
+                <a 
+                  href={activeSlide.button2Link || "#products"}
+                  className="px-5 py-2.5 sm:px-7 sm:py-3.5 rounded-xl border-2 border-white/80 hover:border-white bg-black/40 hover:bg-black/60 text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider transition-all inline-flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs"
+                  id="banner-btn-shop-all"
+                >
+                  <span>{t('সব প্রোডাক্ট দেখুন', 'Shop All')}</span>
+                </a>
               </div>
 
-              {/* Slider Bottom Indicators & manual control arrows */}
-              <div className="p-4 border-t border-inherit/60 flex items-center justify-between relative z-10 w-full">
-                
-                {/* Dots / capsule line trackers with active fills */}
-                <div className="flex space-x-2.5 pl-4 sm:pl-8">
-                  {HERO_SLIDES.map((_, idx) => {
-                    const isActive = idx === currentSlide;
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => setCurrentSlide(idx)}
-                        className={`h-2 rounded-full transition-all duration-300 relative overflow-hidden cursor-pointer
-                          ${isActive ? 'w-10 bg-teal-500' : 'w-2 bg-neutral-300 dark:bg-neutral-700 hover:bg-neutral-400'}`}
-                        aria-label={`Slide ${idx + 1}`}
-                      >
-                        {isActive && (
-                          <motion.span 
-                            initial={{ width: 0 }}
-                            animate={{ width: '100%' }}
-                            transition={{ duration: 3, ease: 'linear' }}
-                            className="absolute inset-y-0 left-0 bg-teal-600 rounded-full"
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* Swipe/Touch Friendly Floating Navigation Arrows (44px target) */}
+              <button
+                type="button"
+                onClick={() => setCurrentSlide((prev) => (prev === 0 ? HERO_SLIDES.length - 1 : prev - 1))}
+                className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/30 hover:bg-black/50 border border-white/20 text-white flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-90 backdrop-blur-xs focus:outline-none"
+                aria-label="Previous Slide"
+                id="banner-nav-prev"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
+                className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/30 hover:bg-black/50 border border-white/20 text-white flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-90 backdrop-blur-xs focus:outline-none"
+                aria-label="Next Slide"
+                id="banner-nav-next"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
 
-                {/* Left and Right Navigation arrows */}
-                <div className="flex space-x-2 pr-4 sm:pr-8">
-                  <button
-                    onClick={() => setCurrentSlide((prev) => (prev === 0 ? HERO_SLIDES.length - 1 : prev - 1))}
-                    className="p-1.5 sm:p-2 rounded-lg border border-inherit hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                  >
-                    <Minus className="h-4 w-4 rotate-90" />
-                  </button>
-                  <button
-                    onClick={() => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
-                    className="p-1.5 sm:p-2 rounded-lg border border-inherit hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4 rotate-90" />
-                  </button>
-                </div>
-
+              {/* Slider Bottom Indicators */}
+              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
+                {HERO_SLIDES.map((_, idx) => {
+                  const isActive = idx === currentSlide;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentSlide(idx)}
+                      className={`h-1.5 rounded-full transition-all duration-300 relative overflow-hidden cursor-pointer
+                        ${isActive ? 'w-8 bg-teal-500' : 'w-1.5 bg-white/40 hover:bg-white/60'}`}
+                      aria-label={`Slide ${idx + 1}`}
+                      id={`banner-dot-${idx}`}
+                    >
+                      {isActive && (
+                        <motion.span 
+                          initial={{ width: 0 }}
+                          animate={{ width: '100%' }}
+                          transition={{ duration: (bannerSlideInterval ?? Number(localStorage.getItem('aura_banner_slide_interval') || 3)), ease: 'linear' }}
+                          className="absolute inset-y-0 left-0 bg-teal-600 rounded-full"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
             </div>
@@ -2647,23 +2556,12 @@ export default function CustomerStorefront({
                       </div>
                     </div>
 
-                    <button
-                      type="submit"
-                      disabled={isOrdering}
-                      className="w-full py-4 bg-teal-500 hover:bg-teal-600 text-white font-extrabold rounded-xl text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center space-x-2 shadow-lg shadow-teal-500/15 cursor-pointer active:scale-95"
-                    >
-                      {isOrdering ? (
-                        <>
-                          <RefreshCcw className="h-4 w-4 animate-spin" />
-                          <span>{t('অর্ডার সম্পন্ন হচ্ছে...', 'Placing Order...')}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-4 w-4" />
-                          <span>{paymentMethod === 'COD' ? t('অর্ডার নিশ্চিত করুন (ক্যাশ অন ডেলিভারি)', 'Confirm Order (COD)') : t('পেমেন্ট ও অর্ডার নিশ্চিত করুন', 'Confirm Payment & Order')}</span>
-                        </>
-                      )}
-                    </button>
+                    <AnimatedConfirmButton 
+                      isOrdering={isOrdering}
+                      isSuccess={isOrderSuccessAnim}
+                      paymentMethod={paymentMethod}
+                      t={t}
+                    />
                     
                     <p className="text-[9px] text-center opacity-50 flex items-center justify-center space-x-1">
                       <ShieldCheck className="h-3.5 w-3.5 text-teal-500 shrink-0" />

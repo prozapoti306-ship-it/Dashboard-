@@ -387,6 +387,14 @@ export default function App() {
     return DEFAULT_BANNERS;
   });
 
+  const [bannerSlideInterval, setBannerSlideInterval] = useState<number>(() => {
+    try {
+      const cached = localStorage.getItem('aura_banner_slide_interval');
+      if (cached) return Number(cached);
+    } catch (_) {}
+    return 3;
+  });
+
   useEffect(() => {
     try {
       localStorage.setItem('aura_premium_banners', JSON.stringify(banners));
@@ -2920,6 +2928,7 @@ export default function App() {
           collectionsList={collectionsList}
           brandsList={brandsList}
           banners={banners}
+          bannerSlideInterval={bannerSlideInterval}
           publishedTheme={publishedTheme}
           homepageSections={homepageSections}
           smartTheme={smartTheme}
@@ -5027,6 +5036,26 @@ export default function App() {
                             <p className="opacity-60 text-xs">আপনার স্টোরের মূল স্লাইডার ব্যানারগুলো পরিচালনা করুন। এগুলো গ্রাহকদের স্টোরে স্বয়ংক্রিয়ভাবে পরিবর্তিত (Auto Slide) হবে।</p>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
+                            {/* Banner Slide Interval Settings Dropdown */}
+                            <div className="flex items-center space-x-2 bg-black/35 px-3 py-1.5 rounded-xl border border-white/5">
+                              <span className="text-[10px] font-bold text-[#e07a5f]">⏱️ Slide Interval:</span>
+                              <select 
+                                value={bannerSlideInterval}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  setBannerSlideInterval(val);
+                                  localStorage.setItem('aura_banner_slide_interval', val.toString());
+                                  setDesignerSuccessMessage(`স্লাইডার পরিবর্তনের সময়সীমা ${val} সেকেন্ডে সেট করা হয়েছে!`);
+                                }}
+                                className="bg-[#120e0c] text-white text-[10px] font-bold border border-[#322822] rounded-lg p-1 outline-none focus:border-[#e07a5f] cursor-pointer"
+                                id="designer-banner-interval-select"
+                              >
+                                <option value={3}>3 Seconds</option>
+                                <option value={4}>4 Seconds</option>
+                                <option value={5}>5 Seconds</option>
+                              </select>
+                            </div>
+
                             <button
                               onClick={() => {
                                 const newId = 'banner_' + Date.now();
@@ -12500,6 +12529,32 @@ CREATE TABLE IF NOT EXISTS homepage_settings (
               {/* Info Note */}
               <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl leading-relaxed">
                 ℹ️ <strong>একই প্রোডাক্ট বিবরণ ও মূল্যের নিচে একসাথে ১০ বা তার বেশি ছবি আপলোড করুন।</strong> প্রতিটি ছবির জন্য সুপাবেজ ডাটাবেজে এবং ড্যাশবোর্ডে আলাদা রো (row) তৈরি হবে, যার ফলে আপনি খুব দ্রুত কম্বো প্রোডাক্টগুলোর ভ্যারিয়েশন আপলোড করতে পারবেন।
+              </div>
+
+              {/* Banner Slide Interval Setting Dashboard Integration */}
+              <div className="p-4 bg-amber-500/5 border border-amber-500/15 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <label className="font-bold text-amber-400 flex items-center space-x-1.5 text-xs">
+                    <span>⏱️ Banner Slide Interval (ব্যানার পরিবর্তনের সময়সীমা):</span>
+                  </label>
+                  <p className="text-[10px] opacity-70">কাস্টমার স্টোরফ্রন্টের স্লাইডার ব্যানারটি কত সেকেন্ড পর পর স্বয়ংক্রিয়ভাবে পরিবর্তিত হবে তা সেট করুন।</p>
+                </div>
+                <div className="shrink-0">
+                  <select 
+                    value={bannerSlideInterval}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setBannerSlideInterval(val);
+                      localStorage.setItem('aura_banner_slide_interval', val.toString());
+                    }}
+                    className="p-2.5 rounded-xl border border-[#322822] bg-[#120e0c] text-amber-300 font-bold outline-none focus:border-amber-500/50 cursor-pointer min-w-[140px]"
+                    id="bulk-banner-interval-select"
+                  >
+                    <option value={3}>3 Seconds (৩ সেকেন্ড)</option>
+                    <option value={4}>4 Seconds (৪ সেকেন্ড)</option>
+                    <option value={5}>5 Seconds (৫ সেকেন্ড)</option>
+                  </select>
+                </div>
               </div>
 
               {/* Dynamic Category Settings */}
