@@ -129,6 +129,9 @@ export interface SystemSettings {
   brandName: string;
   brandLogo?: string;
   tagline?: string;
+  facebookPageUrl?: string;
+  instagramProfileUrl?: string;
+  whatsappNumber?: string;
 }
 
 export interface HomepageSettings {

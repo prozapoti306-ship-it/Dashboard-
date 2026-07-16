@@ -162,6 +162,20 @@ export default function CustomerStorefront({
   dynamicSections
 }: CustomerStorefrontProps) {
   const [localProducts, setLocalProducts] = useState<Product[]>(products);
+
+  // Dynamic Social Media Link Utilities based on settings
+  const facebookUrl = settings?.facebookPageUrl || "https://facebook.com";
+  const instagramUrl = settings?.instagramProfileUrl || "https://instagram.com";
+  
+  const whatsappNum = settings?.whatsappNumber || "8801792572306";
+  const displayWhatsAppNum = whatsappNum.startsWith('88') 
+    ? (whatsappNum.startsWith('880') ? whatsappNum.substring(2) : whatsappNum) 
+    : whatsappNum;
+  const cleanWhatsAppNum = whatsappNum.replace(/\+/g, '').replace(/\s/g, '').replace(/-/g, '');
+  const formattedWhatsAppForLink = cleanWhatsAppNum.length === 11 && cleanWhatsAppNum.startsWith('0') 
+    ? `88${cleanWhatsAppNum}` 
+    : cleanWhatsAppNum;
+  const whatsappUrl = `https://wa.me/${formattedWhatsAppForLink}?text=আসসালামু%20আলাইকুম!%20আমি%20জার্সি%20সম্পর্কে%20জানতে%20চাই।`;
   const [lang, setLang] = useState<'bn' | 'en'>(() => {
     try {
       const saved = localStorage.getItem('preferred_language');
@@ -1384,7 +1398,7 @@ export default function CustomerStorefront({
         <div className="bg-[#26af5f] text-white text-[11px] font-black tracking-wider py-1.5 px-4 text-center flex items-center justify-center space-x-2.5 overflow-hidden animate-pulse">
           <span>🚚 {t('সারা বাংলাদেশে ক্যাশ অন ডেলিভারি (Cash on Delivery)!', 'Cash on Delivery (COD) across entire Bangladesh!')}</span>
           <span className="hidden md:inline-block opacity-60">•</span>
-          <span className="hidden md:inline-block">💬 {t('সরাসরি অর্ডার করতে কল বা হোয়াটসঅ্যাপ করুন: 01792572306', 'Call or WhatsApp to order directly: 01792572306')}</span>
+          <span className="hidden md:inline-block">💬 {t(`সরাসরি অর্ডার করতে কল বা হোয়াটসঅ্যাপ করুন: ${displayWhatsAppNum}`, `Call or WhatsApp to order directly: ${displayWhatsAppNum}`)}</span>
         </div>
 
         <header className="transition-colors duration-300 brand-header">

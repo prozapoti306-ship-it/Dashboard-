@@ -77,5 +77,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   themeMode: "light", // Elegant default light mode for premium SaaS
   brandName: "TREND ZONE",
   brandLogo: "",
-  tagline: ""
+  tagline: "",
+  facebookPageUrl: "https://facebook.com",
+  instagramProfileUrl: "https://instagram.com",
+  whatsappNumber: "8801792572306"
 };

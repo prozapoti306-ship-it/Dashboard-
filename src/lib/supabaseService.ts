@@ -549,16 +549,44 @@ export const supabaseService = {
       } catch (e) {
         console.warn('Failed to read from localStorage:', e);
       }
+
+      let socialLinks: any = {};
+      try {
+        const cachedSocial = localStorage.getItem('aura_social_links');
+        if (cachedSocial) {
+          socialLinks = JSON.parse(cachedSocial);
+        }
+      } catch (e) {
+        console.warn('Failed to read social links from localStorage:', e);
+      }
+
+      // Fetch social settings from database
+      try {
+        const { data: socialData } = await supabase.from('system_settings').select('tagline').eq('id', 'social_settings').maybeSingle();
+        if (socialData && socialData.tagline) {
+          const parsed = JSON.parse(socialData.tagline);
+          socialLinks = { ...socialLinks, ...parsed };
+        }
+      } catch (socialErr) {
+        console.warn('Failed to fetch social settings from database:', socialErr);
+      }
       
       if (!data) {
-        return { ...fallback, brandLogo: localLogo || fallback.brandLogo };
+        return { 
+          ...fallback, 
+          brandLogo: localLogo || fallback.brandLogo,
+          ...socialLinks
+        };
       }
       
       const mapped = mapSettingsFromDb(data);
       if (!mapped.brandLogo && localLogo) {
         mapped.brandLogo = localLogo;
       }
-      return mapped;
+      return {
+        ...mapped,
+        ...socialLinks
+      };
     } catch (e) {
       console.warn('Supabase getSettings failed, using local fallback:', e);
       let localLogo = '';
@@ -567,7 +595,20 @@ export const supabaseService = {
       } catch (err) {
         console.warn('Failed to read from localStorage in fallback:', err);
       }
-      return { ...fallback, brandLogo: localLogo || fallback.brandLogo };
+      let socialLinks: any = {};
+      try {
+        const cachedSocial = localStorage.getItem('aura_social_links');
+        if (cachedSocial) {
+          socialLinks = JSON.parse(cachedSocial);
+        }
+      } catch (err) {
+        console.warn('Failed to read social links from localStorage in fallback:', err);
+      }
+      return { 
+        ...fallback, 
+        brandLogo: localLogo || fallback.brandLogo,
+        ...socialLinks
+      };
     }
   },
 
@@ -581,9 +622,35 @@ export const supabaseService = {
           console.warn('LocalStorage quota exceeded, skipping local brand logo storage:', storageErr);
         }
       }
+
+      // Also save social links to local storage
+      try {
+        localStorage.setItem('aura_social_links', JSON.stringify({
+          facebookPageUrl: s.facebookPageUrl,
+          instagramProfileUrl: s.instagramProfileUrl,
+          whatsappNumber: s.whatsappNumber
+        }));
+      } catch (err) {
+        console.warn('Failed to save social links to local storage:', err);
+      }
       
       const mapped = mapSettingsToDb(s);
       const { error } = await supabase.from('system_settings').upsert(mapped);
+
+      // Upsert the social settings row as well
+      try {
+        await supabase.from('system_settings').upsert({
+          id: 'social_settings',
+          tagline: JSON.stringify({
+            facebookPageUrl: s.facebookPageUrl,
+            instagramProfileUrl: s.instagramProfileUrl,
+            whatsappNumber: s.whatsappNumber
+          }),
+          currency: 'BDT'
+        });
+      } catch (socialErr) {
+        console.warn('Failed to upsert social settings row:', socialErr);
+      }
       
       if (error) {
         // If the error suggests that columns are missing (e.g. brand_logo or tagline doesn't exist yet), retry without them

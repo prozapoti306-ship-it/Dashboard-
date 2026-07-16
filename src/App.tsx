@@ -10216,6 +10216,55 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                           </div>
                         </div>
 
+                        {/* Social Media Links (Facebook, Instagram, WhatsApp) - New Requested Fields */}
+                        <div className="pt-4 border-t border-inherit space-y-3.5">
+                          <h4 className="text-xs font-extrabold text-[#e07a5f] flex items-center space-x-2">
+                            <span>💬 সোশ্যাল মিডিয়া কানেকশন (Social Media Connections)</span>
+                          </h4>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-[10px] font-bold opacity-75 mb-1.5 flex items-center gap-1">
+                                <span className="text-[#3b5998]">🔵</span> ফেসবুক পেজ লিংক (Facebook Page URL)
+                              </label>
+                              <input 
+                                type="url"
+                                value={settings.facebookPageUrl || ""}
+                                placeholder="https://facebook.com/yourpage"
+                                onChange={(e) => setSettings(prev => ({ ...prev, facebookPageUrl: e.target.value }))}
+                                className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
+                              />
+                            </div>
+                            
+                            <div>
+                              <label className="block text-[10px] font-bold opacity-75 mb-1.5 flex items-center gap-1">
+                                <span className="text-[#e1306c]">📸</span> ইনস্টাগ্রাম প্রোফাইল লিংক (Instagram URL)
+                              </label>
+                              <input 
+                                type="url"
+                                value={settings.instagramProfileUrl || ""}
+                                placeholder="https://instagram.com/yourprofile"
+                                onChange={(e) => setSettings(prev => ({ ...prev, instagramProfileUrl: e.target.value }))}
+                                className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold opacity-75 mb-1.5 flex items-center gap-1">
+                                <span className="text-[#25d366]">🟢</span> হোয়াটসঅ্যাপ নম্বর (WhatsApp Number)
+                              </label>
+                              <input 
+                                type="text"
+                                value={settings.whatsappNumber || ""}
+                                placeholder="88017XXXXXXXX"
+                                onChange={(e) => setSettings(prev => ({ ...prev, whatsappNumber: e.target.value }))}
+                                className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
+                              />
+                              <p className="text-[9px] opacity-50 mt-1 leading-tight">দেশীয় কোডসহ শুধু নম্বর দিন (যেমন: 8801792572306)</p>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Brand Settings Save Button under the Logo upload box as requested */}
                         <div className="pt-3 border-t border-inherit space-y-3">
                           <button
