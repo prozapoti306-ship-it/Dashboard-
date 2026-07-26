@@ -2210,7 +2210,7 @@ export default function CustomerStorefront({
           <div className="flex justify-center items-center gap-5 pt-1">
             {/* Facebook Page Button */}
             <a 
-              href="https://facebook.com" 
+              href={facebookUrl} 
               target="_blank" 
               rel="noopener noreferrer"
               className="h-14 w-14 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_25px_rgba(59,89,152,0.35)] group cursor-pointer"
@@ -2221,7 +2221,7 @@ export default function CustomerStorefront({
 
             {/* Instagram Button */}
             <a 
-              href="https://instagram.com" 
+              href={instagramUrl} 
               target="_blank" 
               rel="noopener noreferrer"
               className="h-14 w-14 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_25px_rgba(225,48,108,0.35)] group cursor-pointer"
@@ -2232,7 +2232,7 @@ export default function CustomerStorefront({
 
             {/* WhatsApp Direct Message Button */}
             <a 
-              href="https://wa.me/8801792572306?text=আসসালামু%20আলাইকুম!%20আমি%20জার্সি%20সম্পর্কে%20জানতে%20চাই।" 
+              href={whatsappUrl} 
               target="_blank" 
               rel="noopener noreferrer"
               className="h-14 w-14 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-[0_4px_20px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_25px_rgba(37,211,102,0.35)] group cursor-pointer"
@@ -3471,7 +3471,7 @@ export default function CustomerStorefront({
         
         {/* Main interactive button */}
         <a
-          href="https://wa.me/8801792572306?text=আসসালামু%20আলাইকুম!%20আমি%20জার্সি%20সম্পর্কে%20জানতে%20চাই।"
+          href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="relative h-14 w-14 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-xl hover:shadow-[#25D366]/40 hover:scale-110 active:scale-95 transition-all duration-300 border border-white/20 cursor-pointer group"

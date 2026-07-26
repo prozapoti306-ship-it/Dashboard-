@@ -154,7 +154,9 @@ import {
   Calendar,
   Smartphone,
   Monitor,
-  Globe
+  Globe,
+  Facebook,
+  Instagram
 } from 'lucide-react';
 import { supabaseService, supabase, mapOrderFromDb, mapProductFromDb, mapProductToDb } from './lib/supabaseService';
 
@@ -8371,7 +8373,7 @@ export default function App() {
                 <div>
                   <h1 className="text-3xl font-extrabold tracking-tight">WordPress & WooCommerce সিঙ্ক পোর্টাল (Sync Portal)</h1>
                   <p className="opacity-60 text-sm mt-1">
-                    WooCommerce REST API ইন্টিগ্রেশন এবং কাস্টম প্লাগইন আর্কিটেকচার ম্যানেজমেন্ট ওয়ার্কস্পেস।
+                    API ইন্টিগ্রেশন এবং কাস্টম প্লাগইন আর্কিটেকচার ম্যানেজমেন্ট ওয়ার্কস্পেস।
                   </p>
                 </div>
                 
@@ -8962,7 +8964,7 @@ new FBD_Marketing_Automation();`}
                   </div>
                   
                   <p className="text-xs opacity-75">
-                    স্টোরের ডাটাবেজ স্কেলিং অপ্টিমাইজড রাখতে এবং সার্চ কোয়েরি স্পিড বৃদ্ধি করতে WooCommerce কাস্টম ডাটাবেজ টেবিল রিলেশনাল ডিজাইন এবং মেটা-ফিল্ড ইনডেক্সিং গাইডলাইন:
+                    স্টোরের ডাটাবেজ স্কেলিং অপ্টিমাইজড রাখতে এবং সার্চ কোয়েরি স্পিড বৃদ্ধি করতে WooCommerce কাস্টম ডাটাবেজ টেবিল রিলেショナル ডিজাইন এবং মেটা-ফিল্ড ইনডেক্সিং গাইডলাইন:
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 font-mono text-[10px]">
@@ -9567,6 +9569,9 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                       {activeSettingsTab === 'three-banner' && '⚡ ৩-ব্যানার ম্যাজিক কাস্টমাইজার (3-Banner Customizer)'}
                       {activeSettingsTab === 'courier' && '📦 কুরিয়ার এপিআই সেটিংস (Courier API Settings)'}
                       {activeSettingsTab === 'brand' && '🏷️ ব্র্যান্ড পরিচিতি সেটিংস (Brand Slogan Settings)'}
+                      {activeSettingsTab === 'fb_page' && '🔵 ফেসবুক পেজ এড করুন (Facebook Page Setup)'}
+                      {activeSettingsTab === 'ig_profile' && '📸 ইনস্টাগ্রাম অ্যাকাউন্ট এড করুন (Instagram Setup)'}
+                      {activeSettingsTab === 'wa_number' && '🟢 হোয়াটসঅ্যাপ নম্বর এড করুন (WhatsApp Setup)'}
                       {activeSettingsTab === 'eye' && '🛡️ আই প্রোটেকশন ফিল্টার (Eye Protection Filter)'}
                       {activeSettingsTab === 'woocommerce' && '🔄 উ-কমার্স REST API (WooCommerce)'}
                       {activeSettingsTab === 'inventory' && '📋 ইনভেন্টরি অ্যালার্ট লেভেল (Stock Thresholds)'}
@@ -9586,6 +9591,9 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                     { id: 'three-banner', label: '⚡ ৩-ব্যানার কাস্টমাইজার', sub: '3-Banner Customizer', icon: Sparkles, color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', hoverColor: 'hover:border-emerald-500/50 hover:shadow-emerald-500/5' },
                     { id: 'courier', label: '📦 কুরিয়ার এপিআই সেটিংস', sub: 'Courier API Settings', icon: Truck, color: 'text-rose-500', bgColor: 'bg-rose-500/10', hoverColor: 'hover:border-rose-500/50 hover:shadow-rose-500/5' },
                     { id: 'brand', label: '🏷️ ব্র্যান্ড পরিচিতি সেটিংস', sub: 'Brand Slogan Settings', icon: Tag, color: 'text-amber-500', bgColor: 'bg-amber-500/10', hoverColor: 'hover:border-amber-500/50 hover:shadow-amber-500/5' },
+                    { id: 'fb_page', label: '🔵 ফেসবুক পেজ এড করুন', sub: 'Facebook Page URL', icon: Facebook, color: 'text-[#3b5998]', bgColor: 'bg-[#3b5998]/10', hoverColor: 'hover:border-[#3b5998]/50 hover:shadow-[#3b5998]/5' },
+                    { id: 'ig_profile', label: '📸 ইনস্টাগ্রাম এড করুন', sub: 'Instagram Profile URL', icon: Instagram, color: 'text-[#e1306c]', bgColor: 'bg-[#e1306c]/10', hoverColor: 'hover:border-[#e1306c]/50 hover:shadow-[#e1306c]/5' },
+                    { id: 'wa_number', label: '🟢 হোয়াটসঅ্যাপ নম্বর এড করুন', sub: 'WhatsApp Setup', icon: Phone, color: 'text-[#25d366]', bgColor: 'bg-[#25d366]/10', hoverColor: 'hover:border-[#25d366]/50 hover:shadow-[#25d366]/5' },
                     { id: 'eye', label: '🛡️ আই প্রোটেকশন ফিল্টার', sub: 'Eye Protection Filter', icon: ShieldAlert, color: 'text-orange-500', bgColor: 'bg-orange-500/10', hoverColor: 'hover:border-orange-500/50 hover:shadow-orange-500/5' },
                     { id: 'woocommerce', label: '🔄 উ-কমার্স REST API', sub: 'WooCommerce Keys', icon: RefreshCcw, color: 'text-indigo-500', bgColor: 'bg-indigo-500/10', hoverColor: 'hover:border-indigo-500/50 hover:shadow-indigo-500/5' },
                     { id: 'inventory', label: '📋 ইনভেন্টরি অ্যালার্ট লেভেল', sub: 'Stock Thresholds', icon: Warehouse, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', hoverColor: 'hover:border-emerald-500/50 hover:shadow-emerald-500/5' },
@@ -10216,54 +10224,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                           </div>
                         </div>
 
-                        {/* Social Media Links (Facebook, Instagram, WhatsApp) - New Requested Fields */}
-                        <div className="pt-4 border-t border-inherit space-y-3.5">
-                          <h4 className="text-xs font-extrabold text-[#e07a5f] flex items-center space-x-2">
-                            <span>💬 সোশ্যাল মিডিয়া কানেকশন (Social Media Connections)</span>
-                          </h4>
-                          
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
-                              <label className="block text-[10px] font-bold opacity-75 mb-1.5 flex items-center gap-1">
-                                <span className="text-[#3b5998]">🔵</span> ফেসবুক পেজ লিংক (Facebook Page URL)
-                              </label>
-                              <input 
-                                type="url"
-                                value={settings.facebookPageUrl || ""}
-                                placeholder="https://facebook.com/yourpage"
-                                onChange={(e) => setSettings(prev => ({ ...prev, facebookPageUrl: e.target.value }))}
-                                className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
-                              />
-                            </div>
-                            
-                            <div>
-                              <label className="block text-[10px] font-bold opacity-75 mb-1.5 flex items-center gap-1">
-                                <span className="text-[#e1306c]">📸</span> ইনস্টাগ্রাম প্রোফাইল লিংক (Instagram URL)
-                              </label>
-                              <input 
-                                type="url"
-                                value={settings.instagramProfileUrl || ""}
-                                placeholder="https://instagram.com/yourprofile"
-                                onChange={(e) => setSettings(prev => ({ ...prev, instagramProfileUrl: e.target.value }))}
-                                className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
-                              />
-                            </div>
 
-                            <div>
-                              <label className="block text-[10px] font-bold opacity-75 mb-1.5 flex items-center gap-1">
-                                <span className="text-[#25d366]">🟢</span> হোয়াটসঅ্যাপ নম্বর (WhatsApp Number)
-                              </label>
-                              <input 
-                                type="text"
-                                value={settings.whatsappNumber || ""}
-                                placeholder="88017XXXXXXXX"
-                                onChange={(e) => setSettings(prev => ({ ...prev, whatsappNumber: e.target.value }))}
-                                className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
-                              />
-                              <p className="text-[9px] opacity-50 mt-1 leading-tight">দেশীয় কোডসহ শুধু নম্বর দিন (যেমন: 8801792572306)</p>
-                            </div>
-                          </div>
-                        </div>
 
                         {/* Brand Settings Save Button under the Logo upload box as requested */}
                         <div className="pt-3 border-t border-inherit space-y-3">
@@ -10349,6 +10310,238 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                                   <p className="text-[9px] opacity-75">
                                     কোডটি সুপাবেজ SQL এডিটরে রান করার পর এই পেজটি রিফ্রেশ করে পুনরায় "Save Changes" বাটনে ক্লিক করুন।
                                   </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSettingsTab === 'fb_page' && (
+                  <div className="animate-fade-in duration-300">
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <Facebook className="h-4.5 w-4.5 text-[#3b5998]" />
+                        <span>ফেসবুক পেজ এড করুন (Facebook Page Configuration)</span>
+                      </h3>
+                      <p className="text-[11px] opacity-75 leading-relaxed">
+                        আপনার ব্যবসায়ের অফিসিয়াল ফেসবুক পেজ লিংকটি এখানে যুক্ত করুন। এটি লাইভ স্টোরফ্রন্টে মেসেঞ্জিং এবং সোশ্যাল আইকনের সাথে লিঙ্ক করা থাকবে।
+                      </p>
+
+                      <div className="space-y-4 pt-2">
+                        <div>
+                          <label className="block text-[10px] font-bold opacity-75 mb-1.5 flex items-center gap-1">
+                            <span className="text-[#3b5998]">🔵</span> ফেসবুক পেজ লিংক (Facebook Page URL)
+                          </label>
+                          <input 
+                            type="url"
+                            value={settings.facebookPageUrl || ""}
+                            placeholder="https://facebook.com/yourpage"
+                            onChange={(e) => setSettings(prev => ({ ...prev, facebookPageUrl: e.target.value }))}
+                            className="w-full p-3 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
+                          />
+                        </div>
+
+                        <div className="pt-3 border-t border-inherit space-y-3">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setSettingsSaveStatus(null);
+                              const res = await supabaseService.upsertSettings(settings);
+                              setSettingsSaveStatus(res);
+                              
+                              if (res.success) {
+                                const newNotif = {
+                                  id: `notif-${Date.now()}`,
+                                  title: `ফেসবুক পেজ লিংক সংরক্ষিত`,
+                                  message: `আপনার ফেসবুক পেজ লিংক "${settings.facebookPageUrl || ''}" সফলভাবে সুপাবেজ ক্লাউড ডাটাবেজে সেভ করা হয়েছে।`,
+                                  timestamp: new Date().toISOString(),
+                                  read: false,
+                                  type: 'info' as const
+                                };
+                                setNotifications(prev => [newNotif, ...prev]);
+                                try {
+                                  await supabaseService.upsertNotification(newNotif);
+                                } catch (_) {}
+                              }
+                            }}
+                            className="w-full py-3 bg-[#3b5998] hover:bg-[#2d4373] text-white font-extrabold rounded-2xl text-xs shadow-lg cursor-pointer flex items-center justify-center space-x-2 transition-all hover:scale-[1.01]"
+                          >
+                            <Save className="h-4 w-4" />
+                            <span>Save Facebook Page (সংরক্ষণ করুন)</span>
+                          </button>
+
+                          {settingsSaveStatus && (
+                            <div className="animate-fade-in">
+                              {settingsSaveStatus.success ? (
+                                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center space-x-2 text-emerald-500">
+                                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                  <span className="text-xs font-bold">ফেসবুক লিংক ক্লাউড ডাটাবেজে সিঙ্ক হয়েছে!</span>
+                                </div>
+                              ) : (
+                                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center space-x-2 text-rose-500">
+                                  <XCircle className="h-4 w-4 shrink-0" />
+                                  <span className="text-xs font-bold">সেভ করতে ব্যর্থ হয়েছে: {settingsSaveStatus.error}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSettingsTab === 'ig_profile' && (
+                  <div className="animate-fade-in duration-300">
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <Instagram className="h-4.5 w-4.5 text-[#e1306c]" />
+                        <span>ইনস্টাগ্রাম প্রোফাইল এড করুন (Instagram Profile Configuration)</span>
+                      </h3>
+                      <p className="text-[11px] opacity-75 leading-relaxed">
+                        আপনার ব্র্যান্ডের অফিসিয়াল ইনস্টাগ্রাম প্রোফাইল লিংকটি এখানে যুক্ত করুন। এটি আপনার কাস্টমারদের সরাসরি আপনার ইনস্টাগ্রাম স্টোর ভিজিট করতে সহায়তা করবে।
+                      </p>
+
+                      <div className="space-y-4 pt-2">
+                        <div>
+                          <label className="block text-[10px] font-bold opacity-75 mb-1.5 flex items-center gap-1">
+                            <span className="text-[#e1306c]">📸</span> ইনস্টাগ্রাম প্রোফাইল লিংক (Instagram URL)
+                          </label>
+                          <input 
+                            type="url"
+                            value={settings.instagramProfileUrl || ""}
+                            placeholder="https://instagram.com/yourprofile"
+                            onChange={(e) => setSettings(prev => ({ ...prev, instagramProfileUrl: e.target.value }))}
+                            className="w-full p-3 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
+                          />
+                        </div>
+
+                        <div className="pt-3 border-t border-inherit space-y-3">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setSettingsSaveStatus(null);
+                              const res = await supabaseService.upsertSettings(settings);
+                              setSettingsSaveStatus(res);
+                              
+                              if (res.success) {
+                                const newNotif = {
+                                  id: `notif-${Date.now()}`,
+                                  title: `ইনস্টাগ্রাম প্রোফাইল লিংক সংরক্ষিত`,
+                                  message: `আপনার ইনস্টাগ্রাম প্রোফাইল লিংক "${settings.instagramProfileUrl || ''}" সফলভাবে সুপাবেজ ক্লাউড ডাটাবেজে সেভ করা হয়েছে।`,
+                                  timestamp: new Date().toISOString(),
+                                  read: false,
+                                  type: 'info' as const
+                                };
+                                setNotifications(prev => [newNotif, ...prev]);
+                                try {
+                                  await supabaseService.upsertNotification(newNotif);
+                                } catch (_) {}
+                              }
+                            }}
+                            className="w-full py-3 bg-gradient-to-tr from-[#feda75] via-[#d62976] to-[#962fbf] hover:opacity-90 text-white font-extrabold rounded-2xl text-xs shadow-lg cursor-pointer flex items-center justify-center space-x-2 transition-all hover:scale-[1.01]"
+                          >
+                            <Save className="h-4 w-4" />
+                            <span>Save Instagram Profile (সংরক্ষণ করুন)</span>
+                          </button>
+
+                          {settingsSaveStatus && (
+                            <div className="animate-fade-in">
+                              {settingsSaveStatus.success ? (
+                                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center space-x-2 text-emerald-500">
+                                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                  <span className="text-xs font-bold">ইনস্টাগ্রাম লিংক ক্লাউড ডাটাবেজে সিঙ্ক হয়েছে!</span>
+                                </div>
+                              ) : (
+                                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center space-x-2 text-rose-500">
+                                  <XCircle className="h-4 w-4 shrink-0" />
+                                  <span className="text-xs font-bold">সেভ করতে ব্যর্থ হয়েছে: {settingsSaveStatus.error}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSettingsTab === 'wa_number' && (
+                  <div className="animate-fade-in duration-300">
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <h3 className="text-sm font-extrabold pb-2 border-b border-inherit flex items-center space-x-2">
+                        <Phone className="h-4.5 w-4.5 text-[#25d366]" />
+                        <span>হোয়াটসঅ্যাপ নম্বর এড করুন (WhatsApp Configuration)</span>
+                      </h3>
+                      <p className="text-[11px] opacity-75 leading-relaxed">
+                        আপনার স্টোরের হোয়াটসঅ্যাপ বিজনেস নম্বরটি এখানে যুক্ত করুন। এটি স্টোরফ্রন্টে সরাসরি চ্যাট করার এবং কাস্টমার সাপোর্টের জন্য ব্যবহৃত হবে।
+                      </p>
+
+                      <div className="space-y-4 pt-2">
+                        <div>
+                          <label className="block text-[10px] font-bold opacity-75 mb-1.5 flex items-center gap-1">
+                            <span className="text-[#25d366]">🟢</span> হোয়াটসঅ্যাপ নম্বর (WhatsApp Number)
+                          </label>
+                          <input 
+                            type="text"
+                            value={settings.whatsappNumber || ""}
+                            placeholder="88017XXXXXXXX"
+                            onChange={(e) => setSettings(prev => ({ ...prev, whatsappNumber: e.target.value }))}
+                            className="w-full p-3 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-[#e07a5f] bg-transparent border-inherit font-bold"
+                          />
+                          <p className="text-[9px] opacity-50 mt-1.5 leading-tight">দেশীয় কোডসহ শুধু নম্বর দিন (যেমন: 8801792572306)</p>
+                        </div>
+
+                        <div className="pt-3 border-t border-inherit space-y-3">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setSettingsSaveStatus(null);
+                              const res = await supabaseService.upsertSettings(settings);
+                              setSettingsSaveStatus(res);
+                              
+                              if (res.success) {
+                                const newNotif = {
+                                  id: `notif-${Date.now()}`,
+                                  title: `হোয়াটসঅ্যাপ নম্বর সংরক্ষিত`,
+                                  message: `আপনার হোয়াটসঅ্যাপ নম্বর "${settings.whatsappNumber || ''}" সফলভাবে সুপাবেজ ক্লাউড ডাটাবেজে সেভ করা হয়েছে।`,
+                                  timestamp: new Date().toISOString(),
+                                  read: false,
+                                  type: 'info' as const
+                                };
+                                setNotifications(prev => [newNotif, ...prev]);
+                                try {
+                                  await supabaseService.upsertNotification(newNotif);
+                                } catch (_) {}
+                              }
+                            }}
+                            className="w-full py-3 bg-[#25d366] hover:bg-[#1ebd56] text-white font-extrabold rounded-2xl text-xs shadow-lg cursor-pointer flex items-center justify-center space-x-2 transition-all hover:scale-[1.01]"
+                          >
+                            <Save className="h-4 w-4" />
+                            <span>Save WhatsApp Number (সংরক্ষণ করুন)</span>
+                          </button>
+
+                          {settingsSaveStatus && (
+                            <div className="animate-fade-in">
+                              {settingsSaveStatus.success ? (
+                                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center space-x-2 text-emerald-500">
+                                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                  <span className="text-xs font-bold">হোয়াটসঅ্যাপ নম্বর ক্লাউড ডাটাবেজে সিঙ্ক হয়েছে!</span>
+                                </div>
+                              ) : (
+                                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center space-x-2 text-rose-500">
+                                  <XCircle className="h-4 w-4 shrink-0" />
+                                  <span className="text-xs font-bold">সেভ করতে ব্যর্থ হয়েছে: {settingsSaveStatus.error}</span>
                                 </div>
                               )}
                             </div>

@@ -16,6 +16,89 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://ytwgoolesgnkegeykp
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9Xwy1UomtTTsk-hogHBCaw_7_0Z4FyS';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+const DEFAULT_FALLBACK_PRODUCTS = [
+  {
+    id: "p1",
+    name: "প্রিমিয়াম ব্ল্যাক শার্ট (Premium Black Shirt)",
+    description: "১০০% কটন প্রিমিয়াম কাপড়ে তৈরি স্টাইলিশ ক্যাজুয়াল ও ফরমাল ব্ল্যাক শার্ট।",
+    price: 1250,
+    original_price: 1850,
+    stock: 45,
+    category: "Mens Shirt",
+    sales_count: 128,
+    rating: 4.8,
+    image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=800&q=80",
+    sizes: '["M","L","XL"]',
+    colors: '["Black"]',
+    fabric: "100% Cotton",
+    collection: "Summer 2025",
+    sku: "TZ-SHIRT-001",
+    is_new_arrival: true,
+    is_best_seller: true,
+    is_limited_edition: false
+  },
+  {
+    id: "p2",
+    name: "রয়্যাল ব্লু ফরমাল প্যান্ট (Royal Blue Formal Pants)",
+    description: "উচ্চমানের ফেব্রিক এবং নিখুঁত স্টিচিং সহ যেকোনো পার্টি বা অফিসের জন্য উপযোগী।",
+    price: 1650,
+    original_price: 2200,
+    stock: 30,
+    category: "Pants",
+    sales_count: 85,
+    rating: 4.7,
+    image: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?auto=format&fit=crop&w=800&q=80",
+    sizes: '["30","32","34"]',
+    colors: '["Royal Blue"]',
+    fabric: "Cotton Twill",
+    collection: "Formal Wear",
+    sku: "TZ-PANT-002",
+    is_new_arrival: false,
+    is_best_seller: true,
+    is_limited_edition: false
+  },
+  {
+    id: "p3",
+    name: "ক্লাসিক ট্রেন্ডি পাঞ্জাবি (Classic Trendy Panjabi)",
+    description: "ঈদ ও যেকোনো উৎসবের জন্য বিশেষ ডিজাইনার এমব্রয়ডারি ওয়ার্ক পাঞ্জাবি।",
+    price: 2450,
+    original_price: 3200,
+    stock: 20,
+    category: "Panjabi",
+    sales_count: 210,
+    rating: 4.9,
+    image: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80",
+    sizes: '["M","L","XL","XXL"]',
+    colors: '["Maroon","Navy Blue"]',
+    fabric: "Jacquard Cotton",
+    collection: "Festive Collection",
+    sku: "TZ-PJ-003",
+    is_new_arrival: true,
+    is_best_seller: true,
+    is_limited_edition: true
+  },
+  {
+    id: "p4",
+    name: "স্টাইলিশ স্লিম ফিট জিন্স (Slim Fit Denim Jeans)",
+    description: "প্রিমিয়াম ওয়াশ ও কমফোর্টেবল স্ট্রেচেবল ডেনিম জিন্স।",
+    price: 1850,
+    original_price: 2400,
+    stock: 50,
+    category: "Pants",
+    sales_count: 94,
+    rating: 4.6,
+    image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=800&q=80",
+    sizes: '["30","32","34","36"]',
+    colors: '["Deep Blue"]',
+    fabric: "Stretch Denim",
+    collection: "Casual Essential",
+    sku: "TZ-JEAN-004",
+    is_new_arrival: false,
+    is_best_seller: false,
+    is_limited_edition: false
+  }
+];
+
 let cachedProducts: any[] = [];
 let isCacheInitialized = false;
 let isFetchingProducts = false;
@@ -29,22 +112,31 @@ async function fetchProductsFromSupabase() {
   try {
     const { data, error } = await supabase.from('products').select('*');
     if (error) throw error;
-    if (data) {
+    if (data && data.length > 0) {
       cachedProducts = data;
       isCacheInitialized = true;
       console.log(`[MEMORY CACHE] Successfully cached ${data.length} products in memory.`);
+    } else if (cachedProducts.length === 0) {
+      cachedProducts = DEFAULT_FALLBACK_PRODUCTS;
+      isCacheInitialized = true;
     }
   } catch (err: any) {
     let errMsg = err?.message || err?.details || (typeof err === "object" ? JSON.stringify(err) : String(err));
     const errCode = err?.code ? `(Code: ${err.code})` : "";
-    if (errMsg.includes("<!DOCTYPE html") || errMsg.includes("<html") || errMsg.includes("Cloudflare") || errMsg.includes("521")) {
+    if (errMsg.includes("exceed_egress_quota")) {
+      errMsg = "Supabase project egress quota limit reached. Using active local cache fallback.";
+    } else if (errMsg.includes("<!DOCTYPE html") || errMsg.includes("<html") || errMsg.includes("Cloudflare") || errMsg.includes("521")) {
       errMsg = "Supabase database service is currently unreachable (HTTP 521 / Cloudflare gateway error).";
     } else if (errMsg.includes("canceling statement") || errMsg.includes("statement timeout") || err?.code === "57014") {
       errMsg = "Query cancelled due to statement timeout (heavy database load or massive payload).";
     } else if (errMsg.length > 200) {
       errMsg = errMsg.substring(0, 200) + "... (truncated)";
     }
-    console.warn(`[CACHE] Failed to fetch products from Supabase ${errCode}: ${errMsg} Using local file cache backup.`);
+    console.warn(`[CACHE] Local cache fallback active ${errCode}: ${errMsg}`);
+    if (cachedProducts.length === 0) {
+      cachedProducts = DEFAULT_FALLBACK_PRODUCTS;
+      isCacheInitialized = true;
+    }
   } finally {
     isFetchingProducts = false;
   }
