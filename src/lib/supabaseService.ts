@@ -434,8 +434,8 @@ export const supabaseService = {
       const { error } = await supabase.from('products').upsert(mapped);
       if (error) throw error;
       return true;
-    } catch (e) {
-      console.error('Supabase upsertProduct failed:', e);
+    } catch (e: any) {
+      console.warn('Supabase upsertProduct notice (local fallback active):', e?.message || e);
       return false;
     }
   },
@@ -445,8 +445,8 @@ export const supabaseService = {
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
       return true;
-    } catch (e) {
-      console.error('Supabase deleteProduct failed:', e);
+    } catch (e: any) {
+      console.warn('Supabase deleteProduct notice (local fallback active):', e?.message || e);
       return false;
     }
   },
@@ -470,8 +470,8 @@ export const supabaseService = {
       const { error } = await supabase.from('orders').upsert(mapped);
       if (error) throw error;
       return true;
-    } catch (e) {
-      console.error('Supabase upsertOrder failed:', e);
+    } catch (e: any) {
+      console.warn('Supabase upsertOrder notice (local fallback active):', e?.message || e);
       return false;
     }
   },
@@ -481,8 +481,8 @@ export const supabaseService = {
       const { error } = await supabase.from('orders').delete().eq('id', id);
       if (error) throw error;
       return true;
-    } catch (e) {
-      console.error('Supabase deleteOrder failed:', e);
+    } catch (e: any) {
+      console.warn('Supabase deleteOrder notice (local fallback active):', e?.message || e);
       return false;
     }
   },
