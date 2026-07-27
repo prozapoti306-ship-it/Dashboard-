@@ -10291,14 +10291,27 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                                   <div className="p-2.5 bg-black rounded-xl border border-neutral-800 space-y-1">
                                     <p className="text-[9px] text-gray-400 uppercase font-bold">নিচের SQL কোডটি কপি করে Supabase SQL Editor-এ রান করুন:</p>
                                     <pre className="text-[9px] font-mono text-emerald-400 whitespace-pre overflow-x-auto p-1 bg-neutral-950/50 rounded-lg">
-  {`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;
-  ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;`}
+  {`CREATE TABLE IF NOT EXISTS public.system_settings (
+  id TEXT PRIMARY KEY DEFAULT 'global',
+  currency TEXT DEFAULT 'BDT',
+  tax_rate NUMERIC DEFAULT 0,
+  low_stock_limit INT DEFAULT 5,
+  eye_protection_enabled BOOLEAN DEFAULT false,
+  blue_light_filter_level INT DEFAULT 50,
+  theme_mode TEXT DEFAULT 'dark',
+  brand_name TEXT DEFAULT 'TREND ZONE',
+  brand_logo TEXT,
+  tagline TEXT
+);
+ALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;
+ALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;
+ALTER TABLE public.system_settings DISABLE ROW LEVEL SECURITY;`}
                                     </pre>
                                     <div className="flex justify-end pt-1">
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          navigator.clipboard.writeText(`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;\nALTER TABLE system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;`);
+                                          navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS public.system_settings (\n  id TEXT PRIMARY KEY DEFAULT 'global',\n  currency TEXT DEFAULT 'BDT',\n  tax_rate NUMERIC DEFAULT 0,\n  low_stock_limit INT DEFAULT 5,\n  eye_protection_enabled BOOLEAN DEFAULT false,\n  blue_light_filter_level INT DEFAULT 50,\n  theme_mode TEXT DEFAULT 'dark',\n  brand_name TEXT DEFAULT 'TREND ZONE',\n  brand_logo TEXT,\n  tagline TEXT\n);\nALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT;\nALTER TABLE public.system_settings ADD COLUMN IF NOT EXISTS tagline TEXT;\nALTER TABLE public.system_settings DISABLE ROW LEVEL SECURITY;`);
                                           alert('SQL কোড ক্লিপবোর্ডে কপি হয়েছে!');
                                         }}
                                         className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-[9px] transition-colors"
