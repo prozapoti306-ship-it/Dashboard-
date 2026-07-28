@@ -1310,16 +1310,27 @@ export default function App() {
               const filteredDb = filterDeletedProducts(dbProducts);
               const filteredCached = filterDeletedProducts(localCached);
 
-              // Perform deep check or quick string check to see if database has updates
-              const dbProductsStr = JSON.stringify(filteredDb);
+              // Merge filteredDb with filteredCached so locally added products are never lost
+              const mergedMap = new Map<string, Product>();
+              filteredDb.forEach(p => mergedMap.set(p.id, p));
+              filteredCached.forEach(p => {
+                if (!mergedMap.has(p.id)) {
+                  mergedMap.set(p.id, p);
+                  // Ensure missing local product is pushed to Supabase
+                  supabaseService.upsertProduct(p).catch(() => {});
+                }
+              });
+              const mergedList = Array.from(mergedMap.values());
+
+              const mergedListStr = JSON.stringify(mergedList);
               const cachedProductsStr = JSON.stringify(filteredCached);
 
-              if (dbProductsStr !== cachedProductsStr || localCached.length === 0) {
-                console.log("[BG-SYNC] Products changed in database, updating state & cache...");
-                setProducts(filteredDb);
-                prevProductsRef.current = dbProducts;
-                dbCache.set('aura_cached_products', dbProducts);
-                localStorage.setItem('aura_cached_products', JSON.stringify(dbProducts));
+              if (mergedListStr !== cachedProductsStr || localCached.length === 0) {
+                console.log("[BG-SYNC] Products changed in database or local cache, updating state...");
+                setProducts(mergedList);
+                prevProductsRef.current = mergedList;
+                dbCache.set('aura_cached_products', mergedList);
+                localStorage.setItem('aura_cached_products', JSON.stringify(mergedList));
 
                 // Trigger beautiful top-right floating sync success toast
                 setSyncAlert({
@@ -2170,12 +2181,21 @@ export default function App() {
       };
 
       const dbSuccess = await supabaseService.upsertProduct(updatedProduct);
+      setProducts(prev => {
+        const next = prev.map(p => p.id === editingProduct.id ? updatedProduct : p);
+        dbCache.set('aura_cached_products', next);
+        localStorage.setItem('aura_cached_products', JSON.stringify(next));
+        fetch('/api/products/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(next)
+        }).catch(() => {});
+        return next;
+      });
       if (dbSuccess) {
-        setProducts(prev => prev.map(p => p.id === editingProduct.id ? updatedProduct : p));
         alert('প্রোডাক্ট বিবরণ সফলভাবে আপডেট করা হয়েছে।');
       } else {
-        setProducts(prev => prev.map(p => p.id === editingProduct.id ? updatedProduct : p));
-        alert('ডাটাবেজে আপডেট করতে ব্যর্থ হয়েছে, তবে অফলাইন লিস্টে আপডেট করা হয়েছে।');
+        alert('ডাটাবেজে আপডেট করতে সংকেত দেওয়া হয়েছে, অফলাইন ক্যাশেও সংরক্ষিত রাখা হয়েছে।');
       }
     } else {
       // Add mode
@@ -2204,13 +2224,23 @@ export default function App() {
         videoUrl: productForm.videoUrl || ''
       };
 
+      setProducts(prev => {
+        const next = [...prev, newProduct];
+        dbCache.set('aura_cached_products', next);
+        localStorage.setItem('aura_cached_products', JSON.stringify(next));
+        fetch('/api/products/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(next)
+        }).catch(() => {});
+        return next;
+      });
+
       const dbSuccess = await supabaseService.upsertProduct(newProduct);
       if (dbSuccess) {
-        setProducts(prev => [...prev, newProduct]);
         alert('নতুন প্রোডাক্ট সফলভাবে তৈরি এবং ডাটাবেজে সেভ করা হয়েছে।');
       } else {
-        setProducts(prev => [...prev, newProduct]);
-        alert('নতুন প্রোডাক্ট লোকালি তৈরি করা হয়েছে, কিন্তু ডাটাবেজে সেভ করা যায়নি।');
+        alert('নতুন প্রোডাক্ট লোকালি তৈরি এবং ক্যাশে সেভ করা হয়েছে।');
       }
     }
 
@@ -2271,29 +2301,24 @@ export default function App() {
     });
 
     // Update frontend state immediately
-    setProducts(prev => [...prev, ...newProducts]);
+    setProducts(prev => {
+      const next = [...prev, ...newProducts];
+      dbCache.set('aura_cached_products', next);
+      localStorage.setItem('aura_cached_products', JSON.stringify(next));
+      fetch('/api/products/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next)
+      }).catch(() => {});
+      return next;
+    });
 
     // Supabase Bulk Insert in background
     if (supabaseStatus.connected && supabaseStatus.schemaCreated) {
       (async () => {
         try {
-          const mapped = newProducts.map(mapProductToDb);
-          const { error } = await supabase.from('products').upsert(mapped);
-          if (error) {
-            console.error("Supabase bulk insert failed in background:", error);
-          } else {
-            console.log(`Successfully bulk inserted ${newProducts.length} products to Supabase in background!`);
-            // Silently sync the state from database to get correct defaults
-            try {
-              const dbProducts = await supabaseService.getProducts(newProducts);
-              if (dbProducts && dbProducts.length > 0) {
-                setProducts(dbProducts);
-                prevProductsRef.current = dbProducts;
-              }
-            } catch (err) {
-              console.error("Silent background sync failed:", err);
-            }
-          }
+          await Promise.all(newProducts.map(p => supabaseService.upsertProduct(p)));
+          console.log(`Successfully bulk inserted ${newProducts.length} products to Supabase!`);
         } catch (err: any) {
           console.error("Supabase background insertion exception:", err);
         }

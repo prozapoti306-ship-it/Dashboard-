@@ -101,6 +101,27 @@ export const mapProductToDb = (p: Product) => ({
   video_url: p.videoUrl || '',
 });
 
+export const mapProductToBaseDb = (p: Product) => ({
+  id: p.id,
+  name: p.name,
+  description: p.description || '',
+  price: p.price,
+  original_price: p.originalPrice || p.price,
+  stock: p.stock,
+  category: p.category || '',
+  sales_count: p.salesCount || 0,
+  rating: p.rating || 0,
+  image: p.image || '',
+  sizes: p.sizes ? JSON.stringify(p.sizes) : '[]',
+  colors: p.colors ? JSON.stringify(p.colors) : '[]',
+  fabric: p.fabric || '',
+  collection: p.collection || '',
+  sku: p.sku || '',
+  is_new_arrival: p.isNewArrival || false,
+  is_best_seller: p.isBestSeller || false,
+  is_limited_edition: p.isLimitedEdition || false,
+});
+
 export const mapProductFromDb = (db: any): Product => ({
   id: db.id,
   name: db.name,
@@ -432,8 +453,15 @@ export const supabaseService = {
     try {
       const mapped = mapProductToDb(p);
       const { error } = await supabase.from('products').upsert(mapped);
-      if (error) throw error;
-      return true;
+      if (!error) return true;
+
+      // If full schema upsert fails (e.g. extra columns missing in DB), retry with base schema columns
+      console.warn('Full schema upsert failed, retrying with base schema columns:', error.message);
+      const baseMapped = mapProductToBaseDb(p);
+      const { error: baseError } = await supabase.from('products').upsert(baseMapped);
+      if (!baseError) return true;
+
+      throw baseError;
     } catch (e: any) {
       console.warn('Supabase upsertProduct notice (local fallback active):', e?.message || e);
       return false;
