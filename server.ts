@@ -185,6 +185,113 @@ app.get("/api/products", async (req, res) => {
   res.json(cachedProducts);
 });
 
+// XML / RSS Product Catalog Feed Generator for Meta Facebook & Instagram Carousel Ads
+function escapeXml(unsafe: any): string {
+  if (unsafe === null || unsafe === undefined) return '';
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+app.get(["/api/catalog.xml", "/api/facebook-feed.xml", "/feed.xml"], async (req, res) => {
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60');
+
+  if (!isCacheInitialized) {
+    const fetchPromise = fetchProductsFromSupabase();
+    await Promise.race([
+      fetchPromise,
+      new Promise(resolve => setTimeout(resolve, 1000))
+    ]);
+  }
+
+  const host = req.headers.host || 'ais-dev-bjhayjgyqjzxyngkt2dtco-149101609211.asia-east1.run.app';
+  const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+  const baseUrl = `${protocol}://${host}`;
+
+  const productsList = cachedProducts.length > 0 ? cachedProducts : DEFAULT_FALLBACK_PRODUCTS;
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  xml += `<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n`;
+  xml += `  <channel>\n`;
+  xml += `    <title>Trend Zone Store Meta Product Catalog</title>\n`;
+  xml += `    <link>${baseUrl}</link>\n`;
+  xml += `    <description>Facebook &amp; Instagram Carousel Ads Dynamic Product Feed</description>\n`;
+
+  productsList.forEach((prod: any) => {
+    const pId = prod.id || prod.sku || `p_${Math.random()}`;
+    const pTitle = escapeXml(prod.name || 'Trend Zone Product');
+    const pDesc = escapeXml(prod.description || prod.name || 'Premium quality product');
+    const pLink = `${baseUrl}/?product=${encodeURIComponent(pId)}`;
+    const pImage = prod.image || 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=800&q=80';
+    const pPrice = `${prod.price || 0} BDT`;
+    const pOrigPrice = prod.original_price ? `${prod.original_price} BDT` : pPrice;
+    const pBrand = escapeXml(prod.brand || 'Trend Zone');
+    const pCategory = escapeXml(prod.category || 'Apparel');
+    const pInStock = (prod.stock !== undefined ? prod.stock > 0 : true) ? 'in stock' : 'out of stock';
+
+    xml += `    <item>\n`;
+    xml += `      <g:id>${escapeXml(pId)}</g:id>\n`;
+    xml += `      <g:title>${pTitle}</g:title>\n`;
+    xml += `      <g:description>${pDesc}</g:description>\n`;
+    xml += `      <g:link>${escapeXml(pLink)}</g:link>\n`;
+    xml += `      <g:image_link>${escapeXml(pImage)}</g:image_link>\n`;
+    xml += `      <g:brand>${pBrand}</g:brand>\n`;
+    xml += `      <g:condition>new</g:condition>\n`;
+    xml += `      <g:availability>${pInStock}</g:availability>\n`;
+    xml += `      <g:price>${pOrigPrice}</g:price>\n`;
+    xml += `      <g:sale_price>${pPrice}</g:sale_price>\n`;
+    xml += `      <g:product_type>${pCategory}</g:product_type>\n`;
+    xml += `    </item>\n`;
+  });
+
+  xml += `  </channel>\n`;
+  xml += `</rss>`;
+
+  res.send(xml);
+});
+
+// CSV Catalog Feed Generator Endpoint for Meta Ads
+app.get("/api/catalog.csv", async (req, res) => {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="facebook_catalog_feed.csv"');
+
+  if (!isCacheInitialized) {
+    const fetchPromise = fetchProductsFromSupabase();
+    await Promise.race([
+      fetchPromise,
+      new Promise(resolve => setTimeout(resolve, 1000))
+    ]);
+  }
+
+  const host = req.headers.host || 'ais-dev-bjhayjgyqjzxyngkt2dtco-149101609211.asia-east1.run.app';
+  const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+  const baseUrl = `${protocol}://${host}`;
+
+  const productsList = cachedProducts.length > 0 ? cachedProducts : DEFAULT_FALLBACK_PRODUCTS;
+
+  let csv = `id,title,description,availability,condition,price,sale_price,link,image_link,brand\n`;
+
+  productsList.forEach((prod: any) => {
+    const pId = prod.id || prod.sku;
+    const pTitle = `"${(prod.name || '').replace(/"/g, '""')}"`;
+    const pDesc = `"${(prod.description || '').replace(/"/g, '""')}"`;
+    const pInStock = (prod.stock !== undefined ? prod.stock > 0 : true) ? 'in stock' : 'out of stock';
+    const pPrice = `"${prod.original_price || prod.price || 0} BDT"`;
+    const pSalePrice = `"${prod.price || 0} BDT"`;
+    const pLink = `"${baseUrl}/?product=${encodeURIComponent(pId)}"`;
+    const pImage = `"${prod.image || ''}"`;
+    const pBrand = `"${(prod.brand || 'Trend Zone').replace(/"/g, '""')}"`;
+
+    csv += `${pId},${pTitle},${pDesc},${pInStock},new,${pPrice},${pSalePrice},${pLink},${pImage},${pBrand}\n`;
+  });
+
+  res.send(csv);
+});
+
 // Grouped products API by category for section-based homepage with cache headers
 app.get("/api/products/grouped", async (req, res) => {
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=30');

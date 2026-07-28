@@ -11109,7 +11109,7 @@ ALTER TABLE public.system_settings DISABLE ROW LEVEL SECURITY;`}
                 )}
 
                 {activeSettingsTab === 'meta_tracking' && (
-                  <div className="animate-fade-in duration-300">
+                  <div className="animate-fade-in duration-300 space-y-6">
                     <div className={`p-6 rounded-[2.5rem] border space-y-4
                       ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
                     >
@@ -11120,7 +11120,7 @@ ALTER TABLE public.system_settings DISABLE ROW LEVEL SECURITY;`}
                       
                       <div className="space-y-4">
                         <p className="text-[11px] opacity-70 leading-relaxed">
-                          আইওএস চৌদ্দ (iOS 14) পরবর্তী আপডেটের জন্য ব্রাউজার ট্র্যাক ট্র্যাকিংয়ের পাশাপাশি মেটা কনভার্সন এপিআই (CAPI) ট্র্যাকিং অত্যন্ত গুরুত্বপূর্ণ।
+                          আইওএস চৌদ্দ (iOS 14) পরবর্তী আপডেটের জন্য ব্রাউজার ট্র্যাকিংয়ের পাশাপাশি মেটা কনভার্সন এপিআই (CAPI) ট্র্যাকিং অত্যন্ত গুরুত্বপূর্ণ।
                         </p>
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -11156,7 +11156,7 @@ ALTER TABLE public.system_settings DISABLE ROW LEVEL SECURITY;`}
                           </div>
                         </div>
 
-                        <div className="pt-3 border-t border-inherit">
+                        <div className="pt-3 border-t border-inherit flex flex-wrap items-center gap-3">
                           <button
                             type="button"
                             disabled={isSavingTracking}
@@ -11178,11 +11178,171 @@ ALTER TABLE public.system_settings DISABLE ROW LEVEL SECURITY;`}
                                 alert('সংরক্ষণ করতে সমস্যা হয়েছে!');
                               }
                             }}
-                            className="w-full sm:w-auto px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md"
+                            className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-[11px] font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md"
                           >
                             <Save className="h-3.5 w-3.5" />
-                            <span>{isSavingTracking ? 'সংরক্ষণ হচ্ছে...' : 'মেটা সেটিংস সংরক্ষণ করুন (Save Meta)'}</span>
+                            <span>{isSavingTracking ? 'সংরক্ষণ হচ্ছে...' : 'মেটা পিক্সেল সেভ করুন (Save Meta Pixel)'}</span>
                           </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if ((window as any).fbq) {
+                                (window as any).fbq('track', 'PageView');
+                                alert('✅ টেস্ট ফেবু পিক্সেল Event ট্র্রিগার হয়েছে! FB Pixel Helper এক্সটেনশনে চেক করতে পারেন।');
+                              } else {
+                                alert('⚠️ ফেবু পিক্সেল এখনও ব্রাউজারে লোড হয়নি। Pixel ID সঠিক কিনা যাচাই করুন।');
+                              }
+                            }}
+                            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-xl text-[11px] font-bold transition-all flex items-center space-x-1.5 cursor-pointer"
+                          >
+                            <span>⚡ পিক্সেল টেস্ট করুন (Test Pixel Event)</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 🚀 Meta Facebook Carousel & Dynamic Catalog Ads Feed Section */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-5
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-inherit pb-3">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 uppercase">
+                              Automated Dynamic Catalog Feed
+                            </span>
+                          </div>
+                          <h3 className="text-sm font-extrabold text-sky-500 mt-1 flex items-center space-x-2">
+                            <span>🛍️ ফেসবুক ক্যাটালগ ও প্রডাক্ট ক্যারোসল এডস (Meta Carousel Ads Feed)</span>
+                          </h3>
+                        </div>
+                        <span className="text-[10px] font-bold opacity-60 bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-xl border border-emerald-500/20 font-mono">
+                          Auto-Sync Active ({products.length} Products)
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] opacity-75 leading-relaxed">
+                        ফেসবুক এবং ইনস্টাগ্রাম কমার্স ম্যানেজারে (Meta Commerce Manager) এই ক্যাটালগ ফিল্ড ইউআরএল যোগ করলে আপনার সমস্ত প্রোডাক্ট অটোমেটিক ফেবু ক্যাটালগে সিঙ্ক হয়ে যাবে। এতে করে সহজেই ফেবু এডস ম্যানেজার থেকে <strong>Carousel Ads</strong> এবং <strong>Advantage+ Catalog Ads</strong> রান করতে পারবেন!
+                      </p>
+
+                      {/* Feed URLs Display */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* XML Feed URL */}
+                        <div className="p-4 rounded-2xl bg-black/20 border border-inherit space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-sky-400 font-mono">XML Feed (Primary for Meta Catalog)</span>
+                            <span className="text-[9px] opacity-50 font-mono">RSS 2.0 Standard</span>
+                          </div>
+                          <input 
+                            type="text" 
+                            readOnly 
+                            value={`${window.location.origin}/api/catalog.xml`}
+                            className="w-full p-2 bg-black/40 border border-white/10 rounded-xl text-xs font-mono text-neutral-300 focus:outline-none"
+                          />
+                          <div className="flex items-center space-x-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/api/catalog.xml`);
+                                alert('📋 XML ক্যাটালগ লিংক ক্লিপবোর্ডে কপি হয়েছে!');
+                              }}
+                              className="flex-1 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[10px] font-extrabold transition-all cursor-pointer"
+                            >
+                              📋 XML Feed Link কপি করুন
+                            </button>
+                            <a 
+                              href="/api/catalog.xml" 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600 rounded-lg text-[10px] font-extrabold transition-all"
+                            >
+                              👁️ Live Feed দেখুন
+                            </a>
+                          </div>
+                        </div>
+
+                        {/* CSV Feed URL */}
+                        <div className="p-4 rounded-2xl bg-black/20 border border-inherit space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-emerald-400 font-mono">CSV Feed (Alternative Format)</span>
+                            <span className="text-[9px] opacity-50 font-mono">Comma Separated</span>
+                          </div>
+                          <input 
+                            type="text" 
+                            readOnly 
+                            value={`${window.location.origin}/api/catalog.csv`}
+                            className="w-full p-2 bg-black/40 border border-white/10 rounded-xl text-xs font-mono text-neutral-300 focus:outline-none"
+                          />
+                          <div className="flex items-center space-x-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/api/catalog.csv`);
+                                alert('📋 CSV ক্যাটালগ লিংক ক্লিপবোর্ডে কপি হয়েছে!');
+                              }}
+                              className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-extrabold transition-all cursor-pointer"
+                            >
+                              📋 CSV Feed Link কপি করুন
+                            </button>
+                            <a 
+                              href="/api/catalog.csv" 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-600 rounded-lg text-[10px] font-extrabold transition-all"
+                            >
+                              ⬇️ CSV ডাওনলোড করুন
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step by step guide for Meta Ads in Bengali */}
+                      <div className="pt-4 border-t border-inherit space-y-3">
+                        <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center space-x-2">
+                          <span>📖 কীভাবে মেটা (Facebook) অ্যাডস ম্যানেজার এ ক্যারোসল এডস রান করবেন:</span>
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                          <div className="p-3.5 rounded-2xl bg-black/30 border border-white/5 space-y-1.5">
+                            <div className="flex items-center space-x-1.5 text-sky-400 font-bold">
+                              <span className="h-5 w-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-mono">1</span>
+                              <span>Meta Commerce Manager</span>
+                            </div>
+                            <p className="text-[10px] opacity-70 leading-normal">
+                              business.facebook.com-এ গিয়ে Commerce Manager সিলেক্ট করে Add Catalog-এ ক্লিক করুন।
+                            </p>
+                          </div>
+
+                          <div className="p-3.5 rounded-2xl bg-black/30 border border-white/5 space-y-1.5">
+                            <div className="flex items-center space-x-1.5 text-sky-400 font-bold">
+                              <span className="h-5 w-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-mono">2</span>
+                              <span>Data Feed Link পেস্ট</span>
+                            </div>
+                            <p className="text-[10px] opacity-70 leading-normal">
+                              Data Sources &gt; Data Feed সিলেক্ট করে উপরের <strong>XML Link</strong>-টি পেস্ট করুন এবং Schedule (Hourly/Daily) সেট করুন।
+                            </p>
+                          </div>
+
+                          <div className="p-3.5 rounded-2xl bg-black/30 border border-white/5 space-y-1.5">
+                            <div className="flex items-center space-x-1.5 text-sky-400 font-bold">
+                              <span className="h-5 w-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-mono">3</span>
+                              <span>Create Campaign</span>
+                            </div>
+                            <p className="text-[10px] opacity-70 leading-normal">
+                              Ads Manager-এ গিয়ে Sales Campaign সিলেক্ট করুন এবং Creative Type-এ <strong>Carousel</strong> অথবা <strong>Advantage+ Catalog</strong> বাছুন।
+                            </p>
+                          </div>
+
+                          <div className="p-3.5 rounded-2xl bg-black/30 border border-white/5 space-y-1.5">
+                            <div className="flex items-center space-x-1.5 text-sky-400 font-bold">
+                              <span className="h-5 w-5 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px] font-mono">4</span>
+                              <span>Direct Product Order</span>
+                            </div>
+                            <p className="text-[10px] opacity-70 leading-normal">
+                              কাস্টমার ক্যারোসল কার্ডে ক্লিক করলেই সরাসরি ওয়েবসাইটের নির্দিষ্ট প্রডাক্ট পেজে চলে আসবে এবং অর্ডার প্লেস করতে পারবে!
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
