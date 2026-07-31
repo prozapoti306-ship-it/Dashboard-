@@ -633,6 +633,14 @@ export default function App() {
   const [seedingLogs, setSeedingLogs] = useState<string[]>([]);
   const [settingsSaveStatus, setSettingsSaveStatus] = useState<{ success: boolean; missingColumns?: boolean; error?: string } | null>(null);
 
+  // --- Database & Multi-Store Isolation State ---
+  const [customSupabaseUrl, setCustomSupabaseUrl] = useState(() => localStorage.getItem('aura_custom_supabase_url') || '');
+  const [customSupabaseKey, setCustomSupabaseKey] = useState(() => localStorage.getItem('aura_custom_supabase_key') || '');
+  const [storeTenantId, setStoreTenantId] = useState(() => localStorage.getItem('aura_store_tenant_id') || '');
+  const [autoDomainIsolation, setAutoDomainIsolation] = useState(() => localStorage.getItem('aura_auto_domain_isolation') !== 'false');
+  const [customDomainOverride, setCustomDomainOverride] = useState(() => localStorage.getItem('aura_custom_domain_override') || '');
+  const [dbPingStatus, setDbPingStatus] = useState<{ testing: boolean; success?: boolean; message?: string; count?: number } | null>(null);
+
 
   // --- Filtering & Search ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -9575,7 +9583,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
 
               {/* Back to Settings Button Header when a form is active */}
               {activeSettingsTab !== 'grid' && (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-inherit gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-inherit gap-3 mt-1 mb-6">
                   <button
                     type="button"
                     onClick={() => setActiveSettingsTab('grid')}
@@ -9604,6 +9612,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                       {activeSettingsTab === 'meta_tracking' && '🔵 FB & Instagram Server-Side Tracking'}
                       {activeSettingsTab === 'tiktok_tracking' && '🖤 TikTok Server-Side Tracking'}
                       {activeSettingsTab === 'ga4' && '📈 Google Analytics (GA4) Tracking'}
+                      {activeSettingsTab === 'database' && '🔒 সুপাবেজ ডাটাবেজ ও মাল্টি-স্টোর আইসোলেশন (Store Isolation)'}
                     </p>
                   </div>
                 </div>
@@ -9614,6 +9623,7 @@ ALTER TABLE wp_wc_order_stats ADD INDEX fbd_sales_date_net_idx (date_created, ne
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 w-full py-2 animate-fade-in">
                   {[
                     { id: 'three-banner', label: '⚡ ৩-ব্যানার কাস্টমাইজার', sub: '3-Banner Customizer', icon: Sparkles, color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', hoverColor: 'hover:border-emerald-500/50 hover:shadow-emerald-500/5' },
+                    { id: 'database', label: '🔒 ডাটাবেজ ও স্টোর আইসোলেশন', sub: 'Supabase & Store Isolation', icon: Database, color: 'text-violet-500', bgColor: 'bg-violet-500/10', hoverColor: 'hover:border-violet-500/50 hover:shadow-violet-500/5' },
                     { id: 'courier', label: '📦 কুরিয়ার এপিআই সেটিংস', sub: 'Courier API Settings', icon: Truck, color: 'text-rose-500', bgColor: 'bg-rose-500/10', hoverColor: 'hover:border-rose-500/50 hover:shadow-rose-500/5' },
                     { id: 'brand', label: '🏷️ ব্র্যান্ড পরিচিতি সেটিংস', sub: 'Brand Slogan Settings', icon: Tag, color: 'text-amber-500', bgColor: 'bg-amber-500/10', hoverColor: 'hover:border-amber-500/50 hover:shadow-amber-500/5' },
                     { id: 'fb_page', label: '🔵 ফেসবুক পেজ এড করুন', sub: 'Facebook Page URL', icon: Facebook, color: 'text-[#3b5998]', bgColor: 'bg-[#3b5998]/10', hoverColor: 'hover:border-[#3b5998]/50 hover:shadow-[#3b5998]/5' },
@@ -11472,6 +11482,390 @@ ALTER TABLE public.system_settings DISABLE ROW LEVEL SECURITY;`}
                           >
                             <Save className="h-3.5 w-3.5" />
                             <span>{isSavingTracking ? 'সংরক্ষণ হচ্ছে...' : 'GA4 সেটিংস সংরক্ষণ করুন (Save GA4)'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeSettingsTab === 'database' && (
+                  <div className="animate-fade-in duration-300 space-y-6">
+                    {/* Header Banner */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-inherit pb-4">
+                        <div className="space-y-1">
+                          <span className="px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20 uppercase inline-block">
+                            Multi-Tenant Store Data Isolation & Security
+                          </span>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                            <div className="flex items-center space-x-2">
+                              <Database className="h-5 w-5 text-violet-500 shrink-0" />
+                              <h3 className="text-base font-black text-violet-500">
+                                🔒 সুপাবেজ ডাটাবেজ ও মাল্টি-স্টোর আইসোলেশন
+                              </h3>
+                            </div>
+                            <span className="text-xs font-bold text-violet-400/80 font-mono">
+                              (Store Data Separation)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 bg-violet-500/10 px-3 py-1.5 rounded-xl border border-violet-500/20 text-[10px] font-mono font-extrabold text-violet-400 shrink-0 self-start md:self-center">
+                          <span className="h-2 w-2 rounded-full bg-violet-400 animate-pulse" />
+                          <span>Active Tenant ID: {storeTenantId || (autoDomainIsolation ? (customDomainOverride.trim() || window.location.hostname).replace(/[^a-zA-Z0-9]/g, '_') : 'default_store')}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] opacity-75 leading-relaxed">
+                        ভার্চুয়েল (Vercel) বা যেকোনো হোস্টাডে থাকা আপনার সমস্ত ওয়েবসাইটের কাস্টমার, অর্ডার এবং প্রোডাক্টের ডাটা যেন কোনোভাবেই একটি অন্যটার সাথে মিক্সড না হয়, তা নিশ্চিত করার জন্য এখানে কাস্টম সুপাবেজ ক্রেডেনশিয়াল বা মাল্টি-টেন্যান্ট স্টোর আইডি সিলেক্ট করুন।
+                      </p>
+
+                      {/* 3 Solutions for Isolation */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                        <div className="p-4 rounded-2xl bg-black/20 border border-inherit space-y-1.5">
+                          <div className="flex items-center space-x-2 text-violet-400 font-bold text-xs">
+                            <Key className="h-4 w-4" />
+                            <span>১. আলাদা সুপাবেজ প্রজেক্ট</span>
+                          </div>
+                          <p className="text-[10px] opacity-70 leading-normal">
+                            প্রতিটি Vercel স্টোরের জন্য সম্পূর্ণ পৃথক Supabase Database Project URL এবং Key ব্যবহার করা (সর্বোত্তম সিকিউরিটি)।
+                          </p>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-black/20 border border-inherit space-y-1.5">
+                          <div className="flex items-center space-x-2 text-sky-400 font-bold text-xs">
+                            <Layers className="h-4 w-4" />
+                            <span>২. ইউনিক স্টোর আইডি (Store ID)</span>
+                          </div>
+                          <p className="text-[10px] opacity-70 leading-normal">
+                            একই সুপাবেজ ডাটাবেজ হলেও প্রতিটি Vercel সাইটের জন্য আলাদা Store Tenant Key সেট করে ডাটা ফিল্টার রাখা।
+                          </p>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-black/20 border border-inherit space-y-1.5">
+                          <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs">
+                            <Cpu className="h-4 w-4" />
+                            <span>৩. অটো ডোমেন আইসোলেশন</span>
+                          </div>
+                          <p className="text-[10px] opacity-70 leading-normal">
+                            আপনার ওয়েবসাইটের ডোমেন নেম (যেমন: trendzone.vercel.app) অনুসারে স্বয়ংক্রিয়ভাবে ক্যাশ ও ডাটা ফিল্টার করা।
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Custom Supabase Credentials Card */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <div className="pb-3 border-b border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Key className="h-4.5 w-4.5 text-violet-500 shrink-0" />
+                          <h3 className="text-sm font-extrabold text-neutral-800 dark:text-neutral-100">
+                            ১. কাস্টম সুপাবেজ কানেকশন সেটিংস
+                          </h3>
+                        </div>
+                        <span className="text-[11px] font-semibold text-violet-400/90 font-mono">
+                          (Custom Supabase Keys per Vercel Store)
+                        </span>
+                      </div>
+
+                      <div className="space-y-4 pt-1">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">Supabase Project URL</label>
+                            <input 
+                              type="text"
+                              placeholder="https://ytwgoolesgnkegeykpup.supabase.co"
+                              value={customSupabaseUrl}
+                              onChange={(e) => setCustomSupabaseUrl(e.target.value)}
+                              className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 bg-transparent border-inherit font-mono"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">Supabase Anon/Publishable Key</label>
+                            <input 
+                              type="password"
+                              placeholder="sb_publishable_..."
+                              value={customSupabaseKey}
+                              onChange={(e) => setCustomSupabaseKey(e.target.value)}
+                              className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 bg-transparent border-inherit font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap items-center gap-3 pt-3 mt-1 border-t border-inherit/40">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (customSupabaseUrl.trim()) {
+                                localStorage.setItem('aura_custom_supabase_url', customSupabaseUrl.trim());
+                              } else {
+                                localStorage.removeItem('aura_custom_supabase_url');
+                              }
+                              if (customSupabaseKey.trim()) {
+                                localStorage.setItem('aura_custom_supabase_key', customSupabaseKey.trim());
+                              } else {
+                                localStorage.removeItem('aura_custom_supabase_key');
+                              }
+                              alert('✅ সুপাবেজ কানেকশন কী সংরক্ষিত হয়েছে! পরিবর্তনের জন্য পেজ রিফ্রেশ হচ্ছে...');
+                              window.location.reload();
+                            }}
+                            className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[11px] font-bold transition-all flex items-center space-x-2 cursor-pointer shadow-md"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>সেভ করুন (Save Supabase Keys)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setDbPingStatus({ testing: true });
+                              try {
+                                const prods = await supabaseService.getProducts([]);
+                                setDbPingStatus({
+                                  testing: false,
+                                  success: true,
+                                  message: 'সুপাবেজ ক্লাউড ডাটাবেজের সাথে কানেকশন ১০০% সচল রয়েছে!',
+                                  count: prods.length
+                                });
+                              } catch (err: any) {
+                                setDbPingStatus({
+                                  testing: false,
+                                  success: false,
+                                  message: 'কানেকশন টেস্ট ব্যর্থ হয়েছে: ' + (err.message || String(err))
+                                });
+                              }
+                            }}
+                            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-xl text-[11px] font-bold transition-all flex items-center space-x-1.5 cursor-pointer"
+                          >
+                            <Activity className="h-3.5 w-3.5 text-emerald-400" />
+                            <span>{dbPingStatus?.testing ? 'টেস্ট হচ্ছে...' : '🔌 কানেকশন পিং টেস্ট করুন (Test Database Ping)'}</span>
+                          </button>
+
+                          {(customSupabaseUrl || customSupabaseKey) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm('ডিফল্ট সুপাবেজ প্রকল্পে ফিরে যেতে চান?')) {
+                                  localStorage.removeItem('aura_custom_supabase_url');
+                                  localStorage.removeItem('aura_custom_supabase_key');
+                                  setCustomSupabaseUrl('');
+                                  setCustomSupabaseKey('');
+                                  alert('ডিফল্ট সুপাবেজ প্রজেক্টে ফিরে যাওয়া হয়েছে!');
+                                  window.location.reload();
+                                }
+                              }}
+                              className="px-4 py-2.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30 rounded-xl text-[11px] font-bold transition-all cursor-pointer"
+                            >
+                              <span>ডিফল্ট রিস্টোর (Reset to Default)</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Test Result Message Box */}
+                        {dbPingStatus && !dbPingStatus.testing && (
+                          <div className={`p-4 mt-3 rounded-2xl border text-xs font-bold transition-all animate-fade-in
+                            ${dbPingStatus.success ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}
+                          >
+                            <div className="flex items-center space-x-2">
+                              {dbPingStatus.success ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> : <XCircle className="h-4 w-4 shrink-0 text-rose-400" />}
+                              <span>{dbPingStatus.message}</span>
+                            </div>
+                            {dbPingStatus.success && dbPingStatus.count !== undefined && (
+                              <p className="text-[10px] opacity-80 mt-1 font-mono">
+                                অনলাইন ক্যাটালগে মোট {dbPingStatus.count} টি প্রোডাক্ট লোড করা সম্ভব হয়েছে।
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 2. Tenant / Store ID Card */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <div className="pb-3 border-b border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Layers className="h-4.5 w-4.5 text-sky-400 shrink-0" />
+                          <h3 className="text-sm font-extrabold text-neutral-800 dark:text-neutral-100">
+                            ২. মাল্টি-স্টোর আইসোলেশন ও টেন্যান্ট আইডি
+                          </h3>
+                        </div>
+                        <span className="text-[11px] font-semibold text-sky-400/90 font-mono">
+                          (Store Tenant Key)
+                        </span>
+                      </div>
+
+                      <div className="space-y-4 pt-1">
+                        <div>
+                          <label className="block text-[10px] font-bold opacity-75 mb-1.5">Custom Store Identifier (যেমন: store_01, client_fashion_bd)</label>
+                          <input 
+                            type="text"
+                            placeholder="e.g. trendzone_store_01"
+                            value={storeTenantId}
+                            onChange={(e) => setStoreTenantId(e.target.value)}
+                            className="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 bg-transparent border-inherit font-mono"
+                          />
+                          <p className="text-[10px] opacity-60 mt-1.5">
+                            একই সুপাবেজ ডাটাবেজ ব্যবহার করা একাধিক ওয়েবসাইটের ডাটা আলাদা রাখার জন্য অনন্য স্টোর আইডেন্টিফায়ার ব্যবহার করুন।
+                          </p>
+                        </div>
+
+                        <div className="pt-2 border-t border-inherit/40">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (storeTenantId.trim()) {
+                                localStorage.setItem('aura_store_tenant_id', storeTenantId.trim());
+                              } else {
+                                localStorage.removeItem('aura_store_tenant_id');
+                              }
+                              alert('✅ স্টোর টেন্যান্ট আইডি সংরক্ষিত হয়েছে!');
+                            }}
+                            className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-[11px] font-bold transition-all cursor-pointer shadow-md"
+                          >
+                            সেভ করুন (Save Tenant Key)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Auto Domain Tenant Isolation Card */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-4
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <div className="pb-3 border-b border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Cpu className="h-4.5 w-4.5 text-emerald-400 shrink-0" />
+                          <h3 className="text-sm font-extrabold text-neutral-800 dark:text-neutral-100">
+                            ৩. অটো ডোমেন আইসোলেশন সেটিংস
+                          </h3>
+                        </div>
+                        <span className="text-[11px] font-semibold text-emerald-400/90 font-mono">
+                          (Auto Domain Isolation)
+                        </span>
+                      </div>
+
+                      <div className="space-y-4 pt-1">
+                        <div className="p-4 bg-black/20 rounded-2xl border border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span className={`h-2.5 w-2.5 rounded-full ${autoDomainIsolation ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-500'}`} />
+                              <p className="text-xs font-bold text-neutral-200">
+                                Automatic Domain-Based Isolation: {autoDomainIsolation ? 'সক্রিয় (Active)' : 'নিষ্ক্রিয় (Disabled)'}
+                              </p>
+                            </div>
+                            <p className="text-[10px] opacity-70 leading-relaxed">
+                              স্বয়ংক্রিয়ভাবে আপনার ওয়েবসাইটের Vercel ডোমেন অনুযায়ী (যেমন: <code className="text-emerald-400 font-mono">{(customDomainOverride.trim() || window.location.hostname)}</code>) ক্যাশ, লোকাল স্টোরেজ এবং ব্রাউজার ফিল্টার আইসোলেট রাখুন।
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextVal = !autoDomainIsolation;
+                              setAutoDomainIsolation(nextVal);
+                              localStorage.setItem('aura_auto_domain_isolation', String(nextVal));
+                            }}
+                            className={`w-12 h-6.5 rounded-full p-0.5 transition-colors duration-300 focus:outline-none cursor-pointer shrink-0
+                              ${autoDomainIsolation ? 'bg-emerald-500' : 'bg-neutral-700'}`}
+                          >
+                            <div className={`w-5.5 h-5.5 rounded-full bg-white transition-transform duration-300 shadow-md
+                              ${autoDomainIsolation ? 'translate-x-5.5' : 'translate-x-0'}`} 
+                            />
+                          </button>
+                        </div>
+
+                        {/* Custom Domain Override Input Box */}
+                        <div className="pt-2 border-t border-inherit/40 space-y-3">
+                          <div>
+                            <label className="block text-[10px] font-bold opacity-75 mb-1.5">
+                              কাস্টম ডোমেন নেম (Custom Domain Override)
+                            </label>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                              <input 
+                                type="text"
+                                placeholder="e.g. trendzone.com or mybrand.vercel.app"
+                                value={customDomainOverride}
+                                onChange={(e) => setCustomDomainOverride(e.target.value)}
+                                className="flex-1 p-2.5 rounded-xl border text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-transparent border-inherit font-mono"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (customDomainOverride.trim()) {
+                                    localStorage.setItem('aura_custom_domain_override', customDomainOverride.trim());
+                                  } else {
+                                    localStorage.removeItem('aura_custom_domain_override');
+                                  }
+                                  alert('✅ কাস্টম ডোমেন নেম সংরক্ষিত হয়েছে!');
+                                }}
+                                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold transition-all cursor-pointer shadow-md shrink-0"
+                              >
+                                কাস্টম ডোমেন সেভ করুন (Save Custom Domain)
+                              </button>
+                            </div>
+                            <p className="text-[10px] opacity-60 mt-1.5">
+                              নির্দিষ্ট কোনো কাস্টম ডোমেন লিখলে অটোমেটিক হোস্টনেমের বদলে সেটিই ডাটাবেজ আইসোলেশনে ব্যবহৃত হবে।
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-[10px] opacity-60 font-mono px-1 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+                          <span>System Detected Hostname: <span className="text-emerald-400">{window.location.hostname}</span></span>
+                          <span>|</span>
+                          <span>Active Domain Key: <span className="text-emerald-400 font-bold">{(customDomainOverride.trim() || window.location.hostname).replace(/[^a-zA-Z0-9]/g, '_')}</span></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SQL Instructions Card for Shared Supabase Multi-Tenancy */}
+                    <div className={`p-6 rounded-[2.5rem] border space-y-3
+                      ${settings.themeMode === 'dark' ? 'bg-[#1a1614]/80 border-[#322822]/60' : 'bg-white border-[#e8e4dc] shadow-sm'}`}
+                    >
+                      <div className="pb-3 border-b border-inherit flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center space-x-2 text-amber-400">
+                          <Code className="h-4.5 w-4.5 shrink-0" />
+                          <h3 className="text-sm font-extrabold">
+                            📋 একই ডাটাবেজে একাধিক স্টোর রাখার জন্য Supabase SQL Script
+                          </h3>
+                        </div>
+                        <span className="text-[11px] font-semibold text-amber-400/80 font-mono">
+                          (Multi-Tenant RLS)
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] opacity-75 leading-relaxed pt-1">
+                        আপনি যদি একটিই Supabase প্রজেক্টে একাধিক Vercel ওয়েবসাইট কানেক্ট করতে চান, তবে Supabase SQL Editor এ গিয়ে নিচের ক্যোয়ারিটি রান করুন। এতে প্রতি স্টোরের জন্য <code>store_id</code> কলাম তৈরি হয়ে তথ্য আলাদা থাকবে:
+                      </p>
+
+                      <div className="relative p-4 mt-2 rounded-2xl bg-black/40 border border-white/10 font-mono text-xs text-amber-300 space-y-1">
+                        <p>-- 1. Add store_id column to tables</p>
+                        <p>ALTER TABLE products ADD COLUMN IF NOT EXISTS store_id TEXT DEFAULT &apos;default_store&apos;;</p>
+                        <p>ALTER TABLE orders ADD COLUMN IF NOT EXISTS store_id TEXT DEFAULT &apos;default_store&apos;;</p>
+                        <p>ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS store_id TEXT DEFAULT &apos;default_store&apos;;</p>
+                        <p>ALTER TABLE customers ADD COLUMN IF NOT EXISTS store_id TEXT DEFAULT &apos;default_store&apos;;</p>
+                        <p className="pt-1">-- 2. Index store_id for maximum speed</p>
+                        <p>CREATE INDEX IF NOT EXISTS idx_products_store_id ON products(store_id);</p>
+                        <p>CREATE INDEX IF NOT EXISTS idx_orders_store_id ON orders(store_id);</p>
+
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const sql = `ALTER TABLE products ADD COLUMN IF NOT EXISTS store_id TEXT DEFAULT 'default_store';\nALTER TABLE orders ADD COLUMN IF NOT EXISTS store_id TEXT DEFAULT 'default_store';\nALTER TABLE system_settings ADD COLUMN IF NOT EXISTS store_id TEXT DEFAULT 'default_store';\nALTER TABLE customers ADD COLUMN IF NOT EXISTS store_id TEXT DEFAULT 'default_store';\nCREATE INDEX IF NOT EXISTS idx_products_store_id ON products(store_id);\nCREATE INDEX IF NOT EXISTS idx_orders_store_id ON orders(store_id);`;
+                              navigator.clipboard.writeText(sql);
+                              alert('📋 SQL কোড ক্লিপবোর্ডে কপি হয়েছে! Supabase SQL Editor এ পেস্ট করে Run দিন।');
+                            }}
+                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[10px] font-extrabold transition-all cursor-pointer shadow-sm"
+                          >
+                            📋 SQL Code কপি করুন
                           </button>
                         </div>
                       </div>

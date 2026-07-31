@@ -12,8 +12,23 @@ declare global {
   }
 }
 
-const rawUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ytwgoolesgnkegeykpup.supabase.co';
-const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9Xwy1UomtTTsk-hogHBCaw_7_0Z4FyS';
+const getCustomSupabaseCredentials = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const customUrl = localStorage.getItem('aura_custom_supabase_url');
+      const customKey = localStorage.getItem('aura_custom_supabase_key');
+      if (customUrl && customKey) {
+        return { url: customUrl.trim(), key: customKey.trim() };
+      }
+    } catch (_) {}
+  }
+  return null;
+};
+
+const customCreds = getCustomSupabaseCredentials();
+
+const rawUrl = customCreds?.url || import.meta.env.VITE_SUPABASE_URL || 'https://ytwgoolesgnkegeykpup.supabase.co';
+const rawKey = customCreds?.key || import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_9Xwy1UomtTTsk-hogHBCaw_7_0Z4FyS';
 
 // Self-healing sanitization for user-provided Supabase URL and Key
 let sanitizedUrl = rawUrl.trim();
